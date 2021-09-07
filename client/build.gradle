@@ -11,11 +11,22 @@ repositories {
 }
 
 dependencies {
+    compile group: "commons-cli", name: "commons-cli", version: "1.4"
+    compile group: "org.yaml", name: "snakeyaml", version: "1.29"
+
     compile group: "com.github.Steveice10", name: "MCProtocolLib", version: "1.12.2-2"
 }
 
 jar {
+    manifest {
+        attributes([
+                "Main-Class": "ez.pogdog.yescom.YesCom"
+        ])
+    }
+
     from configurations.compile.collect {
         it.isDirectory() ? it : zipTree(it)
     }
+
+    setBaseName("yescom")
 }
