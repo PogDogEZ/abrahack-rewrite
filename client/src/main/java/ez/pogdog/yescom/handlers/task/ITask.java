@@ -7,6 +7,13 @@ public interface ITask {
     void onTick();
 
     boolean isFinished();
+    float getProgressPercent();
+
+    /**
+     * Calculates the duration until task completion.
+     * @return Estimated duration until task completion (in seconds).
+     */
+    int getEstTimeToFinish();
 
     String getName();
     String getDescription();

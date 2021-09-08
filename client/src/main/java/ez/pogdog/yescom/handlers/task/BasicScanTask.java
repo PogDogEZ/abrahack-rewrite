@@ -73,6 +73,17 @@ public class BasicScanTask implements ITask {
     }
 
     @Override
+    public float getProgressPercent() {
+        return Math.min(100,
+                (float)currentIndex / (float)maxIndex * 100.0f);
+    }
+
+    @Override
+    public int getEstTimeToFinish() {
+        return 0;
+    }
+
+    @Override
     public String getName() {
         return "basic_scan";
     }
