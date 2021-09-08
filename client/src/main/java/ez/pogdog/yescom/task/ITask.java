@@ -1,4 +1,4 @@
-package ez.pogdog.yescom.handlers.task;
+package ez.pogdog.yescom.task;
 
 import java.util.Map;
 
