@@ -18,6 +18,7 @@ public class SpiralScanTask implements ITask {
 
     private int currentQueries;
     private int currentIndex;
+    private int[] nextSpiral;
 
     private SpiralAlgorithm spiral;
 
@@ -26,8 +27,9 @@ public class SpiralScanTask implements ITask {
         this.chunkSkip = chunkSkip;
         this.dimension = dimension;
         this.spiral = new SpiralAlgorithm();
+        nextSpiral = new int[] {0,0};
 
-        yesCom.logger.debug("Starting basic scan task.");
+        yesCom.logger.debug("Starting spiral scan task.");
         yesCom.logger.debug(String.format("Start: %s.", startPos));
         yesCom.logger.debug(String.format("Dimension: %d.", dimension));
 
@@ -38,13 +40,13 @@ public class SpiralScanTask implements ITask {
     @Override
     public void onTick() {
         while (currentQueries < 200) {
-            ChunkPosition position = getNextSpiral();
+            tickSpiral();
             ++currentIndex;
 
             synchronized (this) {
                 ++currentQueries;
 
-                yesCom.queryHandler.addQuery(new IsLoadedQuery(position.getPosition(8, 0, 8),
+                yesCom.queryHandler.addQuery(new IsLoadedQuery(getNextSpiral().getPosition(),
                         dimension, IQuery.Priority.LOW, yesCom.configHandler.TYPE,
                         (query, result) -> {
                             synchronized (this) {
@@ -79,12 +81,12 @@ public class SpiralScanTask implements ITask {
 
     @Override
     public String getName() {
-        return "basic_scan";
+        return "spiral_scan";
     }
 
     @Override
     public String getDescription() {
-        return "A basic scanning task that scans a rectangle looking for loaded chunks.";
+        return "A scan task that spirals out from a given coordinate";
     }
 
     @Override
@@ -101,13 +103,17 @@ public class SpiralScanTask implements ITask {
 
     private void onLoaded(ChunkPosition chunkPos) {
         yesCom.logger.info(String.format("Found loaded (basic): %s (dim %d).", chunkPos, dimension));
-        // yesCom.playerTrackingHandler.onLoaded(chunkPos, dimension);
-        // yesCom.saveHandler.onLoaded(chunkPos, dimension);
+        //yesCom.playerTrackingHandler.onLoaded(chunkPos, dimension);
+        //yesCom.saveHandler.onLoaded(chunkPos, dimension);
     }
 
     private ChunkPosition getNextSpiral() {
-        return new ChunkPosition(startPos.getX() + (spiral.next()[0] * chunkSkip),
-                startPos.getZ() + (spiral.next()[1] * chunkSkip));
+        return new ChunkPosition(startPos.getX() + (nextSpiral[0] * chunkSkip),
+                startPos.getZ() + (nextSpiral[1] * chunkSkip));
+    }
+
+    private void tickSpiral() {
+        nextSpiral = spiral.next();
     }
 
     public ChunkPosition getStartPos() {
