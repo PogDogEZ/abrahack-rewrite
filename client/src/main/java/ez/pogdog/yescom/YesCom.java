@@ -10,6 +10,7 @@ import ez.pogdog.yescom.task.BasicScanTask;
 import ez.pogdog.yescom.task.ITask;
 import ez.pogdog.yescom.logging.LogLevel;
 import ez.pogdog.yescom.logging.Logger;
+import ez.pogdog.yescom.task.SpiralScanTask;
 import ez.pogdog.yescom.util.ChunkPosition;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -118,7 +119,7 @@ public class YesCom {
 
         alive = true;
 
-        currentTasks.add(new BasicScanTask(new ChunkPosition(-150, -150), new ChunkPosition(150, 150), 12, -1));
+        currentTasks.add(new SpiralScanTask(new ChunkPosition(0, 0), 12, 0));
 
         logger.info("Done.");
     }
