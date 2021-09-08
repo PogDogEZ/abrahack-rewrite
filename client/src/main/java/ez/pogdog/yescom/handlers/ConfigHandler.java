@@ -61,6 +61,14 @@ public class ConfigHandler implements IHandler {
     public int DIGGING_TIMEOUT = 2000;
 
     /**
+     * Query queue priority options.
+     */
+    public double USER_MULTIPLIER   = 4.0f;
+    public double HIGH_MULTIPLIER   = 3.0f;
+    public double MEDIUM_MULTIPLIER = 2.0f;
+    public double LOW_MULTIPLIER    = 1.0f;
+
+    /**
      * The data directories for saving things like raw chunk records + player records.
      */
     public String MAIN_DIRECTORY = "data";

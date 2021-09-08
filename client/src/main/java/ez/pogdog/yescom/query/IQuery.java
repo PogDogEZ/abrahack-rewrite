@@ -39,6 +39,6 @@ public interface IQuery {
     }
 
     enum Priority {
-        HIGH, MEDIUM, LOW;
+        USER, HIGH, MEDIUM, LOW;
     }
 }
