@@ -332,7 +332,7 @@ public class PlayerHandle {
 
     public synchronized boolean addQuery(IsLoadedQuery query) {
         if (expectingOpen || !facingStorage || !storageOpen || query.isFinished() || query.getType() != IsLoadedQuery.Type.INVALID_MOVE ||
-                queriesDone++ > 1 / yesCom.configHandler.TICKS_PER_QUERY)
+                queriesDone++ > yesCom.configHandler.QUERIES_PER_TICK)
             return false;
 
         player.setEstimatedTP(player.getEstimatedTP() + 1);

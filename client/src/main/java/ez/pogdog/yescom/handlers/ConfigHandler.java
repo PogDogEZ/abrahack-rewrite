@@ -36,7 +36,7 @@ public class ConfigHandler implements IHandler {
     public int MIN_TIME_CONNECTED = 5000;
     public int MAX_PACKET_TIME = 1000;
 
-    public double TICKS_PER_QUERY = 1.0f / 2.2f;
+    public double QUERIES_PER_TICK = 2.2f;
     public int MAX_FINISHED_CACHE = 50;
 
     /**

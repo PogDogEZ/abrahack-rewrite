@@ -141,7 +141,7 @@ public class IsLoadedQuery implements IQuery {
 
     @Override
     public float getWeight() {
-        return (float)yesCom.configHandler.TICKS_PER_QUERY / yesCom.invalidMoveHandler.getAvailableAccounts(dimension);
+        return 1.0f / (float)yesCom.configHandler.QUERIES_PER_TICK / yesCom.invalidMoveHandler.getAvailableAccounts(dimension);
     }
 
     /* ------------------------ Private Methods ------------------------ */

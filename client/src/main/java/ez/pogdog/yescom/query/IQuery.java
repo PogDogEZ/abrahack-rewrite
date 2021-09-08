@@ -27,7 +27,7 @@ public interface IQuery {
      * @return The weight of this query.
      */
     default float getWeight() {
-        return (float)YesCom.getInstance().configHandler.TICKS_PER_QUERY;
+        return 1.0f / (float)YesCom.getInstance().configHandler.QUERIES_PER_TICK;
     }
 
     enum HandleAction {
