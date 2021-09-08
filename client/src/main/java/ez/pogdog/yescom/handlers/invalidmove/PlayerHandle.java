@@ -110,7 +110,7 @@ public class PlayerHandle {
                                         x + chunkData.getColumn().getX() * 16,
                                         y + index * 16,
                                         z + chunkData.getColumn().getZ() * 16);
-                                yesCom.logger.debug(position + " is state " + blockState);
+                                yesCom.logger.debug("Found storage: " + position);
                                 positions.add(position);
                             }
                         }
