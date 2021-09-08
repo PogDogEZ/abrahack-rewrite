@@ -4,6 +4,7 @@ import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.query.IQuery;
 import ez.pogdog.yescom.query.IsLoadedQuery;
 import ez.pogdog.yescom.util.ChunkPosition;
+import ez.pogdog.yescom.util.Dimension;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -15,14 +16,14 @@ public class BasicScanTask implements ITask {
     private final ChunkPosition startPos;
     private final ChunkPosition endPos;
     private final int chunkSkip;
-    private final int dimension;
+    private final Dimension dimension;
 
     private final int maxIndex;
 
     private int currentQueries;
     private int currentIndex;
 
-    public BasicScanTask(ChunkPosition startPos, ChunkPosition endPos, int chunkSkip, int dimension) {
+    public BasicScanTask(ChunkPosition startPos, ChunkPosition endPos, int chunkSkip, Dimension dimension) {
         this.startPos = new ChunkPosition(startPos.getX() / chunkSkip, startPos.getZ() / chunkSkip);
         this.endPos = new ChunkPosition(endPos.getX() / chunkSkip, endPos.getZ() / chunkSkip);
         this.chunkSkip = chunkSkip;
@@ -33,7 +34,7 @@ public class BasicScanTask implements ITask {
         yesCom.logger.debug("Starting basic scan task.");
         yesCom.logger.debug(String.format("Start: %s.", startPos));
         yesCom.logger.debug(String.format("End: %s.", endPos));
-        yesCom.logger.debug(String.format("Dimension: %d.", dimension));
+        yesCom.logger.debug(String.format("Dimension: ", dimension));
         yesCom.logger.debug(String.format("Max index: %d.", maxIndex));
 
         currentQueries = 0;

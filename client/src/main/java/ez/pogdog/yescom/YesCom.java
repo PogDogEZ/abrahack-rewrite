@@ -12,6 +12,7 @@ import ez.pogdog.yescom.logging.LogLevel;
 import ez.pogdog.yescom.logging.Logger;
 import ez.pogdog.yescom.task.SpiralScanTask;
 import ez.pogdog.yescom.util.ChunkPosition;
+import ez.pogdog.yescom.util.Dimension;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -119,7 +120,7 @@ public class YesCom {
 
         alive = true;
 
-        currentTasks.add(new SpiralScanTask(new ChunkPosition(0, 0), 12, 0));
+        currentTasks.add(new SpiralScanTask(new ChunkPosition(0, 0), 12, Dimension.OVERWORLD));
 
         logger.info("Done.");
     }

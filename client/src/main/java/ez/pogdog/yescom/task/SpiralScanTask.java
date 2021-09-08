@@ -4,6 +4,7 @@ import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.query.IQuery;
 import ez.pogdog.yescom.query.IsLoadedQuery;
 import ez.pogdog.yescom.util.ChunkPosition;
+import ez.pogdog.yescom.util.Dimension;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -14,7 +15,7 @@ public class SpiralScanTask implements ITask {
 
     private final ChunkPosition startPos;
     private final int chunkSkip;
-    private final int dimension;
+    private final Dimension dimension;
 
     private int currentQueries;
     private int currentIndex;
@@ -22,7 +23,7 @@ public class SpiralScanTask implements ITask {
 
     private SpiralAlgorithm spiral;
 
-    public SpiralScanTask(ChunkPosition startPos, int chunkSkip, int dimension) {
+    public SpiralScanTask(ChunkPosition startPos, int chunkSkip, Dimension dimension) {
         this.startPos = new ChunkPosition(startPos.getX() / chunkSkip, startPos.getZ() / chunkSkip);
         this.chunkSkip = chunkSkip;
         this.dimension = dimension;
@@ -31,7 +32,7 @@ public class SpiralScanTask implements ITask {
 
         yesCom.logger.debug("Starting spiral scan task.");
         yesCom.logger.debug(String.format("Start: %s.", startPos));
-        yesCom.logger.debug(String.format("Dimension: %d.", dimension));
+        yesCom.logger.debug("Dimension: " + dimension);
 
         currentQueries = 0;
         currentIndex = 0;
@@ -58,7 +59,6 @@ public class SpiralScanTask implements ITask {
                         }));
             }
         }
-
         yesCom.logger.infoDisappearing(String.format("Scanning: %d, %d / %d, %d, %s, %dms.",
                 yesCom.queryHandler.getWaitingSize(), yesCom.queryHandler.getTickingSize(),
                 currentQueries, currentIndex, getNextSpiral(), yesCom.connectionHandler.getTimeSinceLastPacket()));
@@ -102,7 +102,7 @@ public class SpiralScanTask implements ITask {
     }
 
     private void onLoaded(ChunkPosition chunkPos) {
-        yesCom.logger.info(String.format("Found loaded (basic): %s (dim %d).", chunkPos, dimension));
+        yesCom.logger.info(String.format("Found loaded (basic): %s (dim %s).", chunkPos, dimension));
         //yesCom.playerTrackingHandler.onLoaded(chunkPos, dimension);
         //yesCom.saveHandler.onLoaded(chunkPos, dimension);
     }

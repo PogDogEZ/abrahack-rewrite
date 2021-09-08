@@ -1,10 +1,12 @@
 package ez.pogdog.yescom.handlers.invalidmove;
 
+import com.sun.media.jfxmedia.logging.Logger;
 import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.handlers.ConfigHandler;
 import ez.pogdog.yescom.handlers.IHandler;
 import ez.pogdog.yescom.handlers.connection.Player;
 import ez.pogdog.yescom.query.IsLoadedQuery;
+import ez.pogdog.yescom.util.Dimension;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -31,6 +33,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class InvalidMoveHandler implements IHandler {
 
     private final YesCom yesCom = YesCom.getInstance();
+
 
     /**
      * Valid storages / containers that can be used.
@@ -85,11 +88,11 @@ public class InvalidMoveHandler implements IHandler {
         }
     }
 
-    public int getAvailableAccounts(int dimension) {
+    public int getAvailableAccounts(Dimension dimension) {
         return (int)handles.stream()
                 .filter(handle -> handle.getPlayer().isConnected() &&
                         handle.getPlayer().getTimeLoggedIn() > yesCom.configHandler.MIN_TIME_CONNECTED &&
-                        handle.getPlayer().getDimension() == dimension &&
+                        handle.getPlayer().getDimension().equals(dimension) &&
                         handle.isStorageOpen())
                 .count();
     }

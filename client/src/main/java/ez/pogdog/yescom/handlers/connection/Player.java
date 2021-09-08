@@ -15,7 +15,9 @@ import com.github.steveice10.mc.protocol.packet.ingame.server.window.ServerWindo
 import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerUpdateTimePacket;
 import com.github.steveice10.packetlib.Session;
 import com.github.steveice10.packetlib.packet.Packet;
+import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.util.Angle;
+import ez.pogdog.yescom.util.Dimension;
 import ez.pogdog.yescom.util.Position;
 
 import java.util.ArrayList;
@@ -31,6 +33,8 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public class Player {
+
+    private final YesCom yesCom = YesCom.getInstance();
 
     private final Map<UUID, String> onlinePlayers = new ConcurrentHashMap<>();
     private final List<Float> tickValues = new ArrayList<>();
@@ -53,7 +57,7 @@ public class Player {
     private Angle angle;
     private boolean onGround;
 
-    private int dimension;
+    private Dimension dimension;
 
     private int currentTP;
     private int estimatedTP;
@@ -78,7 +82,7 @@ public class Player {
         angle = new Angle(0.0f, 0.0f);
         onGround = true;
 
-        dimension = 0;
+        dimension = Dimension.OVERWORLD;
 
         foodStats = new FoodStats(20.0f, 20, 5.0f);
 
@@ -107,16 +111,25 @@ public class Player {
         joinLeaveListeners.forEach((listenerID, listener) -> listener.accept(action, uuid));
     }
 
+    private Dimension parseDimension(int dim) {
+        switch(dim) {
+            case -1: return Dimension.NETHER;
+            case 0: return Dimension.OVERWORLD;
+            case 1: return Dimension.END;
+        }
+        return Dimension.OVERWORLD;
+    }
+
     /* ------------------------ Events ------------------------ */
 
     public void onPacket(Packet packet) {
         if (!(packet instanceof ServerChatPacket)) lastPacketTime = System.currentTimeMillis();
 
         if (packet instanceof ServerJoinGamePacket) {
-            dimension = ((ServerJoinGamePacket)packet).getDimension();
+            dimension = parseDimension(((ServerJoinGamePacket)packet).getDimension());
 
         } else if (packet instanceof ServerRespawnPacket) {
-            dimension = ((ServerRespawnPacket)packet).getDimension();
+            dimension = parseDimension(((ServerRespawnPacket)packet).getDimension());
 
         } else if (packet instanceof ServerPlayerPositionRotationPacket) {
             ServerPlayerPositionRotationPacket positionRotation = (ServerPlayerPositionRotationPacket)packet;
@@ -337,11 +350,11 @@ public class Player {
         this.onGround = onGround;
     }
 
-    public int getDimension() {
+    public Dimension getDimension() {
         return dimension;
     }
 
-    public void setDimension(int dimension) {
+    public void setDimension(Dimension dimension) {
         this.dimension = dimension;
     }
 

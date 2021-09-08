@@ -8,6 +8,7 @@ import com.github.steveice10.packetlib.packet.Packet;
 import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.handlers.connection.Player;
 import ez.pogdog.yescom.util.BlockPosition;
+import ez.pogdog.yescom.util.Dimension;
 
 import java.util.function.BiConsumer;
 
@@ -16,7 +17,7 @@ public class IsLoadedQuery implements IQuery {
     private final YesCom yesCom = YesCom.getInstance();
 
     private final BlockPosition position;
-    private final int dimension;
+    private final Dimension dimension;
     private final Priority priority;
     private final Type type;
     private final BiConsumer<IsLoadedQuery, Result> callBack;
@@ -30,7 +31,7 @@ public class IsLoadedQuery implements IQuery {
     private boolean cancelled;
     private Result result;
 
-    public IsLoadedQuery(BlockPosition position, int dimension, Priority priority, Type type,
+    public IsLoadedQuery(BlockPosition position, Dimension dimension, Priority priority, Type type,
                          BiConsumer<IsLoadedQuery, Result> callBack) {
         this.position = position;
         this.dimension = dimension;
@@ -185,7 +186,7 @@ public class IsLoadedQuery implements IQuery {
         return position;
     }
 
-    public int getDimension() {
+    public Dimension getDimension() {
         return dimension;
     }
 
