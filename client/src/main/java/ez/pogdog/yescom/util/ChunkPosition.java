@@ -73,6 +73,10 @@ public class ChunkPosition {
         return new BlockPosition((x << 4) + xOffset, yOffset, (z << 4) + zOffset);
     }
 
+    public BlockPosition getPosition() {
+        return getPosition(0,0,0);
+    }
+
     public BlockPosition getPosition(BlockPosition offset) {
         return getPosition(offset.getX(), offset.getY(), offset.getZ());
     }
