@@ -9,6 +9,9 @@ import ez.pogdog.yescom.util.Dimension;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Written by NathanW 9/8/21
+ */
 public class SpiralScanTask implements ITask {
 
     private final YesCom yesCom = YesCom.getInstance();
@@ -23,6 +26,11 @@ public class SpiralScanTask implements ITask {
 
     private SpiralAlgorithm spiral;
 
+    /**
+     * @param startPos The center of the spiral
+     * @param chunkSkip The server render distance * 2
+     * @param dimension The dimension to scan in
+     */
     public SpiralScanTask(ChunkPosition startPos, int chunkSkip, Dimension dimension) {
         this.startPos = new ChunkPosition(startPos.getX() / chunkSkip, startPos.getZ() / chunkSkip);
         this.chunkSkip = chunkSkip;
@@ -37,6 +45,8 @@ public class SpiralScanTask implements ITask {
         currentQueries = 0;
         currentIndex = 0;
     }
+
+    /* ------------------------ Implementations ------------------------ */
 
     @Override
     public void onTick() {
@@ -94,15 +104,16 @@ public class SpiralScanTask implements ITask {
         Map<String, String> params = new HashMap<>();
 
         params.put("startPos", "The starting position for the scan.");
-        params.put("endPos", "The end position that the scan will finish at.");
         params.put("chunkSkip", "The number of chunks to linearly skip while scanning (recommended the render distance of the server * 2).");
         params.put("dimension", "The dimension to scan in.");
 
         return params;
     }
 
+    /* ------------------------ Private methods ------------------------ */
+
     private void onLoaded(ChunkPosition chunkPos) {
-        yesCom.logger.info(String.format("Found loaded (basic): %s (dim %s).", chunkPos, dimension));
+        yesCom.logger.info(String.format("Found loaded (spiral): %s (dim %s).", chunkPos, dimension));
         //yesCom.playerTrackingHandler.onLoaded(chunkPos, dimension);
         //yesCom.saveHandler.onLoaded(chunkPos, dimension);
     }
@@ -124,7 +135,7 @@ public class SpiralScanTask implements ITask {
      * Spiral algorithm - NOTE: USED INTERNET FOR HELP, JUST FOR PROOF OF CONCEPT
      * TODO: Put this somewhere else/clean up? Algorithm interface? More efficient?
      */
-    public class SpiralAlgorithm {
+    private class SpiralAlgorithm {
         int radius, side, step;
 
         public SpiralAlgorithm() {

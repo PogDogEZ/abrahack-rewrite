@@ -23,6 +23,12 @@ public class BasicScanTask implements ITask {
     private int currentQueries;
     private int currentIndex;
 
+    /**
+     * @param startPos The position to start
+     * @param endPos The position to end at
+     * @param chunkSkip The server render distance * 2
+     * @param dimension The dimension to scan in
+     */
     public BasicScanTask(ChunkPosition startPos, ChunkPosition endPos, int chunkSkip, Dimension dimension) {
         this.startPos = new ChunkPosition(startPos.getX() / chunkSkip, startPos.getZ() / chunkSkip);
         this.endPos = new ChunkPosition(endPos.getX() / chunkSkip, endPos.getZ() / chunkSkip);
@@ -40,6 +46,8 @@ public class BasicScanTask implements ITask {
         currentQueries = 0;
         currentIndex = 0;
     }
+
+    /* ------------------------ Implementations ------------------------ */
 
     @Override
     public void onTick() {
@@ -105,6 +113,8 @@ public class BasicScanTask implements ITask {
 
         return params;
     }
+
+    /* ------------------------ Private methods ------------------------ */
 
     private void onLoaded(ChunkPosition chunkPos) {
         yesCom.logger.info(String.format("Found loaded (basic): %s (dim %d).", chunkPos, dimension));
