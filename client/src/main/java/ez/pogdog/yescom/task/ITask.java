@@ -19,6 +19,12 @@ public interface ITask {
     String getDescription();
 
     /**
+     * Mainly added for tasks that involve loaded chunk results, but can be used for other shit
+     * @return Any formatted result info
+     */
+    String getFormattedResult(Object result);
+
+    /**
      * Returns information about the parameters as well as their names.
      * @return The descriptions.
      */

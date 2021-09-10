@@ -97,6 +97,11 @@ public class StaticScanTask implements ITask {
     }
 
     @Override
+    public String getFormattedResult(Object result) {
+        return String.format("Found someone on highway (static): %s (dim %s).", result, dimension);
+    }
+
+    @Override
     public Map<String, String> getParamDescriptions() {
         Map<String, String> params = new HashMap<>();
 
@@ -107,6 +112,11 @@ public class StaticScanTask implements ITask {
     }
 
     /* ------------------------ Private methods ------------------------ */
+
+    private void onLoaded(ChunkPosition chunkPos) {
+        yesCom.logger.info(getFormattedResult(chunkPos));
+        //TODO: Perfect place to pickup people for tracking, they are most likely heading down the highway to base/stash
+    }
 
     private BlockPosition getCurrentPosition() {
         return positions.get(currentIndex);
@@ -158,10 +168,5 @@ public class StaticScanTask implements ITask {
             return;
         }
         ++currentIndex;
-    }
-
-    private void onLoaded(ChunkPosition chunkPos) {
-        yesCom.logger.info(String.format("Found someone on highway (static): %s (dim %s).", chunkPos.getPosition(), dimension));
-        //TODO: Perfect place to pickup people for tracking, they are most likely heading down the highway to base/stash
     }
 }

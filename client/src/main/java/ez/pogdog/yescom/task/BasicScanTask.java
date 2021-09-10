@@ -40,7 +40,7 @@ public class BasicScanTask implements ITask {
         yesCom.logger.debug("Starting basic scan task.");
         yesCom.logger.debug(String.format("Start: %s.", startPos));
         yesCom.logger.debug(String.format("End: %s.", endPos));
-        yesCom.logger.debug(String.format("Dimension: ", dimension));
+        yesCom.logger.debug("Dimension: ", dimension);
         yesCom.logger.debug(String.format("Max index: %d.", maxIndex));
 
         currentQueries = 0;
@@ -103,6 +103,11 @@ public class BasicScanTask implements ITask {
     }
 
     @Override
+    public String getFormattedResult(Object object) {
+        return String.format("Found loaded (basic): %s (dim %s).", object, dimension);
+    }
+
+    @Override
     public Map<String, String> getParamDescriptions() {
         Map<String, String> params = new HashMap<>();
 
@@ -117,7 +122,7 @@ public class BasicScanTask implements ITask {
     /* ------------------------ Private methods ------------------------ */
 
     private void onLoaded(ChunkPosition chunkPos) {
-        yesCom.logger.info(String.format("Found loaded (basic): %s (dim %d).", chunkPos, dimension));
+        yesCom.logger.info(getFormattedResult(chunkPos));
         // yesCom.playerTrackingHandler.onLoaded(chunkPos, dimension);
         // yesCom.saveHandler.onLoaded(chunkPos, dimension);
     }

@@ -21,6 +21,7 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -121,8 +122,9 @@ public class YesCom {
 
         alive = true;
 
-        //currentTasks.add(new SpiralScanTask(new ChunkPosition(0, 0), 12, Dimension.OVERWORLD));
-        currentTasks.add(new StaticScanTask(Dimension.NETHER, null));
+
+        //currentTasks.add(new StaticScanTask(Dimension.NETHER, null));
+        currentTasks.add(new SpiralScanTask(new ChunkPosition(0, 0), 12, Dimension.OVERWORLD));
 
         logger.info("Done.");
     }

@@ -100,6 +100,11 @@ public class SpiralScanTask implements ITask {
     }
 
     @Override
+    public String getFormattedResult(Object result) {
+        return String.format("Found loaded (spiral): %s (dim %s).", result, dimension);
+    }
+
+    @Override
     public Map<String, String> getParamDescriptions() {
         Map<String, String> params = new HashMap<>();
 
@@ -113,7 +118,10 @@ public class SpiralScanTask implements ITask {
     /* ------------------------ Private methods ------------------------ */
 
     private void onLoaded(ChunkPosition chunkPos) {
-        yesCom.logger.info(String.format("Found loaded (spiral): %s (dim %s).", chunkPos, dimension));
+        yesCom.logger.info(getFormattedResult(chunkPos));
+
+        //TODO: Can remove me later, just for testing and felt like afking it
+        yesCom.saveHandler.saveUncompressed(getFormattedResult(chunkPos.getPosition()), "SpiralScanLog");
         //yesCom.playerTrackingHandler.onLoaded(chunkPos, dimension);
         //yesCom.saveHandler.onLoaded(chunkPos, dimension);
     }
