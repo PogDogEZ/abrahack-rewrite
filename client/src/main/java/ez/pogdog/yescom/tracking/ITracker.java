@@ -1,7 +1,5 @@
 package ez.pogdog.yescom.tracking;
 
-import com.sun.istack.internal.Nullable;
-
 import java.util.UUID;
 
 /**
@@ -30,7 +28,6 @@ public interface ITracker {
      * for when we lose him again; we just update all the info on him
      * @return Tracked player the tracker was assigned to
      */
-    @Nullable
     TrackedPlayer getTrackedPlayer();
 
 }

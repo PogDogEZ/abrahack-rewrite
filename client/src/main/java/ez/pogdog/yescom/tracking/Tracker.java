@@ -1,6 +1,5 @@
 package ez.pogdog.yescom.tracking;
 
-import com.sun.istack.internal.Nullable;
 import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.util.ChunkPosition;
 
@@ -25,7 +24,7 @@ public class Tracker implements ITracker {
      * @param player Only matters if the tracker is a reassignment of an archived player, can be null otherwise
      */
     //TODO: Add things to params, this is just a rough outline of things you may want with the creation of a tracker
-    public Tracker(ChunkPosition chunk, @Nullable TrackedPlayer player) {
+    public Tracker(ChunkPosition chunk, TrackedPlayer player) {
         this.initialChunk = chunk;
         this.player = player;
 
