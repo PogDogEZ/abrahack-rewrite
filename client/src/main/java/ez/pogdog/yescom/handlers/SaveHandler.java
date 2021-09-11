@@ -15,6 +15,14 @@ public class SaveHandler implements IHandler {
         createDirectories();
     }
 
+    @Override
+    public void onTick() {
+    }
+
+    @Override
+    public void onExit() {
+    }
+
     /* ------------------------ Uncompressed Saving & Private Methods ------------------------ */
 
     /**
@@ -40,17 +48,5 @@ public class SaveHandler implements IHandler {
         new File(yesCom.configHandler.RAW_DIRECTORY).mkdirs();
         new File(yesCom.configHandler.PLAYER_DIRECTORY).mkdirs();
         new File("data/uncompressed").mkdirs();
-    }
-
-    /* ------------------------ Implementations ------------------------ */
-
-    @Override
-    public void onTick() {
-
-    }
-
-    @Override
-    public void onExit() {
-
     }
 }

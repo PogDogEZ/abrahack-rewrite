@@ -111,25 +111,20 @@ public class Player {
         joinLeaveListeners.forEach((listenerID, listener) -> listener.accept(action, uuid));
     }
 
-    private Dimension parseDimension(int dim) {
-        switch(dim) {
-            case -1: return Dimension.NETHER;
-            case 0: return Dimension.OVERWORLD;
-            case 1: return Dimension.END;
-        }
-        return Dimension.OVERWORLD;
-    }
-
     /* ------------------------ Events ------------------------ */
 
     public void onPacket(Packet packet) {
         if (!(packet instanceof ServerChatPacket)) lastPacketTime = System.currentTimeMillis();
 
         if (packet instanceof ServerJoinGamePacket) {
-            dimension = parseDimension(((ServerJoinGamePacket)packet).getDimension());
+            dimension = Dimension.fromMC(((ServerJoinGamePacket)packet).getDimension());
+
+            if (yesCom.handler != null) yesCom.handler.onDimensionChanged(this);
 
         } else if (packet instanceof ServerRespawnPacket) {
-            dimension = parseDimension(((ServerRespawnPacket)packet).getDimension());
+            dimension = Dimension.fromMC(((ServerRespawnPacket)packet).getDimension());
+
+            if (yesCom.handler != null) yesCom.handler.onDimensionChanged(this);
 
         } else if (packet instanceof ServerPlayerPositionRotationPacket) {
             ServerPlayerPositionRotationPacket positionRotation = (ServerPlayerPositionRotationPacket)packet;
@@ -138,6 +133,8 @@ public class Player {
             angle = new Angle(positionRotation.getYaw(), positionRotation.getPitch());
 
             currentTP = positionRotation.getTeleportId();
+
+            if (yesCom.handler != null) yesCom.handler.onPositionChanged(this);
 
         } else if (packet instanceof ServerOpenWindowPacket) {
             currentWindowID = ((ServerOpenWindowPacket)packet).getWindowId();
@@ -153,6 +150,8 @@ public class Player {
 
         } else if (packet instanceof ServerPlayerHealthPacket) {
             foodStats.update((ServerPlayerHealthPacket)packet);
+
+            if (yesCom.handler != null) yesCom.handler.onHealthChanged(this);
 
         } else if (packet instanceof ServerPlayerListEntryPacket) {
             ServerPlayerListEntryPacket serverListEntry = (ServerPlayerListEntryPacket)packet;

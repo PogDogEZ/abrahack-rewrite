@@ -9,7 +9,7 @@ import ez.pogdog.yescom.util.Dimension;
 import java.util.HashMap;
 import java.util.Map;
 
-public class BasicScanTask implements ITask {
+public class BasicScanTask implements ILoadedChunkTask {
 
     private final YesCom yesCom = YesCom.getInstance();
 
@@ -123,10 +123,9 @@ public class BasicScanTask implements ITask {
 
     /* ------------------------ Private methods ------------------------ */
 
-    private void onLoaded(ChunkPosition chunkPos) {
-        yesCom.logger.info(getFormattedResult(chunkPos));
-        // yesCom.playerTrackingHandler.onLoaded(chunkPos, dimension);
-        // yesCom.saveHandler.onLoaded(chunkPos, dimension);
+    private void onLoaded(ChunkPosition chunkPosition) {
+        yesCom.logger.info(getFormattedResult(chunkPosition));
+        onLoaded(chunkPosition, dimension);
     }
 
     private int getMinX() {

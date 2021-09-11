@@ -1,39 +1,21 @@
 package ez.pogdog.yescom.handlers.invalidmove;
 
-import com.sun.media.jfxmedia.logging.Logger;
 import ez.pogdog.yescom.YesCom;
-import ez.pogdog.yescom.handlers.ConfigHandler;
 import ez.pogdog.yescom.handlers.IHandler;
 import ez.pogdog.yescom.handlers.connection.Player;
 import ez.pogdog.yescom.query.IsLoadedQuery;
 import ez.pogdog.yescom.util.Dimension;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.lang.reflect.Field;
-import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Deque;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class InvalidMoveHandler implements IHandler {
 
     private final YesCom yesCom = YesCom.getInstance();
-
 
     /**
      * Valid storages / containers that can be used.

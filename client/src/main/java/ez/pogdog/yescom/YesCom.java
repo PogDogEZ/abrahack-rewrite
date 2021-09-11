@@ -8,6 +8,7 @@ import ez.pogdog.yescom.handlers.connection.ConnectionHandler;
 import ez.pogdog.yescom.handlers.invalidmove.InvalidMoveHandler;
 import ez.pogdog.yescom.handlers.tracking.TrackedPlayerHandler;
 import ez.pogdog.yescom.handlers.tracking.TrackingHandler;
+import ez.pogdog.yescom.jclient.handlers.YCHandler;
 import ez.pogdog.yescom.query.IQuery;
 import ez.pogdog.yescom.task.BasicScanTask;
 import ez.pogdog.yescom.task.ITask;
@@ -19,6 +20,7 @@ import ez.pogdog.yescom.tracking.ITracker;
 import ez.pogdog.yescom.tracking.TrackedPlayer;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
+import me.iska.jclient.network.Connection;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -113,6 +115,9 @@ public class YesCom {
 
     public final Logger logger;
 
+    public final Connection connection;
+    public final YCHandler handler;
+
     public final AccountHandler accountHandler;
     public final ConfigHandler configHandler;
     public final ConnectionHandler connectionHandler;
@@ -132,6 +137,9 @@ public class YesCom {
 
         logger.info("Initializing...");
 
+        connection = null;
+        handler = null;
+
         configHandler = new ConfigHandler(configFilePath);
         accountHandler = new AccountHandler(accountFilePath);
         connectionHandler = new ConnectionHandler(host, port);
@@ -142,7 +150,6 @@ public class YesCom {
         trackingHandler = new TrackingHandler();
 
         alive = true;
-
 
         //currentTasks.add(new StaticScanTask(Dimension.NETHER, null));
         currentTasks.add(new SpiralScanTask(new ChunkPosition(0, 0), 12, Dimension.OVERWORLD, IQuery.Priority.LOW));

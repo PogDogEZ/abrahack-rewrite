@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-public class StaticScanTask implements ITask {
+public class StaticScanTask implements ILoadedChunkTask {
 
     private final YesCom yesCom = YesCom.getInstance();
 
@@ -112,8 +112,9 @@ public class StaticScanTask implements ITask {
 
     /* ------------------------ Private methods ------------------------ */
 
-    private void onLoaded(ChunkPosition chunkPos) {
-        yesCom.logger.info(getFormattedResult(chunkPos));
+    private void onLoaded(ChunkPosition chunkPosition) {
+        yesCom.logger.info(getFormattedResult(chunkPosition));
+        onLoaded(chunkPosition, dimension);
         //TODO: Perfect place to pickup people for tracking, they are most likely heading down the highway to base/stash
     }
 
