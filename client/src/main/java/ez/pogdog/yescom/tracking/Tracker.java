@@ -29,11 +29,6 @@ public class Tracker implements ITracker {
         this.initialChunk = chunk;
         this.player = player;
 
-        /**
-         * Set's the Tracker's ID to it's index in the 'activeTrackers' on creation
-         * This never changes as its final. Even if the index changes, the ID won't
-         */
-
         id = UUID.randomUUID();
     }
 

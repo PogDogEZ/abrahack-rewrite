@@ -33,6 +33,18 @@ import java.util.Locale;
 
 public class YesCom {
 
+    /**
+     * PogDog Software Suite Presents:
+     *
+     * Yescom© - Sequel to Nocom; a project carried out by NerdsInc
+     * Nocom information found here: https://github.com/nerdsinspace/nocom-explanation/blob/main/README.md
+     *
+     * More info on this program: https://github.com/node3112/coordexploit/blob/main/README.md
+     *
+     * Project Credits:
+     * [soon]
+     */
+
     public static YesCom instance;
 
     public static YesCom getInstance() {
