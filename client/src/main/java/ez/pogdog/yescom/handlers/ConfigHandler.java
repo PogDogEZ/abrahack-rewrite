@@ -18,6 +18,7 @@ import java.nio.file.Paths;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class ConfigHandler implements IHandler {
@@ -101,13 +102,21 @@ public class ConfigHandler implements IHandler {
     @Override
     public void onTick() {
         if (System.currentTimeMillis() - autoSaveTime > 30000) {
+            try {
+                dumpConfig();
+            } catch (IOException error) {
+                yesCom.logger.warn("Couldn't save config due to:");
+                yesCom.logger.error(error.toString());
+                autoSaveTime = System.currentTimeMillis() + 30000; // Let's keep increasing this to not spam console
+                return;
+            }
+
             autoSaveTime = System.currentTimeMillis();
         }
     }
 
     @Override
     public void onExit() {
-
     }
 
     public void readConfig() throws IOException {
@@ -129,6 +138,7 @@ public class ConfigHandler implements IHandler {
         inputStream.close();
 
         AtomicInteger rulesSet = new AtomicInteger(0);
+        AtomicBoolean requiresRewrite = new AtomicBoolean(false);
 
         rules.forEach((name, value) -> {
             try {
@@ -139,10 +149,17 @@ public class ConfigHandler implements IHandler {
             } catch (NoSuchFieldException | IllegalAccessException | IllegalArgumentException error) {
                 yesCom.logger.warn(String.format("Couldn't set field \"%s\":", name));
                 yesCom.logger.error(error.toString());
+
+                requiresRewrite.set(true);
             }
         });
 
         yesCom.logger.debug(String.format("Done, %d fields set.", rulesSet.get()));
+
+        if (requiresRewrite.get()) {
+            yesCom.logger.info("Rewriting config...");
+            dumpConfig();
+        }
     }
 
     public void dumpConfig() throws IOException {
