@@ -11,14 +11,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Written by NathanW 9/8/21
- */
 public class StaticScanTask implements ITask {
 
     private final YesCom yesCom = YesCom.getInstance();
 
     private final Dimension dimension;
+    private final IQuery.Priority priority;
 
     private int currentQueries;
     private int currentIndex;
@@ -29,8 +27,9 @@ public class StaticScanTask implements ITask {
      * @param dimension The dimension to check in
      * @param addonPositions Any points that you want to add on top of the default highway ones
      */
-    public StaticScanTask(Dimension dimension, ArrayList<BlockPosition> addonPositions) {
+    public StaticScanTask(Dimension dimension, ArrayList<BlockPosition> addonPositions, IQuery.Priority priority) {
         this.dimension = dimension;
+        this.priority = priority;
 
         addDefaults();
         if(addonPositions != null) this.positions.addAll(addonPositions);

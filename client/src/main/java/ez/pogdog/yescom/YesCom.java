@@ -6,12 +6,17 @@ import ez.pogdog.yescom.handlers.QueryHandler;
 import ez.pogdog.yescom.handlers.SaveHandler;
 import ez.pogdog.yescom.handlers.connection.ConnectionHandler;
 import ez.pogdog.yescom.handlers.invalidmove.InvalidMoveHandler;
+import ez.pogdog.yescom.handlers.tracking.TrackedPlayerHandler;
+import ez.pogdog.yescom.handlers.tracking.TrackingHandler;
+import ez.pogdog.yescom.query.IQuery;
 import ez.pogdog.yescom.task.BasicScanTask;
 import ez.pogdog.yescom.task.ITask;
 import ez.pogdog.yescom.logging.LogLevel;
 import ez.pogdog.yescom.logging.Logger;
 import ez.pogdog.yescom.task.SpiralScanTask;
 import ez.pogdog.yescom.task.StaticScanTask;
+import ez.pogdog.yescom.tracking.ITracker;
+import ez.pogdog.yescom.tracking.TrackedPlayer;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
 import org.apache.commons.cli.CommandLine;
@@ -102,6 +107,8 @@ public class YesCom {
     public final InvalidMoveHandler invalidMoveHandler;
     public final QueryHandler queryHandler;
     public final SaveHandler saveHandler;
+    public final TrackingHandler trackingHandler;
+    public final TrackedPlayerHandler trackedPlayerHandler;
 
     private boolean alive;
 
@@ -119,12 +126,14 @@ public class YesCom {
         invalidMoveHandler = new InvalidMoveHandler();
         queryHandler = new QueryHandler();
         saveHandler = new SaveHandler();
+        trackedPlayerHandler = new TrackedPlayerHandler();
+        trackingHandler = new TrackingHandler();
 
         alive = true;
 
 
         //currentTasks.add(new StaticScanTask(Dimension.NETHER, null));
-        currentTasks.add(new SpiralScanTask(new ChunkPosition(0, 0), 12, Dimension.OVERWORLD));
+        currentTasks.add(new SpiralScanTask(new ChunkPosition(0, 0), 12, Dimension.OVERWORLD, IQuery.Priority.LOW));
 
         logger.info("Done.");
     }
@@ -144,8 +153,20 @@ public class YesCom {
             }
         });
 
+        new ArrayList<>(trackingHandler.activeTrackers).forEach(tracker -> {
+            if (tracker.isLost()) {
+                logger.debug(String.format("Lost tracker with ID: %s.", tracker.getID()));
+                trackingHandler.activeTrackers.remove(tracker);
+            } else {
+                tracker.onTick();
+            }
+        });
+
         invalidMoveHandler.onTick();
         queryHandler.onTick();
+
+        trackingHandler.onTick();
+        trackedPlayerHandler.onTick();
 
         saveHandler.onTick();
     }
@@ -175,6 +196,9 @@ public class YesCom {
 
         invalidMoveHandler.onExit();
         queryHandler.onExit();
+
+        trackingHandler.onExit();
+        trackedPlayerHandler.onExit();
 
         saveHandler.onExit();
         configHandler.onExit();

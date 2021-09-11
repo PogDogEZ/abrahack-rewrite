@@ -15,6 +15,7 @@ public class BasicScanTask implements ITask {
 
     private final ChunkPosition startPos;
     private final ChunkPosition endPos;
+    private final IQuery.Priority priority;
     private final int chunkSkip;
     private final Dimension dimension;
 
@@ -29,11 +30,12 @@ public class BasicScanTask implements ITask {
      * @param chunkSkip The server render distance * 2
      * @param dimension The dimension to scan in
      */
-    public BasicScanTask(ChunkPosition startPos, ChunkPosition endPos, int chunkSkip, Dimension dimension) {
+    public BasicScanTask(ChunkPosition startPos, ChunkPosition endPos, int chunkSkip, Dimension dimension, IQuery.Priority priority) {
         this.startPos = new ChunkPosition(startPos.getX() / chunkSkip, startPos.getZ() / chunkSkip);
         this.endPos = new ChunkPosition(endPos.getX() / chunkSkip, endPos.getZ() / chunkSkip);
         this.chunkSkip = chunkSkip;
         this.dimension = dimension;
+        this.priority = priority;
 
         maxIndex = (getMaxX() - getMinX()) * (getMaxZ() - getMinZ());
 
@@ -59,7 +61,7 @@ public class BasicScanTask implements ITask {
                 ++currentQueries;
 
                 yesCom.queryHandler.addQuery(new IsLoadedQuery(position.getPosition(8, 0, 8),
-                        dimension, IQuery.Priority.LOW, yesCom.configHandler.TYPE,
+                        dimension, priority, yesCom.configHandler.TYPE,
                         (query, result) -> {
                             synchronized (this) {
                                 --currentQueries;

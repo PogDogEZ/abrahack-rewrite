@@ -9,9 +9,6 @@ import ez.pogdog.yescom.util.Dimension;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Written by NathanW 9/8/21
- */
 public class SpiralScanTask implements ITask {
 
     private final YesCom yesCom = YesCom.getInstance();
@@ -19,6 +16,7 @@ public class SpiralScanTask implements ITask {
     private final ChunkPosition startPos;
     private final int chunkSkip;
     private final Dimension dimension;
+    private final IQuery.Priority priority;
 
     private int currentQueries;
     private int currentIndex;
@@ -31,10 +29,11 @@ public class SpiralScanTask implements ITask {
      * @param chunkSkip The server render distance * 2
      * @param dimension The dimension to scan in
      */
-    public SpiralScanTask(ChunkPosition startPos, int chunkSkip, Dimension dimension) {
+    public SpiralScanTask(ChunkPosition startPos, int chunkSkip, Dimension dimension, IQuery.Priority priority) {
         this.startPos = new ChunkPosition(startPos.getX() / chunkSkip, startPos.getZ() / chunkSkip);
         this.chunkSkip = chunkSkip;
         this.dimension = dimension;
+        this.priority = priority;
         this.spiral = new SpiralAlgorithm();
         nextSpiral = new int[] {0,0};
 
@@ -58,7 +57,7 @@ public class SpiralScanTask implements ITask {
                 ++currentQueries;
 
                 yesCom.queryHandler.addQuery(new IsLoadedQuery(getNextSpiral().getPosition(),
-                        dimension, IQuery.Priority.LOW, yesCom.configHandler.TYPE,
+                        dimension, priority, yesCom.configHandler.TYPE,
                         (query, result) -> {
                             synchronized (this) {
                                 --currentQueries;
