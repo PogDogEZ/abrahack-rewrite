@@ -44,7 +44,7 @@ public class Logger {
     public void log(LogLevel level, boolean newLine, Object... message) {
         StringBuilder stringBuilder = new StringBuilder();
 
-        // Find the name of the first spleefnet class that isn't this one
+        // Find the name of the first known class that isn't this one
         String foundClassName = Thread.currentThread().getName();
         for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
             if (!element.getClassName().equals(this.getClass().getName()) &&
