@@ -3,3 +3,5 @@
 /client/config.yml
 
 /api/.idea/
+
+/viewer/venv/
