@@ -1,2 +1,15 @@
 apply plugin: "java"
 apply plugin: "idea"
+
+repositories {
+    maven {
+        name = "jitpack"
+        url = "https://jitpack.io"
+    }
+    mavenCentral()
+    jcenter()
+}
+
+dependencies {
+    compile group: "com.github.Steveice10", name: "MCProtocolLib", version: "1.12.2-2"
+}

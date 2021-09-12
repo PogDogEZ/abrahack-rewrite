@@ -11,7 +11,7 @@ repositories {
 }
 
 dependencies {
-    implementation project(":api")
+    compile project(":api")
 
     compile group: "commons-cli", name: "commons-cli", version: "1.4"
     compile group: "org.yaml", name: "snakeyaml", version: "1.29"
