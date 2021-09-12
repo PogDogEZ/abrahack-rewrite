@@ -88,6 +88,11 @@ public class BlockPosition {
         return subtract(position.toBlockPosition());
     }
 
+    public float getDistanceTo(BlockPosition otherPosition) {
+        return (float) Math.sqrt(
+                (this.x - otherPosition.getX())^2 + (this.z - otherPosition.getZ())^2);
+    }
+
     /**
      * Returns the coordinates this block position points to as a position.
      * @return The position.

@@ -4,7 +4,7 @@ import ez.pogdog.yescom.util.ChunkPosition;
 
 import java.util.List;
 
-public interface IAlgorithm {
+public interface ITrackingAlgorithm {
 
     void onTick();
 

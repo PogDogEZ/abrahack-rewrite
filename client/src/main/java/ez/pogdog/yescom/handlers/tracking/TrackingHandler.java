@@ -1,8 +1,9 @@
 package ez.pogdog.yescom.handlers.tracking;
 
 import ez.pogdog.yescom.handlers.IHandler;
-import ez.pogdog.yescom.tracking.algorithm.IAlgorithm;
-import ez.pogdog.yescom.tracking.information.TrackedPlayer;
+import ez.pogdog.yescom.tracking.Tracker;
+import ez.pogdog.yescom.tracking.algorithm.ITrackingAlgorithm;
+import ez.pogdog.yescom.tracking.TrackedPlayer;
 import ez.pogdog.yescom.util.ChunkPosition;
 
 import java.util.ArrayList;
@@ -12,7 +13,7 @@ import java.util.ArrayList;
  */
 public class TrackingHandler implements IHandler {
 
-    public ArrayList<IAlgorithm> activeTrackers = new ArrayList<>();
+    public ArrayList<Tracker> activeTrackers = new ArrayList<>();
 
     /* ------------------------ Implementations ------------------------ */
 
@@ -28,7 +29,11 @@ public class TrackingHandler implements IHandler {
 
     /* ------------------------ Tracking Methods ------------------------ */
 
-    public void addTracker(ChunkPosition chunk, TrackedPlayer player) {
-        activeTrackers.add(new Tracker(chunk, player));
+    public void addTracker(ChunkPosition chunk) {
+        activeTrackers.add(new Tracker(chunk));
+    }
+
+    public void continueTracker(TrackedPlayer trackedPlayer) {
+        activeTrackers.add(new Tracker(trackedPlayer));
     }
 }
