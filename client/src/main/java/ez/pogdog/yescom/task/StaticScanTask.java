@@ -9,6 +9,7 @@ import ez.pogdog.yescom.util.Dimension;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class StaticScanTask implements ILoadedChunkTask {
@@ -17,6 +18,10 @@ public class StaticScanTask implements ILoadedChunkTask {
 
     private final Dimension dimension;
     private final IQuery.Priority priority;
+
+    private final long startTime;
+
+    private int taskID;
 
     private int currentQueries;
     private int currentIndex;
@@ -31,6 +36,8 @@ public class StaticScanTask implements ILoadedChunkTask {
         this.dimension = dimension;
         this.priority = priority;
 
+        startTime = System.currentTimeMillis();
+
         addDefaults();
         if(addonPositions != null) this.positions.addAll(addonPositions);
 
@@ -39,6 +46,10 @@ public class StaticScanTask implements ILoadedChunkTask {
 
         currentQueries = 0;
         currentIndex = 0;
+    }
+
+    public StaticScanTask() {
+        this(Dimension.OVERWORLD, new ArrayList<>(), IQuery.Priority.MEDIUM);
     }
 
     /* ------------------------ Implementations ------------------------ */
@@ -71,43 +82,37 @@ public class StaticScanTask implements ILoadedChunkTask {
     }
 
     @Override
+    public void onFinished() {
+    }
+
+    @Override
+    public int getID() {
+        return taskID;
+    }
+
+    @Override
+    public void setID(int ID) {
+        taskID = ID;
+    }
+
+    @Override
     public boolean isFinished() {
         return false;
     }
 
     @Override
-    public float getProgressPercent() {
-        return 0;
+    public int getTimeElapsed() {
+        return (int)(System.currentTimeMillis() - startTime);
     }
 
     @Override
-    public int getEstTimeToFinish() {
-        return 0;
-    }
-
-    @Override
-    public String getName() {
-        return "static_scan";
-    }
-
-    @Override
-    public String getDescription() {
-        return "A scan task that only checks coordinates from a given array.";
+    public float getProgress() {
+        return 0.0f;
     }
 
     @Override
     public String getFormattedResult(Object result) {
         return String.format("Found someone on highway (static): %s (dim %s).", result, dimension);
-    }
-
-    @Override
-    public Map<String, String> getParamDescriptions() {
-        Map<String, String> params = new HashMap<>();
-
-        params.put("dimension", "The dimension to scan in.");
-        params.put("addonPositions", "Static positions to keep scanning of.");
-
-        return params;
     }
 
     /* ------------------------ Private methods ------------------------ */

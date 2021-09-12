@@ -6,7 +6,9 @@ import ez.pogdog.yescom.query.IsLoadedQuery;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class SpiralScanTask implements ILoadedChunkTask {
@@ -17,6 +19,10 @@ public class SpiralScanTask implements ILoadedChunkTask {
     private final int chunkSkip;
     private final Dimension dimension;
     private final IQuery.Priority priority;
+
+    private final long startTime;
+
+    private int taskID;
 
     private int currentQueries;
     private int currentIndex;
@@ -34,7 +40,10 @@ public class SpiralScanTask implements ILoadedChunkTask {
         this.chunkSkip = chunkSkip;
         this.dimension = dimension;
         this.priority = priority;
-        this.spiral = new SpiralAlgorithm();
+        spiral = new SpiralAlgorithm();
+
+        startTime = System.currentTimeMillis();
+
         nextSpiral = new int[] {0,0};
 
         yesCom.logger.debug("Starting spiral scan task.");
@@ -43,6 +52,10 @@ public class SpiralScanTask implements ILoadedChunkTask {
 
         currentQueries = 0;
         currentIndex = 0;
+    }
+
+    public SpiralScanTask() {
+        this(new ChunkPosition(0, 0), 12, Dimension.OVERWORLD, IQuery.Priority.MEDIUM);
     }
 
     /* ------------------------ Implementations ------------------------ */
@@ -74,44 +87,37 @@ public class SpiralScanTask implements ILoadedChunkTask {
     }
 
     @Override
+    public void onFinished() {
+    }
+
+    @Override
+    public int getID() {
+        return taskID;
+    }
+
+    @Override
+    public void setID(int ID) {
+        taskID = ID;
+    }
+
+    @Override
     public boolean isFinished() {
         return false;
     }
 
     @Override
-    public float getProgressPercent() {
-        return 0;
+    public int getTimeElapsed() {
+        return (int)(System.currentTimeMillis() - startTime);
     }
 
     @Override
-    public int getEstTimeToFinish() {
-        return 0;
-    }
-
-    @Override
-    public String getName() {
-        return "spiral_scan";
-    }
-
-    @Override
-    public String getDescription() {
-        return "A scan task that spirals out from a given coordinate";
+    public float getProgress() {
+        return 0.0f;
     }
 
     @Override
     public String getFormattedResult(Object result) {
         return String.format("Found loaded (spiral): %s (dim %s).", result, dimension);
-    }
-
-    @Override
-    public Map<String, String> getParamDescriptions() {
-        Map<String, String> params = new HashMap<>();
-
-        params.put("startPos", "The starting position for the scan.");
-        params.put("chunkSkip", "The number of chunks to linearly skip while scanning (recommended the render distance of the server * 2).");
-        params.put("dimension", "The dimension to scan in.");
-
-        return params;
     }
 
     /* ------------------------ Private methods ------------------------ */

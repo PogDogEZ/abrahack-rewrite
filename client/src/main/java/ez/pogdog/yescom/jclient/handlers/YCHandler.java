@@ -7,8 +7,12 @@ import ez.pogdog.yescom.jclient.packets.AccountActionPacket;
 import ez.pogdog.yescom.jclient.packets.AccountActionResponsePacket;
 import ez.pogdog.yescom.jclient.packets.LoadedChunkPacket;
 import ez.pogdog.yescom.jclient.packets.PlayerActionPacket;
+import ez.pogdog.yescom.jclient.packets.TaskActionPacket;
+import ez.pogdog.yescom.jclient.packets.TaskSyncPacket;
 import ez.pogdog.yescom.jclient.packets.YCInitRequestPacket;
 import ez.pogdog.yescom.jclient.packets.YCInitResponsePacket;
+import ez.pogdog.yescom.task.ITask;
+import ez.pogdog.yescom.task.TaskRegistry;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
 import me.iska.jclient.network.Connection;
@@ -53,7 +57,29 @@ public class YCHandler implements IHandler {
                 return;
             }
 
-            yesCom.logger.info("Successfully initialized CE connection.");
+            yesCom.logger.debug(String.format("We are handler ID %d.", initResponse.getHandlerID()));
+
+            yesCom.logger.debug("Syncing tasks...");
+            connection.sendPacket(new TaskSyncPacket());
+            yesCom.logger.debug("Done.");
+
+            yesCom.logger.info("Successfully initialized YC connection.");
+
+        } else if (packet instanceof TaskActionPacket) {
+            TaskActionPacket taskAction = (TaskActionPacket)packet;
+
+            yesCom.logger.debug("Got task action.");
+
+            switch (taskAction.getAction()) {
+                case START: {
+                    yesCom.addTask(taskAction.getTask());
+                    break;
+                }
+                case STOP: {
+                    yesCom.removeTask(taskAction.getTaskID());
+                    break;
+                }
+            }
 
         } else if (packet instanceof AccountActionPacket) {
             AccountActionPacket accountAction = (AccountActionPacket)packet;
@@ -89,6 +115,8 @@ public class YCHandler implements IHandler {
     }
 
     public void initConnection() {
+        yesCom.logger.debug("Initializing YC connection...");
+
         connection.sendPacket(new YCInitRequestPacket(handlerName, yesCom.connectionHandler.getHost(),
                 yesCom.connectionHandler.getPort(), false));
         initializing = true;
@@ -96,6 +124,16 @@ public class YCHandler implements IHandler {
 
     public boolean isInitialized() {
         return initialized || initializing;
+    }
+
+    /* ------------------------ Events ------------------------ */
+
+    public void onTaskAdded(ITask task) {
+        connection.sendPacket(new TaskActionPacket(TaskActionPacket.Action.ADD, task, TaskRegistry.getTask(task.getClass()), task.getID()));
+    }
+
+    public void onTaskRemoved(ITask task) {
+        connection.sendPacket(new TaskActionPacket(TaskActionPacket.Action.REMOVE, null, null, task.getID()));
     }
 
     public void onPlayerAdded(Player player) {

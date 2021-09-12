@@ -58,7 +58,10 @@ public class LoginHandler implements IHandler {
 
     @Override
     public void handlePacket(Packet packet) {
-        if (packet instanceof DisconnectPacket) connection.exit(((DisconnectPacket)packet).getMessage());
+        if (packet instanceof DisconnectPacket) {
+            connection.exit(((DisconnectPacket)packet).getMessage());
+            return;
+        }
 
         switch (currentState) {
             case HAND_SHAKE: {

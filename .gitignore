@@ -4,4 +4,7 @@
 
 /api/.idea/
 
+/viewer/.idea/
 /viewer/venv/
+
+/server/config.json

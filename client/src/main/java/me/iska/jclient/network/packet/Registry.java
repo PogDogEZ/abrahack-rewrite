@@ -29,11 +29,14 @@ import me.iska.jclient.network.packet.types.extended.PacketSpecType;
 import me.iska.jclient.network.packet.types.extended.UserSpecType;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Registry {
 
     public static final List<Class<? extends Packet>> knownPackets = new ArrayList<>();
+    public static final Map<Class<?>, Class<? extends Type<?>>> knownTypes = new HashMap<>();
 
     public static final BooleanType BOOLEAN = new BooleanType();
     public static final BytesType BYTES = new BytesType();
@@ -67,5 +70,13 @@ public class Registry {
         knownPackets.add(KeepAlivePacket.class);
         knownPackets.add(KeepAliveResponsePacket.class);
         knownPackets.add(DisconnectPacket.class);
+
+        knownTypes.put(Boolean.class, BooleanType.class);
+        knownTypes.put(Double.class, DoubleType.class);
+        knownTypes.put(Float.class, FloatType.class);
+        knownTypes.put(Integer.class, IntType.class);
+        knownTypes.put(Long.class, LongType.class);
+        knownTypes.put(Short.class, ShortType.class);
+        knownTypes.put(String.class, StringType.class);
     }
 }

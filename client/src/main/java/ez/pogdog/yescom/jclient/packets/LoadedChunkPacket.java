@@ -10,7 +10,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-@Packet.Info(name="loaded_chunk", id=YCRegistry.ID_OFFSET + 5, side=Packet.Side.CLIENT)
+@Packet.Info(name="loaded_chunk", id=YCRegistry.ID_OFFSET + 8, side=Packet.Side.CLIENT)
 public class LoadedChunkPacket extends Packet {
 
     private ChunkPosition chunkPosition;

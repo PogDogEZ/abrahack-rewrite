@@ -6,7 +6,9 @@ import ez.pogdog.yescom.query.IsLoadedQuery;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class BasicScanTask implements ILoadedChunkTask {
@@ -19,7 +21,11 @@ public class BasicScanTask implements ILoadedChunkTask {
     private final int chunkSkip;
     private final Dimension dimension;
 
+    private final long startTime;
+
     private final int maxIndex;
+
+    private int taskID;
 
     private int currentQueries;
     private int currentIndex;
@@ -37,6 +43,8 @@ public class BasicScanTask implements ILoadedChunkTask {
         this.dimension = dimension;
         this.priority = priority;
 
+        startTime = System.currentTimeMillis();
+
         maxIndex = (getMaxX() - getMinX()) * (getMaxZ() - getMinZ());
 
         yesCom.logger.debug("Starting basic scan task.");
@@ -47,6 +55,10 @@ public class BasicScanTask implements ILoadedChunkTask {
 
         currentQueries = 0;
         currentIndex = 0;
+    }
+
+    public BasicScanTask() {
+        this(new ChunkPosition(0, 0), new ChunkPosition(0, 0), 12, Dimension.OVERWORLD, IQuery.Priority.MEDIUM);
     }
 
     /* ------------------------ Implementations ------------------------ */
@@ -79,46 +91,37 @@ public class BasicScanTask implements ILoadedChunkTask {
     }
 
     @Override
+    public void onFinished() {
+    }
+
+    @Override
+    public int getID() {
+        return taskID;
+    }
+
+    @Override
+    public void setID(int ID) {
+        taskID = ID;
+    }
+
+    @Override
     public boolean isFinished() {
         return currentIndex >= maxIndex && currentQueries <= 0;
     }
 
     @Override
-    public float getProgressPercent() {
-        return Math.min(100,
-                (float)currentIndex / (float)maxIndex * 100.0f);
+    public int getTimeElapsed() {
+        return (int)(System.currentTimeMillis() - startTime);
     }
 
     @Override
-    public int getEstTimeToFinish() {
-        return 0;
-    }
-
-    @Override
-    public String getName() {
-        return "basic_scan";
-    }
-
-    @Override
-    public String getDescription() {
-        return "A basic scanning task that scans a rectangle looking for loaded chunks.";
+    public float getProgress() {
+        return Math.min(100.0f, (float)currentIndex / (float)maxIndex * 100.0f);
     }
 
     @Override
     public String getFormattedResult(Object object) {
         return String.format("Found loaded (basic): %s (dim %s).", object, dimension);
-    }
-
-    @Override
-    public Map<String, String> getParamDescriptions() {
-        Map<String, String> params = new HashMap<>();
-
-        params.put("startPos", "The starting position for the scan.");
-        params.put("endPos", "The end position that the scan will finish at.");
-        params.put("chunkSkip", "The number of chunks to linearly skip while scanning (recommended the render distance of the server * 2).");
-        params.put("dimension", "The dimension to scan in.");
-
-        return params;
     }
 
     /* ------------------------ Private methods ------------------------ */

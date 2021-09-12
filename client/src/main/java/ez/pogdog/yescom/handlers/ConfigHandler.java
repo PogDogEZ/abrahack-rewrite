@@ -27,6 +27,12 @@ public class ConfigHandler implements IHandler {
 
     public boolean DONT_SHOW_EMAILS = true;
 
+    public String HOST_NAME = "localhost";
+    public int HOST_PORT = 5001;
+    public String USERNAME = "node";
+    public String GROUP_NAME = "local";
+    public String PASSWORD = "t";
+
     /**
      * ConnectionHandler stuff.
      * LOGIN_TIME - how long to wait before logging in.

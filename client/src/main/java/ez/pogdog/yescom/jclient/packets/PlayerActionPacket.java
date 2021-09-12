@@ -13,7 +13,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-@Packet.Info(name="player_action", id=YCRegistry.ID_OFFSET + 4, side=Packet.Side.CLIENT)
+@Packet.Info(name="player_action", id=YCRegistry.ID_OFFSET + 7, side=Packet.Side.CLIENT)
 public class PlayerActionPacket extends Packet {
 
     private Action action;

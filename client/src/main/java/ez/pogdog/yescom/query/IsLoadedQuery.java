@@ -19,7 +19,7 @@ public class IsLoadedQuery implements IQuery {
     private final BlockPosition position;
     private final Dimension dimension;
     private final Priority priority;
-    private final Type type;
+    private final Type dataType;
     private final BiConsumer<IsLoadedQuery, Result> callBack;
 
     private Player player;
@@ -31,12 +31,12 @@ public class IsLoadedQuery implements IQuery {
     private boolean cancelled;
     private Result result;
 
-    public IsLoadedQuery(BlockPosition position, Dimension dimension, Priority priority, Type type,
+    public IsLoadedQuery(BlockPosition position, Dimension dimension, Priority priority, Type dataType,
                          BiConsumer<IsLoadedQuery, Result> callBack) {
         this.position = position;
         this.dimension = dimension;
         this.priority = priority;
-        this.type = type;
+        this.dataType = dataType;
         this.callBack = callBack;
 
         startTime = System.currentTimeMillis();
@@ -48,7 +48,7 @@ public class IsLoadedQuery implements IQuery {
 
     @Override
     public String toString() {
-        return String.format("IsLoadedQuery(position=%s, type=%s)", position, type.name());
+        return String.format("IsLoadedQuery(position=%s, dataType=%s)", position, dataType.name());
     }
 
     @Override
@@ -63,7 +63,7 @@ public class IsLoadedQuery implements IQuery {
 
         result = null;
 
-        switch (type) {
+        switch (dataType) {
             case DIGGING: {
                 player = yesCom.connectionHandler.sendPacket(new ClientPlayerActionPacket(PlayerAction.CANCEL_DIGGING,
                         position.toSerializable(), BlockFace.UP));
@@ -98,7 +98,7 @@ public class IsLoadedQuery implements IQuery {
             return TickAction.AWAIT;
         }
 
-        switch (type) {
+        switch (dataType) {
             case DIGGING: {
                 if (System.currentTimeMillis() - startTime > yesCom.configHandler.DIGGING_TIMEOUT && result == null)
                     result = Result.UNLOADED;
@@ -148,7 +148,7 @@ public class IsLoadedQuery implements IQuery {
     /* ------------------------ Private Methods ------------------------ */
 
     private void onPacket(Packet packet) {
-        switch (type) {
+        switch (dataType) {
             case DIGGING: {
                 if (packet instanceof ServerBlockChangePacket) {
                     ServerBlockChangePacket blockChange = (ServerBlockChangePacket)packet;
@@ -191,7 +191,7 @@ public class IsLoadedQuery implements IQuery {
     }
 
     public Type getType() {
-        return type;
+        return dataType;
     }
 
     public enum Type {

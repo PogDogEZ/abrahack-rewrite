@@ -62,6 +62,7 @@ public class Connection extends Thread {
     private boolean compression;
     private int compressionThreshold;
 
+    private boolean exited;
     private boolean shouldExit;
     private String exitReason;
 
@@ -82,6 +83,7 @@ public class Connection extends Thread {
         compression = false;
         compressionThreshold = 256;
 
+        exited = false;
         shouldExit = false;
         exitReason = "Generic Disconnect.";
     }
@@ -111,6 +113,7 @@ public class Connection extends Thread {
                 }
 
                 connected = false;
+                exited = true;
             }
 
             /*
@@ -439,6 +442,10 @@ public class Connection extends Thread {
 
     public void setCompressionThreshold(int compressionThreshold) {
         this.compressionThreshold = compressionThreshold;
+    }
+
+    public boolean isExited() {
+        return exited;
     }
 
     public String getExitReason() {
