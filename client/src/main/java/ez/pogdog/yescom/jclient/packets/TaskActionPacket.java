@@ -60,7 +60,7 @@ public class TaskActionPacket extends Packet {
                 if (task != null) { // Holy fuck uh this is a lot of weird class stuff hopefully it works
                     List<Object> parameters = new ArrayList<>();
 
-                    int paramsToRead = Registry.INT.read(inputStream);
+                    int paramsToRead = Registry.UNSIGNED_SHORT.read(inputStream);
                     for (int index = 0; index < paramsToRead; ++index) {
                         TaskRegistry.ParamDescription paramDescription = task.getParamDescriptions().get(index);
                         try {

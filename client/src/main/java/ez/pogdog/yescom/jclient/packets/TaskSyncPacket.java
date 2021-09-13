@@ -27,7 +27,7 @@ public class TaskSyncPacket extends Packet {
 
     @Override
     public void read(InputStream inputStream) throws IOException { // Not actually gonna be reading this packet
-        int tasksToRead = Registry.INT.read(inputStream);
+        int tasksToRead = Registry.UNSIGNED_SHORT.read(inputStream);
 
         for (int index = 0; index < tasksToRead; ++index) {
             Registry.STRING.read(inputStream);
@@ -40,7 +40,7 @@ public class TaskSyncPacket extends Packet {
 
     @Override
     public void write(OutputStream outputStream) throws IOException {
-        Registry.INT.write(registeredTasks.size(), outputStream);
+        Registry.UNSIGNED_SHORT.write(registeredTasks.size(), outputStream); // Pls don't make 65535 tasks thanks
 
         for (TaskRegistry.RegisteredTask task : registeredTasks) {
             Registry.STRING.write(task.getName(), outputStream);

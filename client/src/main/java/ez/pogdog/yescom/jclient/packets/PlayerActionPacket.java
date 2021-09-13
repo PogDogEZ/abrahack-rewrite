@@ -69,9 +69,12 @@ public class PlayerActionPacket extends Packet {
         action = new EnumType<>(Action.class).read(inputStream);
 
         switch (action) {
-            case ADD:
-            case REMOVE: {
+            case ADD: {
                 player = YCRegistry.PLAYER.read(inputStream);
+                break;
+            }
+            case REMOVE: {
+                playerName = Registry.STRING.read(inputStream);
                 break;
             }
             case UPDATE_POSITION: {
@@ -102,9 +105,12 @@ public class PlayerActionPacket extends Packet {
         new EnumType<>(Action.class).write(action, outputStream);
 
         switch (action) {
-            case ADD:
-            case REMOVE: {
+            case ADD: {
                 YCRegistry.PLAYER.write(player, outputStream);
+                break;
+            }
+            case REMOVE: {
+                Registry.STRING.write(playerName, outputStream);
                 break;
             }
             case UPDATE_POSITION: {

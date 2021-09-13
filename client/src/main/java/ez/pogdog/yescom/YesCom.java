@@ -17,7 +17,6 @@ import ez.pogdog.yescom.logging.LogLevel;
 import ez.pogdog.yescom.logging.Logger;
 import ez.pogdog.yescom.task.SpiralScanTask;
 import ez.pogdog.yescom.task.StaticScanTask;
-import ez.pogdog.yescom.tracking.ITracker;
 import ez.pogdog.yescom.tracking.TrackedPlayer;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
@@ -209,6 +208,7 @@ public class YesCom {
             }
         });
 
+        /* TODO: Someone who is working on the tracker please fix this
         new ArrayList<>(trackingHandler.activeTrackers).forEach(tracker -> {
             if (tracker.isLost()) {
                 logger.debug(String.format("Lost tracker with ID: %s.", tracker.getID()));
@@ -217,6 +217,7 @@ public class YesCom {
                 tracker.onTick();
             }
         });
+         */
 
         invalidMoveHandler.onTick();
         queryHandler.onTick();
