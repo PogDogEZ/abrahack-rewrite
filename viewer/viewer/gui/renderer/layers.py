@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import math
+from typing import Dict
 
 import cv2
 import numpy as np
@@ -13,10 +14,15 @@ class Layer:
     def name(self) -> str:
         return self._name
 
-    def __init__(self, renderer, name: str) -> None:
+    @property
+    def options(self) -> Dict[str, object]:
+        return self._options
+
+    def __init__(self, renderer, name: str, options: Dict[str, object]) -> None:
         self.renderer = renderer
 
         self._name = name
+        self._options = options
 
     def __repr__(self) -> str:
         return "Layer(name=%s)" % self._name
@@ -28,7 +34,7 @@ class Layer:
 class GridLayer(Layer):
 
     def __init__(self, renderer) -> None:
-        super().__init__(renderer, "grid")
+        super().__init__(renderer, "grid", {})
 
     def draw(self, image: np.ndarray) -> np.ndarray:
         scale = self.renderer.main_frame.scale
@@ -55,7 +61,7 @@ class GridLayer(Layer):
 class StatesLayer(Layer):
 
     def __init__(self, renderer) -> None:
-        super().__init__(renderer, "states")
+        super().__init__(renderer, "states", {})
 
     def draw(self, image: np.ndarray) -> np.ndarray:
         curr_dimension_data = self.renderer.main_frame._data[self.renderer.main_frame.current_dimension].copy()
@@ -90,7 +96,7 @@ class HighWaysLayer(Layer):
 class PlayersLayer(Layer):
 
     def __init__(self, renderer) -> None:
-        super().__init__(renderer, "players")
+        super().__init__(renderer, "players", {})
 
     def draw(self, image: np.ndarray) -> np.ndarray:
         """
@@ -111,7 +117,7 @@ class PlayersLayer(Layer):
 class SelectedLayer(Layer):
 
     def __init__(self, renderer) -> None:
-        super().__init__(renderer, "selected")
+        super().__init__(renderer, "selected", {})
 
     def draw(self, image: np.ndarray) -> np.ndarray:
         for selected in self.renderer.main_frame.selected_chunks:
@@ -123,7 +129,7 @@ class SelectedLayer(Layer):
 class CursorLayer(Layer):
 
     def __init__(self, renderer) -> None:
-        super().__init__(renderer, "cursor")
+        super().__init__(renderer, "cursor", {})
 
     def draw(self, image: np.ndarray) -> np.ndarray:
         scale = self.renderer.main_frame.scale

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 import time
-from typing import List
+
 from uuid import UUID
+
+from network.networking.types import Enum
 
 
 class ChunkPosition:
@@ -86,8 +88,7 @@ class Player:
         self._display_name = ""
 
         self.position = Position(0, 0, 0)
-        self.yaw = 0
-        self.pitch = 0
+        self.angle = Angle(0, 0)
 
         self.dimension = 0
 
@@ -95,7 +96,7 @@ class Player:
         self.food = 20
         self.saturation = 5
 
-        self._last_connection_time = int(time.time() * 1000)
+        # self._last_connection_time = int(time.time() * 1000)
 
     def __repr__(self) -> str:
         return "Account(username=%r)" % self._username
@@ -107,32 +108,64 @@ class Player:
             self._display_name = display_name
 
 
-class Reporter:
-
-    @property
-    def assigned_id(self) -> int:
-        return self._id
+class Task:
 
     @property
     def name(self) -> str:
         return self._name
 
-    def __init__(self, assigned_id: int, name: str) -> None:
-        self._id = assigned_id
+    @property
+    def description(self) -> str:
+        return self._description
+
+    @property
+    def param_descriptions(self):  # -> List[ParamDescription]
+        return self._param_descriptions.copy()
+
+    def __init__(self, name: str, description: str, param_descriptions) -> None:
         self._name = name
+        self._description = description
+        self._param_descriptions = param_descriptions
 
-        self._players = []
+    class ParamDescription:
 
-    def __repr__(self) -> str:
-        return "Reporter(name=%s, id=%i)" % (self._name, self._id)
+        @property
+        def name(self) -> str:
+            return self._name
 
-    def add_player(self, player: Player) -> None:
-        if not player in self._players:
-            self._players.append(player)
+        @property
+        def description(self) -> str:
+            return self._description
 
-    def remove_player(self, player: Player) -> None:
-        if player in self._players:
-            self._players.remove(player)
+        @property
+        def input_type(self):  # -> InputType:
+            return self._input_type
 
-    def get_players(self) -> List[Player]:
-        return self._players.copy()
+        @property
+        def data_type(self):  # -> DataType:
+            return self._data_type
+
+        def __init__(self, name: str, description: str, input_type, data_type) -> None:
+            self._name = name
+            self._description = description
+            self._input_type = input_type
+            self._data_type = data_type
+
+        class InputType(Enum):
+            SINGULAR = 0
+            ARRAY = 1
+
+        class DataType(Enum):
+            POSITION = 0
+            ANGLE = 1
+            CHUNK_POSITION = 2
+            DIMENSION = 3
+            PRIORITY = 4
+            STRING = 5
+            INTEGER = 6
+            FLOAT = 7
+            BOOLEAN = 8
+
+
+class ActiveTask:
+    ...

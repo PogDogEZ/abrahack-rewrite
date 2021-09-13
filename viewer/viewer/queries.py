@@ -33,6 +33,6 @@ class IsLoadedQuery(Query):
         DIGGING = 0
         INVALID_MOVE = 1
 
-    class Result:
+    class Result(Enum):
         LOADED = 0
         UNLOADED = 1
