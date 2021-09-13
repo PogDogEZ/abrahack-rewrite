@@ -90,7 +90,7 @@ public class BlockPosition {
 
     public float getDistanceTo(BlockPosition otherPosition) {
         return (float) Math.sqrt(
-                (this.x - otherPosition.getX())^2 + (this.z - otherPosition.getZ())^2);
+                Math.pow(this.x - otherPosition.getX(), 2) + Math.pow(this.z - otherPosition.getZ(), 2));
     }
 
     /**
