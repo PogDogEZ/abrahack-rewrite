@@ -1,58 +1,53 @@
 package ez.pogdog.yescom.tracking;
 
-import ez.pogdog.yescom.tracking.algorithm.BasicAlgorithm;
-import ez.pogdog.yescom.tracking.algorithm.ITrackingAlgorithm;
-import ez.pogdog.yescom.tracking.information.TrackerPosition;
-import ez.pogdog.yescom.tracking.information.Trail;
+import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.util.ChunkPosition;
 
 import java.util.UUID;
 
 /**
- * Main tracker class.
+ * All the tracking logic, runs independently as it's own process, assinged to an ID, passes off to Player Handler with all it's info when it loses track,
+ * stores all movement data as raw hits
  */
-public class Tracker {
 
-    private final UUID uuid;
+//TODO: Actually write this
+public class Tracker implements ITracker {
 
-    private TrackerPosition position;
-    private Trail trail;
+    private final YesCom yesCom = YesCom.getInstance();
 
-    private ITrackingAlgorithm algorithm;
-
-    /**
-     * Initialises the tracker with provided information.
-     * @param loadedChunk The initial LoadedChunk which detected the player.
-     */
-    public Tracker (ChunkPosition loadedChunk) {
-        uuid = UUID.randomUUID();
-
-        position = new TrackerPosition(loadedChunk);
-        trail = new Trail(loadedChunk);
-
-        algorithm = new BasicAlgorithm(getCenterPosition(loadedChunk));
-    }
-
-    public Tracker (TrackedPlayer trackedPlayer) {
-        uuid = trackedPlayer.getMostLikelyPlayer();
-
-        ChunkPosition logOutPos = trackedPlayer.getLogOutPos();
-
-        position = new TrackerPosition(logOutPos);
-        trail = new Trail(logOutPos);
-
-        algorithm = new BasicAlgorithm(getCenterPosition(logOutPos));
-    }
-
-
-    /* ------------------------ Private Methods ------------------------ */
+    private final ChunkPosition initialChunk;
+    private final TrackedPlayer player;
+    private final UUID id;
 
     /**
-     * Calculates the center of the target's render distance.
-     * @param loadedChunk A chunk in the target's render distance.
-     * @return The chunk in the middle of the target's render distance.
+     * @param chunk Initial position assigned by the handler
+     * @param player Only matters if the tracker is a reassignment of an archived player, can be null otherwise
      */
-    private ChunkPosition getCenterPosition(ChunkPosition loadedChunk) {
-        return new ChunkPosition(0, 0);
+    //TODO: Add things to params, this is just a rough outline of things you may want with the creation of a tracker
+    public Tracker(ChunkPosition chunk, TrackedPlayer player) {
+        this.initialChunk = chunk;
+        this.player = player;
+
+        id = UUID.randomUUID();
+    }
+
+    @Override
+    public void onTick() {
+
+    }
+
+    @Override
+    public boolean isLost() {
+        return false;
+    }
+
+    @Override
+    public UUID getID() {
+        return id;
+    }
+
+    @Override
+    public TrackedPlayer getTrackedPlayer() {
+        return player;
     }
 }
