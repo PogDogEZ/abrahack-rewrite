@@ -6,22 +6,16 @@ import ez.pogdog.yescom.handlers.QueryHandler;
 import ez.pogdog.yescom.handlers.SaveHandler;
 import ez.pogdog.yescom.handlers.connection.ConnectionHandler;
 import ez.pogdog.yescom.handlers.invalidmove.InvalidMoveHandler;
-import ez.pogdog.yescom.handlers.tracking.TrackedPlayerHandler;
-import ez.pogdog.yescom.handlers.tracking.TrackingHandler;
+import ez.pogdog.yescom.handlers.TrackingHandler;
 import ez.pogdog.yescom.jclient.YCRegistry;
 import ez.pogdog.yescom.jclient.handlers.YCHandler;
 import ez.pogdog.yescom.query.IQuery;
-import ez.pogdog.yescom.task.BasicScanTask;
 import ez.pogdog.yescom.task.ITask;
 import ez.pogdog.yescom.logging.LogLevel;
 import ez.pogdog.yescom.logging.Logger;
 import ez.pogdog.yescom.task.SpiralScanTask;
-import ez.pogdog.yescom.task.StaticScanTask;
-import ez.pogdog.yescom.tracking.TrackedPlayer;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
-import me.iska.jclient.impl.user.Group;
-import me.iska.jclient.impl.user.User;
 import me.iska.jclient.network.Connection;
 import me.iska.jclient.network.handler.DefaultHandler;
 import org.apache.commons.cli.CommandLine;
@@ -31,7 +25,6 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -126,8 +119,6 @@ public class YesCom {
     public final QueryHandler queryHandler;
     public final SaveHandler saveHandler;
     public final TrackingHandler trackingHandler;
-    public final TrackedPlayerHandler trackedPlayerHandler;
-
     private final List<ITask> currentTasks = new ArrayList<>();
 
     private boolean alive;
@@ -151,7 +142,6 @@ public class YesCom {
         invalidMoveHandler = new InvalidMoveHandler();
         queryHandler = new QueryHandler();
         saveHandler = new SaveHandler();
-        trackedPlayerHandler = new TrackedPlayerHandler();
         trackingHandler = new TrackingHandler();
 
         /*
@@ -223,7 +213,6 @@ public class YesCom {
         queryHandler.onTick();
 
         trackingHandler.onTick();
-        trackedPlayerHandler.onTick();
 
         saveHandler.onTick();
     }
@@ -258,7 +247,6 @@ public class YesCom {
             queryHandler.onExit();
 
             trackingHandler.onExit();
-            trackedPlayerHandler.onExit();
 
             saveHandler.onExit();
             configHandler.onExit();
