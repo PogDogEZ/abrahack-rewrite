@@ -1,8 +1,11 @@
 package ez.pogdog.yescom.tracking;
 
+import ez.pogdog.yescom.tracking.information.TrackerPosition;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -11,15 +14,21 @@ import java.util.UUID;
 public class TrackedPlayer {
     private final ChunkPosition logOutPos;
     private final Dimension dimension;
-    private final UUID[] possiblePlayers;
+    private final ArrayList<UUID> possiblePlayers = new ArrayList<>();
 
-    public TrackedPlayer(ChunkPosition logOutPos, Dimension dimension, UUID[] possiblePlayers) {
-        this.logOutPos = logOutPos;
-        this.dimension = dimension;
-        this.possiblePlayers = possiblePlayers;
+    public TrackedPlayer(TrackerPosition logOutPos, List<UUID> possiblePlayers) {
+        this.logOutPos = logOutPos.getPosition();
+        this.dimension = logOutPos.getDimension();
+
+        if (possiblePlayers != null)
+            this.possiblePlayers.addAll(possiblePlayers);
     }
 
-    public UUID[] getPossiblePlayers() {
+    public TrackedPlayer(TrackerPosition logOutPos) {
+        this(logOutPos, null);
+    }
+
+    public List<UUID> getPossiblePlayers() {
         return possiblePlayers;
     }
 
@@ -29,9 +38,5 @@ public class TrackedPlayer {
 
     public ChunkPosition getLogOutPos() {
         return logOutPos;
-    }
-
-    public UUID getMostLikelyPlayer() {
-        return possiblePlayers[0];
     }
 }
