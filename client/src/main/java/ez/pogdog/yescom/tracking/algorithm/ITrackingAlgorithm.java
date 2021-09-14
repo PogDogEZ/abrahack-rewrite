@@ -1,12 +1,19 @@
 package ez.pogdog.yescom.tracking.algorithm;
 
 import ez.pogdog.yescom.util.ChunkPosition;
+import ez.pogdog.yescom.util.Dimension;
 
 import java.util.List;
 
 public interface ITrackingAlgorithm {
 
-    void onTick();
+    TickResult onTick();
 
-    List<ChunkPosition> getQueried();
+    ChunkPosition getPlayerPosition();
+
+    Dimension getDimension();
+
+    enum TickResult {
+        Moved, Stagnant, Lost;
+    }
 }

@@ -1,21 +1,31 @@
 package ez.pogdog.yescom.tracking.algorithm;
 
+import ez.pogdog.yescom.tracking.Tracker;
 import ez.pogdog.yescom.util.ChunkPosition;
+import ez.pogdog.yescom.util.Dimension;
 
 import java.util.List;
 
 public class AFKAlgorithm implements ITrackingAlgorithm {
 
-    public AFKAlgorithm(ChunkPosition renderDistanceCenter) {
+    private final Tracker tracker;
+
+    public AFKAlgorithm(Tracker tracker, ChunkPosition renderDistanceCenter) {
+        this.tracker = tracker;
     }
 
     @Override
-    public void onTick() {
-
+    public TickResult onTick() {
+        return TickResult.Stagnant;
     }
 
     @Override
-    public List<ChunkPosition> getQueried() {
+    public ChunkPosition getPlayerPosition() {
+        return null;
+    }
+
+    @Override
+    public Dimension getDimension() {
         return null;
     }
 }
