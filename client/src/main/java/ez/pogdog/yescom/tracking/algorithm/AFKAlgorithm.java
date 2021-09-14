@@ -4,14 +4,10 @@ import ez.pogdog.yescom.tracking.Tracker;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
 
-import java.util.List;
-
-public class AFKAlgorithm implements ITrackingAlgorithm {
-
-    private final Tracker tracker;
+public class AFKAlgorithm extends TrackingAlgorithm {
 
     public AFKAlgorithm(Tracker tracker, ChunkPosition renderDistanceCenter) {
-        this.tracker = tracker;
+        super(tracker, renderDistanceCenter, tracker.getPosition().getDimension(), false);
     }
 
     @Override
@@ -26,6 +22,7 @@ public class AFKAlgorithm implements ITrackingAlgorithm {
 
     @Override
     public Dimension getDimension() {
+        scanForPlayer(position.getPosition(), Dimension.OVERWORLD);
         return null;
     }
 }

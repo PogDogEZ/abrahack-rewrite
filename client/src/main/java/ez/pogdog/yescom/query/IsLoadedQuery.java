@@ -8,6 +8,7 @@ import com.github.steveice10.packetlib.packet.Packet;
 import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.handlers.connection.Player;
 import ez.pogdog.yescom.util.BlockPosition;
+import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
 
 import java.util.function.BiConsumer;
@@ -184,6 +185,10 @@ public class IsLoadedQuery implements IQuery {
 
     public BlockPosition getPosition() {
         return position;
+    }
+
+    public ChunkPosition getChunkPosition() {
+        return new ChunkPosition(position.getX() /16, position.getZ() / 16);
     }
 
     public Dimension getDimension() {

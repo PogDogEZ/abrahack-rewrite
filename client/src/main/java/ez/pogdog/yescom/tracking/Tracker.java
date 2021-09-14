@@ -2,7 +2,7 @@ package ez.pogdog.yescom.tracking;
 
 import ez.pogdog.yescom.handlers.TrackingHandler;
 import ez.pogdog.yescom.tracking.algorithm.BasicAlgorithm;
-import ez.pogdog.yescom.tracking.algorithm.ITrackingAlgorithm;
+import ez.pogdog.yescom.tracking.algorithm.TrackingAlgorithm;
 import ez.pogdog.yescom.tracking.information.TrackerPosition;
 import ez.pogdog.yescom.tracking.information.Trail;
 import ez.pogdog.yescom.util.ChunkPosition;
@@ -14,12 +14,12 @@ import java.util.UUID;
 /**
  * Main tracker class.
  */
-public class Tracker {
+public class Tracker implements ITracker {
 
     private TrackerPosition position;
     private Trail trail;
 
-    private ITrackingAlgorithm currentAlgorithm;
+    private TrackingAlgorithm currentAlgorithm;
 
     private ArrayList<UUID> possiblePlayers = new ArrayList<>();
 
@@ -54,8 +54,9 @@ public class Tracker {
         lostTicks = 0;
     }
 
-    public TrackingHandler.TrackerTickResult tick() {
-        ITrackingAlgorithm.TickResult tickResult = currentAlgorithm.onTick();
+    @Override
+    public TrackingHandler.TrackerTickResult onTick() {
+        TrackingAlgorithm.TickResult tickResult = currentAlgorithm.onTick();
 
         switch (tickResult) {
             case Moved:
@@ -94,6 +95,7 @@ public class Tracker {
             onFound(chunkPosition, dimension);
         }
         position.moved(chunkPosition, dimension);
+        currentAlgorithm.onTrackerMove(position);
     }
 
     private void onFound(ChunkPosition chunkPosition, Dimension dimension) {
@@ -104,5 +106,13 @@ public class Tracker {
 
     public TrackerPosition getPosition() {
         return position;
+    }
+
+    public int getLostTicks() {
+        return lostTicks;
+    }
+
+    public ArrayList<UUID> getPossiblePlayers() {
+        return possiblePlayers;
     }
 }

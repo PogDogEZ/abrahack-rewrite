@@ -1,5 +1,6 @@
 package ez.pogdog.yescom.tracking;
 
+import ez.pogdog.yescom.handlers.TrackingHandler;
 import ez.pogdog.yescom.tracking.information.TrackerPosition;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
@@ -11,7 +12,7 @@ import java.util.UUID;
 /**
  * Stores data that enables us to continue tracking a player once they log out and rejoin.
  */
-public class TrackedPlayer {
+public class TrackedPlayer implements ITracker {
     private final ChunkPosition logOutPos;
     private final Dimension dimension;
     private final ArrayList<UUID> possiblePlayers = new ArrayList<>();
@@ -22,6 +23,11 @@ public class TrackedPlayer {
 
         if (possiblePlayers != null)
             this.possiblePlayers.addAll(possiblePlayers);
+    }
+
+    @Override
+    public TrackingHandler.TrackerTickResult onTick() {
+        return TrackingHandler.TrackerTickResult.Lost;
     }
 
     public TrackedPlayer(TrackerPosition logOutPos) {
@@ -39,4 +45,5 @@ public class TrackedPlayer {
     public ChunkPosition getLogOutPos() {
         return logOutPos;
     }
+
 }
