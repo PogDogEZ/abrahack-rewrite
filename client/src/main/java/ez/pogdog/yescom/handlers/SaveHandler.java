@@ -47,6 +47,7 @@ public class SaveHandler implements IHandler {
         new File(yesCom.configHandler.MAIN_DIRECTORY).mkdirs();
         new File(yesCom.configHandler.RAW_DIRECTORY).mkdirs();
         new File(yesCom.configHandler.PLAYER_DIRECTORY).mkdirs();
+        new File(yesCom.configHandler.TRACKERS_DIRECTORY).mkdirs();
         new File("data/uncompressed").mkdirs();
     }
 }

@@ -81,6 +81,7 @@ public class ConfigHandler implements IHandler {
     public String MAIN_DIRECTORY = "data";
     public String RAW_DIRECTORY = "data/raw";
     public String PLAYER_DIRECTORY = "data/players";
+    public String TRACKERS_DIRECTORY = "data/trackers";
 
     public int FOUND_LOADED_SAVE_CACHE = 500;
 
