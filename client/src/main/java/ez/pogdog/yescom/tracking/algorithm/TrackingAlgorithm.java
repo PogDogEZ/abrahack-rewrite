@@ -15,6 +15,8 @@ abstract public class TrackingAlgorithm {
 
     protected final Tracker TRACKER;
 
+    protected final int RENDER_DISTANCE = 6;
+
     /**
      * This is used for predictive algorithms, it can be synced to the TRACKER's position with trackerPositionSync.
      */
@@ -32,7 +34,7 @@ abstract public class TrackingAlgorithm {
         }
     }
 
-    /* ------------------------ Abstract Methods ------------------------ */
+    /* ------------------------ Abstract Methods ---------------------- */
 
     public abstract TickResult onTick();
 
@@ -57,8 +59,8 @@ abstract public class TrackingAlgorithm {
      */
     public void scanForPlayer(ChunkPosition position, Dimension dimension) {
         AtomicBoolean foundChunk = new AtomicBoolean(false);
-        for (int chunkX = position.getX() - 30; position.getX() + 30 >= chunkX; chunkX++) {
-            for (int chunkZ = position.getZ() - 30; position.getZ() + 30 >= chunkZ; chunkZ++) {
+        for (int chunkX = position.getX() - 30; position.getX() + 30 >= chunkX; chunkX += RENDER_DISTANCE*2) {
+            for (int chunkZ = position.getZ() - 30; position.getZ() + 30 >= chunkZ; chunkZ += RENDER_DISTANCE*2) {
                 YesCom.getInstance().queryHandler.addQuery(new IsLoadedQuery(new BlockPosition(chunkX, 0, chunkZ),
                         dimension, IQuery.Priority.HIGH, YesCom.getInstance().configHandler.TYPE,
                         (query, result) -> {
