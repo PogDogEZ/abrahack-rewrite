@@ -76,6 +76,13 @@ public class ConfigHandler implements IHandler {
     public double LOW_MULTIPLIER    = 1.0f;
 
     /**
+     * Player tracker options.
+     */
+
+    public double JOIN_RECORD_TIMER  = 60 * 2;
+    public double LEAVE_RECORD_TIMER = 60 * 2;
+
+    /**
      * The data directories for saving things like raw chunk records + player records.
      */
     public String MAIN_DIRECTORY = "data";

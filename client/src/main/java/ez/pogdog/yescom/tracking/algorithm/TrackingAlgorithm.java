@@ -20,18 +20,14 @@ abstract public class TrackingAlgorithm {
     /**
      * This is used for predictive algorithms, it can be synced to the TRACKER's position with trackerPositionSync.
      */
-    protected TrackerPosition position;
-    private final boolean trackerPositionSync;
+    protected TrackerPosition TRACKER_POSITION;
+    protected TrackerPosition ALGORITHM_POSITION;
 
-    TrackingAlgorithm(Tracker tracker, ChunkPosition playerChunk, Dimension dimension ,boolean trackerPositionSync) {
+    TrackingAlgorithm(Tracker tracker, ChunkPosition playerChunk, Dimension dimension) {
         this.TRACKER = tracker;
-        this.trackerPositionSync = trackerPositionSync;
 
-        if (trackerPositionSync) {
-            position = tracker.getPosition();
-        } else {
-            position = new TrackerPosition(playerChunk, dimension);
-        }
+        TRACKER_POSITION = tracker.getPosition();
+        ALGORITHM_POSITION = new TrackerPosition(playerChunk, dimension);
     }
 
     /* ------------------------ Abstract Methods ---------------------- */
@@ -44,11 +40,6 @@ abstract public class TrackingAlgorithm {
 
     /* ------------------------ Public Methods ------------------------ */
 
-    public void onTrackerMove(TrackerPosition trackerPosition) {
-        if (trackerPositionSync)
-            position.moved(trackerPosition.getPosition(), trackerPosition.getDimension());
-    }
-
     /**
      * Searches a 60 chunk radius around the specified position, this is used to relocate the player if we lose him.
      * Also used for dimension changes, assuming we detect the player vanishing from the current dimension in 15 seconds, they would
@@ -59,15 +50,16 @@ abstract public class TrackingAlgorithm {
      */
     public void scanForPlayer(ChunkPosition position, Dimension dimension) {
         AtomicBoolean foundChunk = new AtomicBoolean(false);
+
         for (int chunkX = position.getX() - 30; position.getX() + 30 >= chunkX; chunkX += RENDER_DISTANCE*2) {
             for (int chunkZ = position.getZ() - 30; position.getZ() + 30 >= chunkZ; chunkZ += RENDER_DISTANCE*2) {
-                YesCom.getInstance().queryHandler.addQuery(new IsLoadedQuery(new BlockPosition(chunkX, 0, chunkZ),
+                YesCom.getInstance().queryHandler.addQuery(new IsLoadedQuery(new BlockPosition(chunkX*16, 0, chunkZ*16),
                         dimension, IQuery.Priority.HIGH, YesCom.getInstance().configHandler.TYPE,
                         (query, result) -> {
                                 if (result == IsLoadedQuery.Result.LOADED) {
                                     onPlayerFound(getRenderDistanceCenter(query.getChunkPosition(), dimension), dimension);
                                     foundChunk.set(true);
-                            }
+                                }
                         }));
 
                 if (foundChunk.get())
@@ -81,12 +73,6 @@ abstract public class TrackingAlgorithm {
     }
 
     public void onPlayerFound(ChunkPosition chunkPosition, Dimension dimension) {
-        if (!trackerPositionSync)
-            position.moved(chunkPosition, dimension);
-    }
-
-    public boolean isTrackerPositionSync() {
-        return trackerPositionSync;
     }
 
     public enum TickResult {

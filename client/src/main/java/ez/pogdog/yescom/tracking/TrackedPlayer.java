@@ -13,12 +13,12 @@ import java.util.UUID;
  * Stores data that enables us to continue tracking a player once they log out and rejoin.
  */
 public class TrackedPlayer implements ITracker {
-    private final ChunkPosition logOutPos;
+    private final TrackerPosition logOutPos;
     private final Dimension dimension;
     private final ArrayList<UUID> possiblePlayers = new ArrayList<>();
 
     public TrackedPlayer(TrackerPosition logOutPos, List<UUID> possiblePlayers) {
-        this.logOutPos = logOutPos.getPosition();
+        this.logOutPos = logOutPos;
         this.dimension = logOutPos.getDimension();
 
         if (possiblePlayers != null)
@@ -28,6 +28,10 @@ public class TrackedPlayer implements ITracker {
     @Override
     public TrackingHandler.TrackerTickResult onTick() {
         return TrackingHandler.TrackerTickResult.Lost;
+    }
+
+    @Override
+    public void onPossibleJoin(UUID uuid) {
     }
 
     public TrackedPlayer(TrackerPosition logOutPos) {
@@ -42,7 +46,7 @@ public class TrackedPlayer implements ITracker {
         return dimension;
     }
 
-    public ChunkPosition getLogOutPos() {
+    public TrackerPosition getLogOutPos() {
         return logOutPos;
     }
 

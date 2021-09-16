@@ -1,29 +1,37 @@
 package ez.pogdog.yescom.tracking;
 
+import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.handlers.TrackingHandler;
+import ez.pogdog.yescom.query.IQuery;
+import ez.pogdog.yescom.query.IsLoadedQuery;
 import ez.pogdog.yescom.tracking.algorithm.BasicAlgorithm;
 import ez.pogdog.yescom.tracking.algorithm.TrackingAlgorithm;
 import ez.pogdog.yescom.tracking.information.TrackerPosition;
 import ez.pogdog.yescom.tracking.information.Trail;
+import ez.pogdog.yescom.util.BlockPosition;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Main tracker class.
  */
 public class Tracker implements ITracker {
 
+    private final YesCom yesCom;
+    private final TrackingHandler trackingHandler;
+
     private TrackerPosition position;
     private Trail trail;
 
     private TrackingAlgorithm currentAlgorithm;
 
-    private ArrayList<UUID> possiblePlayers = new ArrayList<>();
+    private List<UUID> possiblePlayers = new ArrayList<>();
 
-    private boolean lost;
     private int lostTicks;
 
     /**
@@ -31,17 +39,22 @@ public class Tracker implements ITracker {
      * @param loadedChunk The initial LoadedChunk which detected the player.
      */
     public Tracker (ChunkPosition loadedChunk, Dimension dimension) {
+        yesCom = YesCom.getInstance();
+        trackingHandler = yesCom.trackingHandler;
+
         position = new TrackerPosition(loadedChunk, dimension);
         trail = new Trail(loadedChunk);
 
         currentAlgorithm = new BasicAlgorithm(this, getCenterPosition(loadedChunk, dimension));
 
-        lost = false;
         lostTicks = 0;
     }
 
     public Tracker (TrackedPlayer trackedPlayer, Dimension dimension) {
-        ChunkPosition logOutPos = trackedPlayer.getLogOutPos();
+        yesCom = YesCom.getInstance();
+        trackingHandler = yesCom.trackingHandler;
+
+        ChunkPosition logOutPos = trackedPlayer.getLogOutPos().getPosition();
 
         position = new TrackerPosition(logOutPos, dimension);
         trail = new Trail(logOutPos);
@@ -50,7 +63,6 @@ public class Tracker implements ITracker {
 
         possiblePlayers.addAll(trackedPlayer.getPossiblePlayers());
 
-        lost = false;
         lostTicks = 0;
     }
 
@@ -61,23 +73,34 @@ public class Tracker implements ITracker {
         switch (tickResult) {
             case Moved:
                 onMove(currentAlgorithm.getPlayerPosition(), currentAlgorithm.getDimension());
+                if (isLost())
+                    onFound(currentAlgorithm.getPlayerPosition(), currentAlgorithm.getDimension());
             case Stagnant:
                 break;
             case Lost:
+                if (!isLost())
+                    onLost();
+
                 lostTicks++;
                 break;
         }
 
         if (lostTicks > 0) {
-            if (!lost)
-                return TrackingHandler.TrackerTickResult.Found;
-
             return TrackingHandler.TrackerTickResult.Lost;
         }
 
         return TrackingHandler.TrackerTickResult.Good;
     }
 
+    @Override
+    public void onPossibleJoin(UUID uuid) {
+        if (!isLost()) {
+            possiblePlayers.remove(uuid);
+            return;
+        }
+
+        checkLastRecordedPos();
+    }
 
     /* ------------------------ Private Methods ------------------------ */
 
@@ -90,16 +113,32 @@ public class Tracker implements ITracker {
         return new ChunkPosition(0, 0);
     }
 
+    private boolean checkLastRecordedPos() {
+        AtomicBoolean loaded = new AtomicBoolean(false);
+        yesCom.queryHandler.addQuery(new IsLoadedQuery(new BlockPosition(position.getX(), 0, position.getZ()),
+                position.getDimension(), IQuery.Priority.HIGH, yesCom.configHandler.TYPE,
+                (query, result) -> {
+                    if (result == IsLoadedQuery.Result.LOADED) {
+                        loaded.set(true);
+
+                        if (isLost())
+                            onFound(new ChunkPosition(position.getX(), position.getZ()), position.getDimension());
+                    }
+                }));
+
+        return loaded.get();
+    }
+
     private void onMove(ChunkPosition chunkPosition, Dimension dimension) {
-        if (lost) {
-            onFound(chunkPosition, dimension);
-        }
         position.moved(chunkPosition, dimension);
-        currentAlgorithm.onTrackerMove(position);
+    }
+
+    private void onLost() {
+        possiblePlayers = trackingHandler.getJoinRecords(trackingHandler.TICK_MIN);
     }
 
     private void onFound(ChunkPosition chunkPosition, Dimension dimension) {
-        lost = false;
+        lostTicks = 0;
     }
 
     /* ------------------------ Public Methods ------------------------ */
@@ -108,11 +147,15 @@ public class Tracker implements ITracker {
         return position;
     }
 
+    public boolean isLost() {
+        return lostTicks > 0;
+    }
+
     public int getLostTicks() {
         return lostTicks;
     }
 
-    public ArrayList<UUID> getPossiblePlayers() {
+    public List<UUID> getPossiblePlayers() {
         return possiblePlayers;
     }
 }
