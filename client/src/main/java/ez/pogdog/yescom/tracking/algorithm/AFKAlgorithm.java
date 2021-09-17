@@ -7,7 +7,7 @@ import ez.pogdog.yescom.util.Dimension;
 public class AFKAlgorithm extends TrackingAlgorithm {
 
     public AFKAlgorithm(Tracker tracker, ChunkPosition renderDistanceCenter) {
-        super(tracker, renderDistanceCenter, tracker.getPosition().getDimension(), false);
+        super(tracker, renderDistanceCenter, tracker.getPosition().getDimension());
     }
 
     @Override
@@ -20,9 +20,16 @@ public class AFKAlgorithm extends TrackingAlgorithm {
         return null;
     }
 
+    // TODO: broken, plz fix
+    @Override
+    public Dimension getDimension() {
+        return null;
+    }
+    /**
     @Override
     public Dimension getDimension() {
         scanForPlayer(position.getPosition(), Dimension.OVERWORLD);
         return null;
     }
+    */
 }

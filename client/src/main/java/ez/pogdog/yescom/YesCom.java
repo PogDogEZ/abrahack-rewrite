@@ -14,6 +14,7 @@ import ez.pogdog.yescom.task.ITask;
 import ez.pogdog.yescom.logging.LogLevel;
 import ez.pogdog.yescom.logging.Logger;
 import ez.pogdog.yescom.task.SpiralScanTask;
+import ez.pogdog.yescom.tracking.TestCenter;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
 import me.iska.jclient.network.Connection;
@@ -161,7 +162,9 @@ public class YesCom {
         taskID = 0;
 
         //currentTasks.add(new StaticScanTask(Dimension.NETHER, null));
-        addTask(new SpiralScanTask(new ChunkPosition(0, 0), 12, Dimension.OVERWORLD, IQuery.Priority.LOW));
+        //addTask(new SpiralScanTask(new ChunkPosition(0, 0), 12, Dimension.OVERWORLD, IQuery.Priority.LOW));
+
+        TestCenter center = new TestCenter(new ChunkPosition(-19,-721), Dimension.OVERWORLD);
 
         logger.info("Done.");
     }

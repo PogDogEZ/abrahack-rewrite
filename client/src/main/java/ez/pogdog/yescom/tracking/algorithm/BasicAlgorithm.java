@@ -7,7 +7,7 @@ import ez.pogdog.yescom.util.Dimension;
 public class BasicAlgorithm extends TrackingAlgorithm {
 
     public BasicAlgorithm(Tracker tracker, ChunkPosition renderDistanceCenter) {
-        super(tracker, renderDistanceCenter, tracker.getPosition().getDimension(), false);
+        super(tracker, renderDistanceCenter, tracker.getPosition().getDimension());
     }
 
     @Override
