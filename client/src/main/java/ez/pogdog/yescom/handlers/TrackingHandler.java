@@ -4,6 +4,7 @@ import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.tracking.ITracker;
 import ez.pogdog.yescom.tracking.Tracker;
 import ez.pogdog.yescom.tracking.TrackedPlayer;
+import ez.pogdog.yescom.tracking.algorithm.TrackingAlgorithm;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
 
@@ -40,15 +41,18 @@ public class TrackingHandler implements IHandler {
     @Override
     public void onTick() {
         activeTrackers.forEach(tracker -> {
-            switch (tracker.onTick()) {
+            TrackerTickResult tickResult = tracker.onTick();
+            switch (tickResult) {
                 case Good:
                     break;
                 case Lost:
+                    /*
                     activeTrackers.remove(tracker);
                     if (!tracker.getPossiblePlayers().isEmpty()) { // Not much we can do if we don't know who the player could be
                         lostTrackers.add(tracker);
                         joinListeners.put(tracker, tracker.getPossiblePlayers());
                     }
+                     */
                     break;
             }
         });
@@ -105,6 +109,7 @@ public class TrackingHandler implements IHandler {
 
     public void addTracker(ChunkPosition chunk, Dimension dimension) {
         activeTrackers.add(new Tracker(chunk, dimension));
+        YesCom.getInstance().logger.info(String.format("Added tracker at %s in %s", chunk.toString(), dimension.toString()));
     }
 
     public void addTracker(Tracker tracker) {
