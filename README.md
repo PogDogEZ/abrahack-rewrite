@@ -5,8 +5,6 @@ Yescom© - Sequel to Nocom (a similar project by NerdsInc)
 Nocom information found here: https://github.com/nerdsinspace/nocom-explanation/blob/main/README.md
 The program does everything that the nerds did with theirs, but more practicaly implemented.
 
-(Heatmap coming soon)
-
 # Exploit Behind It
 
 What makes this all possible is very simple, although is sorta tricky to see in the code. I don't care enough to do a fully "why this works" explanation but I'll sum it
