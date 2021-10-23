@@ -15,9 +15,8 @@ from network.impl.system import System
 from network.impl.user.group import TestGroup
 from network.networking.connection import ServerConnection
 from network.networking.handlers.handshake import HandShakeHandler
-from network.networking.packets import ServerInfoPacket
-from network.networking.types.enum import EncryptionType
 from network.networking.server import Server
+from network.networking.types.enum import EncryptionType
 
 colorama.init()
 
@@ -26,7 +25,7 @@ PROTOCOL_VER = 4  # TODO: Move this somewhere else
 
 
 def main() -> None:
-    logger = Logger("System", log_level=LogLevel.DEBUG)
+    logger = Logger("system", log_level=LogLevel.DEBUG)
     syst = System(logger, login_message="Test",
                   encryption=True, encryption_type=EncryptionType.AES256,
                   compression=False, authentication=True)

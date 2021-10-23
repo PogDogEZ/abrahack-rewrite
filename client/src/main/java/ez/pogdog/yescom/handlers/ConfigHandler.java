@@ -27,6 +27,9 @@ public class ConfigHandler implements IHandler {
 
     public boolean DONT_SHOW_EMAILS = true;
 
+    public int RSA_KEY_SIZE = 2048;
+    public String IDENTITY_DIRECTORY = "identity";
+
     public String HOST_NAME = "localhost";
     public int HOST_PORT = 5001;
     public String USERNAME = "node";
@@ -34,17 +37,25 @@ public class ConfigHandler implements IHandler {
     public String PASSWORD = "t";
 
     /**
-     * ConnectionHandler stuff.
-     * LOGIN_TIME - how long to wait before logging in.
-     * MIN_TIME_CONNECTED - how long to wait, whilst connected, before sending a packet for a given account.
-     * MAX_PACKET_TIME - when to pause packet sending due to lack of response from the server.
+     * How long to wait before logging in.
      */
     public int LOGIN_TIME = 8000;
+
+    /**
+     * How long to wait, while connected, before sending a packet for a given account.
+     */
     public int MIN_TIME_CONNECTED = 5000;
+
+    /**
+     * When to puase packet sending due to lack of server response.
+     */
     public int MAX_PACKET_TIME = 1000;
 
     public double QUERIES_PER_TICK = 2.2f;
     public int MAX_FINISHED_CACHE = 50;
+
+    public int LOGIN_CACHE_TIME = 5000;
+    public int LOGOUT_CACHE_TIME = 20000;
 
     /**
      * Health logout stuff.
@@ -68,19 +79,29 @@ public class ConfigHandler implements IHandler {
     public int DIGGING_TIMEOUT = 2000;
 
     /**
-     * Query queue priority options.
+     * The render distance of the server * 2 + 1.
      */
-    public double USER_MULTIPLIER   = 4.0f;
-    public double HIGH_MULTIPLIER   = 3.0f;
-    public double MEDIUM_MULTIPLIER = 2.0f;
-    public double LOW_MULTIPLIER    = 1.0f;
+    public int RENDER_DISTANCE = 13;
 
     /**
-     * Player tracker options.
+     * How long to wait since the last loaded chunk before checking if the player is online. Recommended lower if
+     * inverted is on.
      */
+    public int BASIC_TRACKER_ONLINE_CHECK_TIME = 5000;
+    /**
+     * Whether to invert the checks, so it checks more unloaded chunks rather than loaded.
+     */
+    public boolean BASIC_TRACKER_INVERT = true;
+    /**
+     * How far to check from known chunks.
+     */
+    public int BASIC_TRACKER_DIST = 3;
 
-    public double JOIN_RECORD_TIMER  = 60 * 2;
-    public double LEAVE_RECORD_TIMER = 60 * 2;
+    public int TRACKING_RESOLVE_SAMPLES = 10;
+    public int TRACKING_SPEED_SAMPLES = 10;
+    public int TRACKING_MAX_REQUERY_TIME = 10000;
+    public int TRACKING_QUICK_MIN_PHASE = 4;
+    public int TRACKING_QUICK_MAX_PHASE = 11;
 
     /**
      * The data directories for saving things like raw chunk records + player records.

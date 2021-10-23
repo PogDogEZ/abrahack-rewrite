@@ -27,40 +27,40 @@ public class InvalidMoveHandler implements IHandler {
      */
     public final List<Integer> VALID_STORAGES = Arrays.asList(23, 54, 130, 154, 158);
 
-    private final Deque<PlayerHandle> handles = new ConcurrentLinkedDeque<>();
+    private final Deque<PlayerHandler> handles = new ConcurrentLinkedDeque<>();
 
     @Override
     public void onTick() {
         if (yesCom.configHandler.TYPE != IsLoadedQuery.Type.INVALID_MOVE) return;
 
-        handles.forEach(PlayerHandle::onTick);
+        handles.forEach(PlayerHandler::onTick);
     }
 
     @Override
     public void onExit() {
-        handles.forEach(PlayerHandle::onExit);
+        handles.forEach(PlayerHandler::onExit);
     }
 
     public void addHandle(Player player) {
-        if (handles.stream().noneMatch(handle -> handle.getPlayer().equals(player))) handles.add(new PlayerHandle(player));
+        if (handles.stream().noneMatch(handle -> handle.getPlayer().equals(player))) handles.add(new PlayerHandler(player));
     }
 
-    public PlayerHandle getHandle(Player player) {
+    public PlayerHandler getHandle(Player player) {
         return handles.stream().filter(handle -> handle.getPlayer().equals(player)).findFirst().orElse(null);
     }
 
     public void removeHandle(Player player) {
-        PlayerHandle handle = getHandle(player);
+        PlayerHandler handle = getHandle(player);
         if (handle != null) handles.remove(handle);
     }
 
     public Player startQuery(IsLoadedQuery query) {
-        Optional<PlayerHandle> bestHandle = handles.stream()
+        Optional<PlayerHandler> bestHandle = handles.stream()
                 .filter(handle -> handle.getPlayer().isConnected() &&
                         handle.getPlayer().getTimeLoggedIn() > yesCom.configHandler.MIN_TIME_CONNECTED &&
                         handle.getPlayer().getDimension() == query.getDimension() &&
                         handle.isStorageOpen())
-                .min(Comparator.comparingInt(PlayerHandle::getCurrentQueries));
+                .min(Comparator.comparingInt(PlayerHandler::getCurrentQueries));
 
         if (bestHandle.isPresent()) {
             if (!bestHandle.get().addQuery(query)) return null;

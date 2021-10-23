@@ -7,6 +7,7 @@ import zlib
 import threading
 
 from collections import deque
+from typing import List, Type
 
 import network.networking.packets
 
@@ -37,6 +38,8 @@ class Connection(GenericSystemObject):
         self._host = host
         self._port = port
         self._sock = sock
+
+        self._capabilities = network.networking.packets.packets.copy()
 
         self.should_exit = False
         self._is_exiting = False
@@ -82,7 +85,7 @@ class Connection(GenericSystemObject):
             while packet_buffer.tell() < packet_length:  # Read excess packet data if we weren't able to read it all
                 packet_buffer.write(self._sock.recv(packet_length - packet_buffer.tell()))
 
-            for packet in network.networking.packets.packets:
+            for packet in self._capabilities:
                 if packet.ID == packet_id:
 
                     if flags & 1:  # Packet is compressed
@@ -183,6 +186,9 @@ class Connection(GenericSystemObject):
             self._packet_queue.append(packet)
         else:
             self._write_packet_instant(packet, no_compression=no_compression)
+
+    def push_capabilities(self, packets: List[Type[Packet]]) -> None:
+        self._capabilities.extend(packets)
 
 
 class ServerConnection(Connection):

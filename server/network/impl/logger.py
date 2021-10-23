@@ -20,8 +20,9 @@ class Logger:  # TODO: PyDoc
     @staticmethod
     def get_time() -> str:
         now = datetime.datetime.now()
-        return "[%i-%i-%i %.2i:%.2i:%.2i.%.2s]" % (now.year, now.month, now.day, now.hour, now.minute, now.second,
-                                                   str(now.microsecond))
+        # return "[%i-%i-%i %.2i:%.2i:%.2i.%.2s]" % (now.year, now.month, now.day, now.hour, now.minute, now.second,
+        #                                            str(now.microsecond))
+        return "[%.2i:%.2i:%.2i.%.2s]" % (now.hour, now.minute, now.second, str(now.microsecond))
 
     @property
     def name(self) -> str:

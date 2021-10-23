@@ -7,9 +7,8 @@ import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 public class SpiralScanTask implements ILoadedChunkTask {
 
@@ -28,6 +27,8 @@ public class SpiralScanTask implements ILoadedChunkTask {
     private int currentIndex;
     private int[] nextSpiral;
 
+    private ChunkPosition currentPosition;
+
     private SpiralAlgorithm spiral;
 
     /**
@@ -35,7 +36,7 @@ public class SpiralScanTask implements ILoadedChunkTask {
      * @param chunkSkip The server render distance * 2
      * @param dimension The dimension to scan in
      */
-    public SpiralScanTask(ChunkPosition startPos, int chunkSkip, Dimension dimension, IQuery.Priority priority) {
+    public SpiralScanTask(ChunkPosition startPos, Integer chunkSkip, Dimension dimension, IQuery.Priority priority) {
         this.startPos = new ChunkPosition(startPos.getX() / chunkSkip, startPos.getZ() / chunkSkip);
         this.chunkSkip = chunkSkip;
         this.dimension = dimension;
@@ -52,6 +53,8 @@ public class SpiralScanTask implements ILoadedChunkTask {
 
         currentQueries = 0;
         currentIndex = 0;
+
+        currentPosition = new ChunkPosition(0, 0);
     }
 
     public SpiralScanTask() {
@@ -67,10 +70,10 @@ public class SpiralScanTask implements ILoadedChunkTask {
             ++currentIndex;
 
             synchronized (this) {
+                currentPosition = getNextSpiral();
                 ++currentQueries;
 
-                yesCom.queryHandler.addQuery(new IsLoadedQuery(getNextSpiral().getPosition(),
-                        dimension, priority, yesCom.configHandler.TYPE,
+                yesCom.queryHandler.addQuery(new IsLoadedQuery(currentPosition, dimension, priority, yesCom.configHandler.TYPE,
                         (query, result) -> {
                             synchronized (this) {
                                 --currentQueries;
@@ -101,6 +104,19 @@ public class SpiralScanTask implements ILoadedChunkTask {
     }
 
     @Override
+    public List<TaskRegistry.Parameter> getParameters() {
+        List<TaskRegistry.Parameter> parameters = new ArrayList<>();
+        List<TaskRegistry.ParamDescription> paramDescriptions = TaskRegistry.getTask(getClass()).getParamDescriptions();
+
+        parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(0), Collections.singletonList(startPos)));
+        parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(1), Collections.singletonList(chunkSkip)));
+        parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(2), Collections.singletonList(dimension)));
+        parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(3), Collections.singletonList(priority)));
+
+        return parameters;
+    }
+
+    @Override
     public boolean isFinished() {
         return false;
     }
@@ -120,14 +136,20 @@ public class SpiralScanTask implements ILoadedChunkTask {
         return String.format("Found loaded (spiral): %s (dim %s).", result, dimension);
     }
 
+    @Override
+    public ChunkPosition getCurrentPosition() {
+        return currentPosition;
+    }
+
     /* ------------------------ Private methods ------------------------ */
 
     private void onLoaded(ChunkPosition chunkPosition) {
         yesCom.logger.info(getFormattedResult(chunkPosition));
+        if (yesCom.handler != null) yesCom.handler.onTaskResult(this, getFormattedResult(chunkPosition));
         onLoaded(chunkPosition, dimension);
 
         //TODO: Can remove me later, just for testing and felt like afking it
-        yesCom.saveHandler.saveUncompressed(getFormattedResult(chunkPosition.getPosition()), "SpiralScanLog");
+        yesCom.dataHandler.saveUncompressed(getFormattedResult(chunkPosition.getPosition()), "SpiralScanLog");
     }
 
     private ChunkPosition getNextSpiral() {

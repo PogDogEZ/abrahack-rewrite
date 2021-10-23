@@ -1,12 +1,12 @@
 package ez.pogdog.yescom.tracking;
 
-import ez.pogdog.yescom.handlers.TrackingHandler;
-
-import java.util.UUID;
+import ez.pogdog.yescom.data.serializable.TrackedPlayer;
 
 public interface ITracker {
 
-    TrackingHandler.TrackerTickResult onTick();
+    void onTick();
+    void onLost();
 
-    void onPossibleJoin(UUID uuid);
+    long getTrackerID();
+    TrackedPlayer getTrackedPlayer();
 }

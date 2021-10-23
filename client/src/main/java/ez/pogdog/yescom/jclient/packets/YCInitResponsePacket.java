@@ -11,46 +11,75 @@ import java.io.OutputStream;
 @Packet.Info(name="yc_init_response", id=YCRegistry.ID_OFFSET + 1, side=Packet.Side.SERVER)
 public class YCInitResponsePacket extends Packet {
 
+    private boolean extendedInit;
+    private byte[] signature;
+
     private boolean rejected;
     private int handlerID;
     private String message;
-    private String hostName;
-    private int hostPort;
 
-    public YCInitResponsePacket(boolean rejected, int handlerID, String message, String hostName, int hostPort) {
+    public YCInitResponsePacket(boolean extendedInit, byte[] signature, boolean rejected, int handlerID, String message) {
+        this.extendedInit = extendedInit;
+        this.signature = signature.clone();
         this.rejected = rejected;
         this.handlerID = handlerID;
         this.message = message;
-        this.hostName = hostName;
-        this.hostPort = hostPort;
+    }
+
+    public YCInitResponsePacket(boolean rejected, int handlerID, String message) {
+        this(false, new byte[0], rejected, handlerID, message);
+    }
+
+    public YCInitResponsePacket(byte[] signature) {
+        this(true, signature, false, 0, "");
     }
 
     public YCInitResponsePacket() {
-        this(false, 0, "", "localhost", 25565);
+        this(false, new byte[0], false, 0, "");
     }
 
     @Override
     public void read(InputStream inputStream) throws IOException {
-        rejected = Registry.BOOLEAN.read(inputStream);
-        handlerID = Registry.UNSIGNED_SHORT.read(inputStream);
-        message = Registry.STRING.read(inputStream);
+        extendedInit = Registry.BOOLEAN.read(inputStream);
 
-        if (!rejected) {
-            hostName = Registry.STRING.read(inputStream);
-            hostPort = Registry.UNSIGNED_SHORT.read(inputStream);
+        if (extendedInit) {
+            signature = Registry.BYTES.read(inputStream);
+        } else {
+            rejected = Registry.BOOLEAN.read(inputStream);
+            message = Registry.STRING.read(inputStream);
+
+            if (!rejected) handlerID = Registry.UNSIGNED_SHORT.read(inputStream);
         }
     }
 
     @Override
     public void write(OutputStream outputStream) throws IOException {
-        Registry.BOOLEAN.write(rejected, outputStream);
-        Registry.UNSIGNED_SHORT.write(handlerID, outputStream);
-        Registry.STRING.write(message, outputStream);
+        Registry.BOOLEAN.write(extendedInit, outputStream);
 
-        if (!rejected) {
-            Registry.STRING.write(hostName, outputStream);
-            Registry.UNSIGNED_SHORT.write(hostPort, outputStream);
+        if (extendedInit) {
+            Registry.BYTES.write(signature, outputStream);
+        } else {
+            Registry.BOOLEAN.write(rejected, outputStream);
+            Registry.STRING.write(message, outputStream);
+
+            if (!rejected) Registry.UNSIGNED_SHORT.write(handlerID, outputStream);
         }
+    }
+
+    public boolean isExtendedInit() {
+        return extendedInit;
+    }
+
+    public void setExtendedInit(boolean extendedInit) {
+        this.extendedInit = extendedInit;
+    }
+
+    public byte[] getSignature() {
+        return signature.clone();
+    }
+
+    public void setSignature(byte[] signature) {
+        this.signature = signature.clone();
     }
 
     public boolean isRejected() {
@@ -75,21 +104,5 @@ public class YCInitResponsePacket extends Packet {
 
     public void setMessage(String message) {
         this.message = message;
-    }
-
-    public String getHostName() {
-        return hostName;
-    }
-
-    public void setHostName(String hostName) {
-        this.hostName = hostName;
-    }
-
-    public int getHostPort() {
-        return hostPort;
-    }
-
-    public void setHostPort(int hostPort) {
-        this.hostPort = hostPort;
     }
 }

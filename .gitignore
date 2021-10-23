@@ -1,10 +1,17 @@
 /client/.idea/
+/client/.gradle/
+/client/build/
+/client/identity/
 /client/accounts.txt
 /client/config.yml
 
 /api/.idea/
+/api/.gradle/
+/api/build/
 
 /viewer/.idea/
 /viewer/venv/
 
+/server/.idea/
+/server/trusted_handlers/
 /server/config.json

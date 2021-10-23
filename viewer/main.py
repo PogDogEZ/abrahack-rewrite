@@ -6,8 +6,9 @@ import pclient.networking.packets
 import viewer.network.packets
 
 from viewer import Viewer
-from viewer.gui.main_frame import MainFrame
+from viewer.gui.frames.connect import ConnectFrame
 from pclient.impl.logger import Logger, LogLevel
+from viewer.gui.frames.main_frame import MainFrame
 
 if __name__ == "__main__":
     logger = Logger("viewer", show_time=True, show_name=False, log_level=LogLevel.DEBUG)
@@ -17,10 +18,10 @@ if __name__ == "__main__":
     logger.debug("Done.")
 
     root = Tk()
-    root.title("YesCom Viewer")
+    root.title("Viewer")
 
     viewer = Viewer(logger)
 
-    MainFrame(root, viewer)
+    ConnectFrame(root, viewer)
 
     root.mainloop()

@@ -109,22 +109,22 @@ class Float(Type):
 
     @classmethod
     def read(cls, fileobj: IO) -> float:
-        return struct.unpack("f", fileobj.read(4))
+        return struct.unpack(">f", fileobj.read(4))[0]
 
     @classmethod
     def write(cls, floating: float, fileobj: IO) -> None:
-        fileobj.write(struct.pack("f", floating))
+        fileobj.write(struct.pack(">f", floating))
 
 
 class Double(Type):
 
     @classmethod
     def read(cls, fileobj: IO) -> float:
-        return struct.unpack("d", fileobj.read(8))
+        return struct.unpack(">d", fileobj.read(8))[0]
 
     @classmethod
     def write(cls, double: float, fileobj: IO) -> None:
-        fileobj.write(struct.pack("d", double))
+        fileobj.write(struct.pack(">d", double))
 
 
 class String(Type):
@@ -132,11 +132,11 @@ class String(Type):
     @classmethod
     def read(cls, fileobj: IO) -> str:
         string_length = UnsignedShort.read(fileobj)
-        return fileobj.read(string_length).decode()
+        return fileobj.read(string_length).decode("utf-8")
 
     @classmethod
     def write(cls, string: str, fileobj: IO) -> None:
-        string = string.encode()
+        string = string.encode("utf-8")
         UnsignedShort.write(len(string), fileobj)
         fileobj.write(string)
 

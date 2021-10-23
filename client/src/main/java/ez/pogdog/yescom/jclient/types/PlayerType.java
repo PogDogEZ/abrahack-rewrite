@@ -11,6 +11,7 @@ import me.iska.jclient.network.packet.Type;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.util.UUID;
 
 public class PlayerType extends Type<Player> {
@@ -19,7 +20,7 @@ public class PlayerType extends Type<Player> {
     public Player read(InputStream inputStream) throws IOException {
         String username = Registry.STRING.read(inputStream);
 
-        UUID uuid = UUID.fromString(Registry.STRING.read(inputStream));
+        UUID uuid = UUID.nameUUIDFromBytes(Registry.BYTES.read(inputStream));
         String displayName = Registry.STRING.read(inputStream);
 
         Position position = YCRegistry.POSITION.read(inputStream);
@@ -39,7 +40,11 @@ public class PlayerType extends Type<Player> {
     public void write(Player value, OutputStream outputStream) throws IOException {
         Registry.STRING.write(value.getAuthService().getUsername(), outputStream);
 
-        Registry.STRING.write(value.getAuthService().getSelectedProfile().getId().toString(), outputStream);
+        UUID uuid = value.getAuthService().getSelectedProfile().getId();
+        Registry.BYTES.write(ByteBuffer.allocate(16)
+                .putLong(uuid.getMostSignificantBits())
+                .putLong(uuid.getLeastSignificantBits())
+                .array(), outputStream);
         Registry.STRING.write(value.getAuthService().getSelectedProfile().getName(), outputStream);
 
         YCRegistry.POSITION.write(value.getPosition(), outputStream);

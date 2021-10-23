@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-from typing import List
+from typing import List, Tuple
 
 from . import Event
-from ...networking.packets.packet import Packet
+from ...networking.packets.packet import Packet, Side
 
 
 class GenericNetworkConnectionEvent(Event):
@@ -138,17 +138,35 @@ class EncryptionSuccessEvent(GenericNetworkConnectionEvent):
 
 class ClientCapabilitiesEvent(GenericNetworkConnectionEvent):
 
-    def __init__(self, accepted_packets: List[Packet], rejected: bool, connection) -> None:
+    def __init__(self, unmapped_packets: List[Tuple[int, str, Side]], packets: List[Tuple[int, str, Side]],
+                 rejected: bool, connection) -> None:
         super().__init__(connection)
 
-        self._accepted_packets = accepted_packets
+        self._unmapped_packets = unmapped_packets
+        self._packets = packets
         self._rejected = rejected
 
     def __repr__(self) -> str:
         return "ClientCapabilitiesEvent(rejected=%s, connection=%r)" % (self._rejected, self._connection)
 
-    def get_accepted_packets(self) -> List[Packet]:
-        return self._accepted_packets.copy()
+    def get_unmapped_packets(self) -> List[Tuple[int, str, Side]]:
+        return self._unmapped_packets.copy()
+
+    def add_unmapped_packet(self, unmapped_packet: Tuple[int, str, Side]) -> None:
+        self._unmapped_packets.append(unmapped_packet)
+
+    def set_unmapped_packets(self, unmapped_packets: List[Tuple[int, str, Side]]) -> None:
+        self._unmapped_packets.clear()
+        self._unmapped_packets.extend(unmapped_packets)
+
+    def extend_unmapped_packets(self, unmapped_packets: List[Tuple[int, str, Side]]) -> None:
+        self._unmapped_packets.extend(unmapped_packets)
+
+    def remove_unmapped_packet(self, unmapped_packet: Tuple[int, str, Side]) -> None:
+        self._unmapped_packets.remove(unmapped_packet)
+
+    def get_packets(self) -> List[Tuple[int, str, Side]]:
+        return self._packets.copy()
 
     def get_rejected(self) -> bool:
         return self._rejected

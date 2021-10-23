@@ -3,19 +3,17 @@ package ez.pogdog.yescom;
 import ez.pogdog.yescom.handlers.AccountHandler;
 import ez.pogdog.yescom.handlers.ConfigHandler;
 import ez.pogdog.yescom.handlers.QueryHandler;
-import ez.pogdog.yescom.handlers.SaveHandler;
+import ez.pogdog.yescom.handlers.DataHandler;
 import ez.pogdog.yescom.handlers.connection.ConnectionHandler;
 import ez.pogdog.yescom.handlers.invalidmove.InvalidMoveHandler;
 import ez.pogdog.yescom.handlers.TrackingHandler;
 import ez.pogdog.yescom.jclient.YCRegistry;
 import ez.pogdog.yescom.jclient.handlers.YCHandler;
-import ez.pogdog.yescom.query.IQuery;
 import ez.pogdog.yescom.task.ITask;
 import ez.pogdog.yescom.logging.LogLevel;
 import ez.pogdog.yescom.logging.Logger;
-import ez.pogdog.yescom.task.SpiralScanTask;
-import ez.pogdog.yescom.util.ChunkPosition;
-import ez.pogdog.yescom.util.Dimension;
+import me.iska.jclient.impl.user.Group;
+import me.iska.jclient.impl.user.User;
 import me.iska.jclient.network.Connection;
 import me.iska.jclient.network.handler.DefaultHandler;
 import org.apache.commons.cli.CommandLine;
@@ -39,7 +37,13 @@ import java.util.Locale;
  * More info on this program: https://github.com/node3112/coordexploit/blob/main/README.md
  *
  * Project Credits:
- * [soon]
+ * Node - Wrote most of the client/server/viewer, as well as had the idea for the exploit originally.
+ * NathanW - Worked on the client (barely), found the good way to listen for loaded chunks.
+ * Arzi - Worked on the client
+ *
+ * Honorable mentions
+ * Ianmc05
+ * Hobrin
  */
 public class YesCom {
 
@@ -61,19 +65,32 @@ public class YesCom {
 
         Option accountsFileOpt = new Option("af", "accountsFile", true, "The path to the accounts file.");
         accountsFileOpt.setArgName("path");
+        accountsFileOpt.setType(String.class);
         options.addOption(accountsFileOpt);
 
         Option rulesFileOpt = new Option("rf", "configFile", true, "The path to the config file.");
         rulesFileOpt.setArgName("path");
+        rulesFileOpt.setType(String.class);
         options.addOption(rulesFileOpt);
 
         Option hostOpt = new Option("h", "host", true, "The host IP to connect to.");
         hostOpt.setRequired(true);
+        hostOpt.setType(String.class);
         options.addOption(hostOpt);
 
         Option portOpt = new Option("p", "port", true, "The port to use.");
         portOpt.setType(Integer.class);
         options.addOption(portOpt);
+
+        Option noYCConnectionOpt = new Option("noyc", "no-yc-connection", false,
+                "Stops the connection to a remote server, for data reporting,");
+        noYCConnectionOpt.setType(Boolean.class);
+        options.addOption(noYCConnectionOpt);
+
+        Option ycHandlerName = new Option("n", "handler-name", true, "The name of the YC handler.");
+        ycHandlerName.setArgName("name");
+        ycHandlerName.setType(String.class);
+        options.addOption(ycHandlerName);
 
         CommandLineParser parser = new DefaultParser();
 
@@ -86,6 +103,8 @@ public class YesCom {
             String configFile = cmd.getOptionValue("configFile");
             String host = cmd.getOptionValue("host");
             String port = cmd.getOptionValue("port");
+            boolean noYCConnection = cmd.hasOption("no-yc-connection");
+            String handlerName = cmd.getOptionValue("handler-name");
 
             try {
                 tempLogger.setLogLevel(LogLevel.valueOf(logLevel.toUpperCase(Locale.ROOT)));
@@ -95,7 +114,8 @@ public class YesCom {
             instance = new YesCom(tempLogger.getLogLevel(),
                     accountsFile == null ? "accounts.txt" : accountsFile,
                     configFile == null ? "config.yml" : configFile,
-                    host, port == null ? 25565 : Integer.decode(port));
+                    host, port == null ? 25565 : Integer.decode(port),
+                    noYCConnection, handlerName == null ? "test" : handlerName);
             Runtime.getRuntime().addShutdownHook(new Thread(instance::exit));
             instance.run();
 
@@ -117,14 +137,17 @@ public class YesCom {
     public final ConnectionHandler connectionHandler;
     public final InvalidMoveHandler invalidMoveHandler;
     public final QueryHandler queryHandler;
-    public final SaveHandler saveHandler;
+    public final DataHandler dataHandler;
     public final TrackingHandler trackingHandler;
     private final List<ITask> currentTasks = new ArrayList<>();
 
     private boolean alive;
     private int taskID;
 
-    public YesCom(LogLevel logLevel, String accountFilePath, String configFilePath, String host, int port) {
+    private long lastTaskUpdate;
+
+    public YesCom(LogLevel logLevel, String accountFilePath, String configFilePath, String host, int port,
+                  boolean noYCConnection, String handlerName) {
         instance = this;
 
         logger = new Logger("yescom", logLevel);
@@ -141,37 +164,35 @@ public class YesCom {
         connectionHandler = new ConnectionHandler(host, port);
         invalidMoveHandler = new InvalidMoveHandler();
         queryHandler = new QueryHandler();
-        saveHandler = new SaveHandler();
+        dataHandler = new DataHandler();
         trackingHandler = new TrackingHandler();
 
-        /*
-        connection = new Connection(configHandler.HOST_NAME, configHandler.HOST_PORT, logger);
-        connection.setAuthSuppliers(
-                () -> new User(configHandler.USERNAME, 1, 4,
-                        new Group(configHandler.GROUP_NAME, 1, 4)),
-                () -> configHandler.PASSWORD);
-        handler = new YCHandler(connection, "test");
-        connection.addHandler(handler);
-         */
+        if (noYCConnection) {
+            connection = null;
+            handler = null;
 
-        connection = null;
-        handler = null;
+        } else {
+            connection = new Connection(configHandler.HOST_NAME, configHandler.HOST_PORT, logger);
+            connection.setAuthSuppliers(
+                    () -> new User(configHandler.USERNAME, 1, 4,
+                            new Group(configHandler.GROUP_NAME, 1, 4)),
+                    () -> configHandler.PASSWORD);
+            handler = new YCHandler(connection, handlerName);
+            connection.addHandler(handler);
+        }
 
         alive = true;
         taskID = 0;
 
-        //currentTasks.add(new StaticScanTask(Dimension.NETHER, null));
-        addTask(new SpiralScanTask(new ChunkPosition(0, 0), 12, Dimension.OVERWORLD, IQuery.Priority.LOW));
-
-        logger.info("Done.");
+        lastTaskUpdate = System.currentTimeMillis();
     }
 
     private void onTick() {
         if (connection != null && !connection.isConnected() && !connection.isExited()) {
             try {
                 connection.connect();
-            } catch (IOException error) {
-                error.printStackTrace();
+            } catch (IOException ignored) {
+                // error.printStackTrace();
             }
             return; // Don't tick until we've connected
         } else if (connection != null && connection.isExited()) {
@@ -181,13 +202,21 @@ public class YesCom {
         }
 
         if (connection != null && handler != null && connection.getHandler() instanceof DefaultHandler &&
-                !handler.isInitialized())
+                !handler.isInitialized()) {
             handler.initConnection();
+            return;
+        }
+
+        // Only down here so that the handler gets notified about the added task
+        if (currentTasks.isEmpty() && (handler == null || handler.isSynced()));
 
         configHandler.onTick();
 
         accountHandler.onTick();
         connectionHandler.onTick();
+
+        boolean doTaskUpdate = System.currentTimeMillis() - lastTaskUpdate > 1000;
+        if (doTaskUpdate) lastTaskUpdate = System.currentTimeMillis();
 
         new ArrayList<>(currentTasks).forEach(task -> {
             if (task.isFinished()) {
@@ -195,26 +224,27 @@ public class YesCom {
                 removeTask(task);
             } else {
                 task.onTick();
+                if (doTaskUpdate && handler != null) handler.onTaskUpdate(task);
             }
         });
 
-        /* TODO: Someone who is working on the tracker please fix this
-        new ArrayList<>(trackingHandler.activeTrackers).forEach(tracker -> {
-            if (tracker.isLost()) {
-                logger.debug(String.format("Lost tracker with ID: %s.", tracker.getID()));
-                trackingHandler.activeTrackers.remove(tracker);
+        if (handler != null) {
+            if (connectionHandler.isConnected()) {
+                handler.onInfoUpdate(queryHandler.getWaitingSize(), queryHandler.getTickingSize(),
+                        connectionHandler.getMeanTickRate(), connectionHandler.getTimeSinceLastPacket());
             } else {
-                tracker.onTick();
+                handler.onInfoUpdate(queryHandler.getWaitingSize(), queryHandler.getTickingSize());
             }
-        });
-         */
+        }
 
         invalidMoveHandler.onTick();
         queryHandler.onTick();
 
         trackingHandler.onTick();
 
-        saveHandler.onTick();
+        dataHandler.onTick();
+
+        if (handler != null) handler.onTick();
     }
 
     @SuppressWarnings("BusyWait")
@@ -248,7 +278,7 @@ public class YesCom {
 
             trackingHandler.onExit();
 
-            saveHandler.onExit();
+            dataHandler.onExit();
             configHandler.onExit();
             logger.info("Done!");
         }
@@ -265,15 +295,15 @@ public class YesCom {
     public void removeTask(ITask task) {
         if (currentTasks.remove(task)) {
             task.onFinished();
-            if (handler != null) handler.onTaskAdded(task);
+            if (handler != null) handler.onTaskRemoved(task);
         }
     }
 
     public void removeTask(int taskID) {
-        ITask task = currentTasks.remove(taskID);
-        if (task != null) {
+        currentTasks.stream().filter(task -> task.getID() == taskID).findFirst().ifPresent(task -> {
+            currentTasks.remove(task);
             task.onFinished();
             if (handler != null) handler.onTaskRemoved(task);
-        }
+        });
     }
 }

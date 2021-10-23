@@ -13,6 +13,7 @@ import com.github.steveice10.packetlib.tcp.TcpClientSession;
 import com.github.steveice10.packetlib.tcp.TcpSessionFactory;
 import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.handlers.IHandler;
+import ez.pogdog.yescom.util.Dimension;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -32,6 +33,9 @@ public class ConnectionHandler implements IHandler {
 
     private final YesCom yesCom = YesCom.getInstance();
 
+    public final Map<UUID, Long> recentJoins = new HashMap<>();
+    public final Map<UUID, Long> recentLeaves = new HashMap<>();
+
     private final List<Player> players = new ArrayList<>();
     private final Map<UUID, Long> healthLogout = new HashMap<>();
 
@@ -43,6 +47,8 @@ public class ConnectionHandler implements IHandler {
     public ConnectionHandler(String host, int port) {
         this.host = host;
         this.port = port;
+
+        lastLoginTime = System.currentTimeMillis() + yesCom.configHandler.LOGIN_TIME;
 
         yesCom.logger.info(String.format("Server is %s:%d.", host, port));
     }
@@ -64,6 +70,13 @@ public class ConnectionHandler implements IHandler {
         yesCom.accountHandler.getAccounts().forEach(authService -> {
             if (System.currentTimeMillis() - lastLoginTime > yesCom.configHandler.LOGIN_TIME) login(authService);
         });
+
+        new HashMap<>(recentJoins).forEach((uuid, time) -> {
+            if (System.currentTimeMillis() - time > yesCom.configHandler.LOGIN_CACHE_TIME) recentJoins.remove(uuid);
+        });
+        new HashMap<>(recentLeaves).forEach((uuid, time) -> {
+            if (System.currentTimeMillis() - time > yesCom.configHandler.LOGOUT_CACHE_TIME) recentLeaves.remove(uuid);
+        });
     }
 
     @Override
@@ -79,6 +92,28 @@ public class ConnectionHandler implements IHandler {
                 System.currentTimeMillis() - healthLogout.get(authService.getSelectedProfile().getId()) > yesCom.configHandler.HEALTH_RELOG_TIME;
     }
 
+    private void onJoinLeave(Player.PlayerAction action, UUID uuid) {
+        switch (action) {
+            case ADD: {
+                yesCom.trackingHandler.onPlayerJoin(uuid);
+                if (recentLeaves.containsKey(uuid) && System.currentTimeMillis() - recentLeaves.get(uuid) < 2000) {
+                    recentLeaves.remove(uuid);
+                    return;
+                }
+                recentJoins.put(uuid, System.currentTimeMillis());
+                break;
+            }
+            case REMOVE: {
+                if (recentJoins.containsKey(uuid) && System.currentTimeMillis() - recentJoins.get(uuid) < 2000) {
+                    recentJoins.remove(uuid);
+                    return;
+                }
+                recentLeaves.put(uuid, System.currentTimeMillis());
+                break;
+            }
+        }
+    }
+
     /* ------------------------ Server Stuff ------------------------ */
 
     /**
@@ -87,7 +122,7 @@ public class ConnectionHandler implements IHandler {
      * @param name The in game name of the player.
      * @return Whether they are online.
      */
-    public boolean isPlayerOnline(String name) {
+    public synchronized boolean isPlayerOnline(String name) {
         int count = 0;
         for (Player player : players) {
             if (player.isPlayerOnline(name)) ++count;
@@ -101,7 +136,7 @@ public class ConnectionHandler implements IHandler {
      * @param uuid The UUID of the player.
      * @return Whether they are online.
      */
-    public boolean isPlayerOnline(UUID uuid) {
+    public synchronized boolean isPlayerOnline(UUID uuid) {
         int count = 0;
         for (Player player : players) {
             if (player.isPlayerOnline(uuid)) ++count;
@@ -113,8 +148,8 @@ public class ConnectionHandler implements IHandler {
      * Returns the mean tickrate across all currently online players.
      * @return The mean tickrate.
      */
-    public float getMeanTickRate() {
-        return players.stream().map(Player::getMeanTickRate).reduce(Float::sum).orElse(20.0f) / Math.max(1.0f, players.size());
+    public synchronized float getMeanTickRate() {
+        return (float)players.stream().mapToDouble(Player::getMeanTickRate).sum() / Math.max(1.0f, players.size());
     }
 
     /* ------------------------ Account and Player Stuff ------------------------ */
@@ -133,7 +168,11 @@ public class ConnectionHandler implements IHandler {
                     new TcpSessionFactory(null)), null);
 
             Player player = new Player(authService, session);
-            players.add(player);
+            synchronized (this) {
+                players.add(player);
+            }
+
+            player.addJoinLeaveListener(this::onJoinLeave);
 
             // coordExploit.ceHandler.onPlayerAdded(player);
 
@@ -163,7 +202,10 @@ public class ConnectionHandler implements IHandler {
     public void logout(Player player) {
         if (player == null || !players.contains(player)) return;
 
-        players.remove(player);
+        synchronized (this) {
+            players.remove(player);
+        }
+
         player.disconnect("Logged out.");
     }
 
@@ -187,7 +229,7 @@ public class ConnectionHandler implements IHandler {
         return true;
     }
 
-    public Player sendPacket(Predicate<Player> predicate, Packet packet) {
+    public synchronized Player sendPacket(Predicate<Player> predicate, Packet packet) {
         Optional<Player> bestMatch = players.stream()
                 .filter(predicate)
                 .findFirst();
@@ -224,7 +266,7 @@ public class ConnectionHandler implements IHandler {
      * @param uuid The UUID.
      * @return The player, null if no matching player was found.
      */
-    public Player getPlayer(UUID uuid) {
+    public synchronized Player getPlayer(UUID uuid) {
         return players.stream()
                 .filter(player -> player.getAuthService().getSelectedProfile().getId().equals(uuid))
                 .findFirst()
@@ -236,7 +278,7 @@ public class ConnectionHandler implements IHandler {
      * @param name Their in game display name (not case sensitive).
      * @return The player, null if no matching player was found.
      */
-    public Player getPlayer(String name) {
+    public synchronized Player getPlayer(String name) {
         return players.stream()
                 .filter(player -> player.getAuthService().getSelectedProfile().getName().equalsIgnoreCase(name))
                 .findFirst()
@@ -247,16 +289,29 @@ public class ConnectionHandler implements IHandler {
         return new ArrayList<>(players);
     }
 
+    public synchronized Map<UUID, String> getOnlinePlayers() {
+        return players.stream()
+                .filter(Player::isConnected)
+                .sorted(Comparator.comparing(Player::getTimeLoggedIn))
+                .map(Player::getOnlinePlayers)
+                .findFirst()
+                .orElse(new HashMap<>());
+    }
+
     /**
      * Returns the time since the last packet for ALL players connected to the server, this will be the minimum time.
      * @return The time connected.
      */
-    public int getTimeSinceLastPacket() {
+    public synchronized int getTimeSinceLastPacket() {
         Player player = players.stream().min(Comparator.comparingInt(Player::getTimeSinceLastPacket)).orElse(null);
         return player == null ? 0 : player.getTimeSinceLastPacket();
     }
 
-    public boolean isConnected() {
+    public synchronized boolean hasAccountsIn(Dimension dimension) {
+        return players.stream().anyMatch(player -> player.getDimension() == dimension);
+    }
+
+    public synchronized boolean isConnected() {
         return players.stream().anyMatch(Player::isConnected);
     }
 
@@ -285,16 +340,21 @@ public class ConnectionHandler implements IHandler {
 
         @Override
         public void connected(ConnectedEvent event) {
+            if (yesCom.handler != null) yesCom.handler.onPlayerAdded(player);
             yesCom.invalidMoveHandler.addHandle(player);
         }
 
         @Override
         public void disconnected(DisconnectedEvent event) {
+            if (yesCom.handler != null) yesCom.handler.onPlayerRemoved(player, event.getReason());
             yesCom.logger.info(String.format("%s was disconnected for: %s",
                     player.getAuthService().getSelectedProfile().getName(), event.getReason()));
             yesCom.invalidMoveHandler.removeHandle(player);
             lastLoginTime = System.currentTimeMillis(); // Do this because if we get chain kicked we don't want to try and login immediately
-            players.remove(player);
+
+            synchronized (yesCom.connectionHandler) {
+                players.remove(player);
+            }
         }
 
         public Player getPlayer() {

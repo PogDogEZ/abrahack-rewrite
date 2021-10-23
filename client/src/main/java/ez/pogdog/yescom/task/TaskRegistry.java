@@ -9,6 +9,7 @@ import ez.pogdog.yescom.util.Position;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Holds all registered tasks.
@@ -53,13 +54,31 @@ public class TaskRegistry {
         ));
 
         registeredTasks.add(new RegisteredTask(
+                HighwayScanTask.class,
+                "highway_scan",
+                "A scan that only checks the highways, for a given distance.",
+                new ParamDescription("maxDistance", "The maximum distance to scan to.",
+                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.INTEGER),
+                new ParamDescription("minDistance", "The minumum distance to scan from.",
+                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.INTEGER),
+                new ParamDescription("chunkSkip",
+                        "The number of chunks to linearly skip while scanning " +
+                                "(recommended the render distance of the server * 2).",
+                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.INTEGER),
+                new ParamDescription("dimension", "The dimension to scan in.",
+                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.DIMENSION),
+                new ParamDescription("priority", "The query priority.",
+                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.PRIORITY)
+        ));
+
+        registeredTasks.add(new RegisteredTask(
                 StaticScanTask.class,
                 "static_scan",
                 "A scan task that only checks coordinates from a given array.",
+                new ParamDescription("positions", "Static positions to scan.",
+                        ParamDescription.InputType.ARRAY, ParamDescription.DataType.CHUNK_POSITION),
                 new ParamDescription("dimension", "The dimension to scan in.",
                         ParamDescription.InputType.SINGULAR, ParamDescription.DataType.DIMENSION),
-                new ParamDescription("addonPositions", "Static positions to keep scanning of.",
-                        ParamDescription.InputType.ARRAY, ParamDescription.DataType.CHUNK_POSITION),
                 new ParamDescription("priority", "The query priority.",
                         ParamDescription.InputType.SINGULAR, ParamDescription.DataType.PRIORITY)
         ));
@@ -126,6 +145,24 @@ public class TaskRegistry {
             this.dataType = dataType;
         }
 
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (other == null || getClass() != other.getClass()) return false;
+            ParamDescription that = (ParamDescription)other;
+            return name.equals(that.name) && description.equals(that.description) && inputType == that.inputType && dataType == that.dataType;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name, description, inputType, dataType);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("ParamDescription(name=%s, itype=%s, dtype=%s)", name, inputType, dataType);
+        }
+
         /**
          * The name of the parameter.
          */
@@ -163,7 +200,7 @@ public class TaskRegistry {
             CHUNK_POSITION(ChunkPosition.class),
             DIMENSION(Dimension.class),
             PRIORITY(IQuery.Priority.class),
-            STRING(String.class), INTEGER(int.class), FLOAT(float.class), BOOLEAN(boolean.class);
+            STRING(String.class), INTEGER(Integer.class), FLOAT(Float.class), BOOLEAN(Boolean.class);
 
             private final Class<?> clazz;
 
@@ -174,6 +211,45 @@ public class TaskRegistry {
             public Class<?> getClazz() {
                 return clazz;
             }
+        }
+    }
+
+    /**
+     * This class is only for network compatibility.
+     */
+    public static class Parameter {
+
+        private final List<Object> values = new ArrayList<>();
+
+        private final ParamDescription paramDescription;
+
+        /*
+        public Parameter(ParamDescription paramDescription, Object value) {
+            this.paramDescription = paramDescription;
+            values.add(value);
+        }
+         */
+
+        public Parameter(ParamDescription paramDescription, List<?> values) {
+            this.paramDescription = paramDescription;
+            this.values.addAll(values);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("Parameter(description=%s, values=%s)", paramDescription, values);
+        }
+
+        public ParamDescription getParamDescription() {
+            return paramDescription;
+        }
+
+        public Object getValue() {
+            return values.get(0);
+        }
+
+        public List<Object> getValues() {
+            return new ArrayList<>(values);
         }
     }
 }

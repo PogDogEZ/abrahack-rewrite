@@ -194,6 +194,7 @@ public class Player {
     }
 
     public void onTick() {
+
     }
 
     public void onExit() {
@@ -295,12 +296,16 @@ public class Player {
         return onlinePlayers.entrySet().stream().anyMatch(entry -> entry.getValue().equalsIgnoreCase(name));
     }
 
+    public Map<UUID, String> getOnlinePlayers() {
+        return new HashMap<>(onlinePlayers);
+    }
+
     /**
      * Returns the mean server tickrate that this player has recorded.
      * @return The mean server tickrate.
      */
     public float getMeanTickRate() {
-        return Math.max(0.0f, Math.min(20.0f, tickValues.stream().reduce(Float::sum).orElse(20.0f) / Math.max(1.0f, tickValues.size())));
+        return Math.max(0.0f, Math.min(30.0f, (float)tickValues.stream().mapToDouble(Float::doubleValue).sum() / Math.max(1.0f, tickValues.size())));
     }
 
     public int getTimeLoggedIn() {

@@ -151,7 +151,7 @@ public class AccountHandler implements IHandler {
         foundAuthService.ifPresent(authService -> {
             userMap.remove(username);
             accountCache.remove(authService);
-            // yesCom.connectionHandler.logout(authService);
+            yesCom.connectionHandler.logout(authService.getSelectedProfile().getId());
         });
     }
 

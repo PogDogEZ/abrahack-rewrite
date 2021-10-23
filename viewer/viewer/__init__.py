@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
+from typing import List
+
 from viewer.network.handler import YCHandler
-from viewer.util import Reporter
+from viewer.network.packets import SelectReporterPacket
+from viewer.util import Reporter, ActiveTask, RegisteredTask
 from pclient.impl.logger import Logger
 from pclient.networking.connection import Connection
 
@@ -12,8 +15,8 @@ class Viewer:
         return "test"
 
     @property
-    def ce_handler(self) -> YCHandler:
-        return self._ce_handler
+    def handler(self) -> YCHandler:
+        return self._handler
 
     @property
     def server_host(self) -> str:
@@ -48,24 +51,21 @@ class Viewer:
         self._target_port = target_port
 
     @property
-    def current_reporter(self) -> Reporter:
+    def current_reporter(self) -> int:
         return self._current_reporter
 
-    @property
-    def account_action_callback(self):
-        callback = self._account_action_callback
-        self._account_action_callback = None
-        return callback
+    @current_reporter.setter
+    def current_reporter(self, handler_id: int) -> None:
+        select_reporter = SelectReporterPacket()
+        select_reporter.selected_reporter = handler_id
 
-    @property
-    def performing_account_action(self) -> bool:
-        return self._account_action_callback is not None
+        self.connection.send_packet(select_reporter)
 
     def __init__(self, logger: Logger) -> None:
         self.logger = logger
 
         self.connection = None
-        self._ce_handler = None
+        self._handler = None
 
         self._server_host = "localhost"
         self._server_port = 5001
@@ -73,9 +73,7 @@ class Viewer:
         self._target_host = "localhost"
         self._target_port = 25565
 
-        self._account_action_callback = None
-
-        self._current_reporter = None
+        self._current_reporter = -1
         self._reporters = []
 
     def __repr__(self) -> str:
@@ -91,40 +89,68 @@ class Viewer:
             raise Exception("Already connected.")
 
         self.connection.connect()
-        self._ce_handler = YCHandler(self.connection, self)
-        self.connection.register_handler(self._ce_handler)
+        self._handler = YCHandler(self.connection, self)
+        self.connection.register_handler(self._handler)
 
     def init(self) -> None:
         if self.connection is None:
             raise Exception("No connection.")
 
-        if self._ce_handler is None:  # I'm dumb enough to probably let this happen
-            self._ce_handler = YCHandler(self.connection, self)
-            self.connection.register_handler(self._ce_handler)
+        if self._handler is None:  # I'm dumb enough to probably let this happen
+            self._handler = YCHandler(self.connection, self)
+            self.connection.register_handler(self._handler)
 
-        if self._ce_handler.initialized:
+        if self._handler.initialized:
             raise Exception("Already initialized.")
 
-        self._ce_handler.init()
+        self._handler.init()
 
     def register_reporter(self, reporter: Reporter) -> None:
         if not reporter in self._reporters:
-            self.logger.debug("Registering reporter: %r." % reporter)
+            self.logger.debug("Registered reporter: %r." % reporter)
             self._reporters.append(reporter)
 
-            if self._current_reporter is None:
-                self._current_reporter = reporter
+            if self._current_reporter == -1:
+                self.current_reporter = reporter.handler_id
 
     def unregister_reporter(self, reporter: Reporter) -> None:
         if reporter in self._reporters:
+            self.logger.debug("Unregistered reporter: %r." % reporter)
+
             self._reporters.remove(reporter)
 
-    def get_reporter(self, name: str = None, assigned_id: int = None) -> Reporter:
+            if reporter.handler_id == self._current_reporter:
+                self.logger.debug("Lost current reporter.")
+                self._current_reporter = -1
+
+    def get_reporter(self, handler_name: str = None, handler_id: int = None) -> Reporter:
         for reporter in self._reporters:
-            if (name is None or reporter.name == name) and (assigned_id is None or reporter.assigned_id == assigned_id):
+            if (handler_name is None or reporter.handler_name == handler_name) and (handler_id is None or
+                                                                                    reporter.handler_id == handler_id):
                 return reporter
 
-        raise LookupError("Couldn't find reporter by %r, %r." % (name, assigned_id))
+        raise LookupError("Couldn't find reporter by %r, %r." % (handler_name, handler_id))
+
+    def get_reporters(self) -> List[Reporter]:
+        return self._reporters.copy()
+
+    def start_task(self, registered_task: RegisteredTask, parameters: List[ActiveTask.Parameter]) -> None:
+        if self._current_reporter != -1:
+            self.logger.debug("Starting new task %r." % registered_task)
+            self._handler.start_task(registered_task, parameters)
+
+    def stop_task(self, task_id: int) -> None:
+        if self._current_reporter != -1:
+            self.logger.debug("Stopping task with id %i." % task_id)
+            self._handler.stop_task(task_id)
+
+    def add_account(self, username: str, password: str, callback) -> None:
+        if self._current_reporter != -1:
+            self._handler.add_account(username, password, callback)
+
+    def remove_account(self, username: str) -> None:
+        if self._current_reporter != -1:
+            self._handler.remove_account(username)
 
     def on_exit(self) -> None:
         if self.connection is not None:

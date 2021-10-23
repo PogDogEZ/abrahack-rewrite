@@ -2,31 +2,16 @@
 
 from typing import List
 
-from network.networking.handlers import Handler
 from network.networking.packets import Packet
+from plugins.yescom.network.handler.archiving import Archiver
 from plugins.yescom.network.handler.listening import Listener
-from plugins.yescom.network.packets import TaskSyncPacket, TaskActionPacket, PlayerActionPacket, LoadedChunkPacket
-from plugins.yescom.util import Player, Task
+from plugins.yescom.network.packets.reporting import TaskSyncPacket, TaskActionPacket, PlayerActionPacket, \
+    AccountActionPacket, AccountActionResponsePacket, TrackerActionPacket, \
+    InfoUpdatePacket, ChunkStatesPacket
+from plugins.yescom.util import Player, RegisteredTask, ActiveTask, TrackedPlayer, Tracker
 
 
-class ListenerUpdate:
-
-    def __init__(self, update_type, *args) -> None:
-        self.update_type = update_type
-        self.args = args
-
-    class Type:
-        ACTIVE_TASK_ADD = 0
-        ACTIVE_TASK_REMOVE = 1
-        PLAYER_ADD = 2
-        PLAYER_REMOVE = 3
-        PLAYER_POS = 4
-        PLAYER_DIM = 5
-        PLAYER_HEALTH = 6
-        LOADED_CHUNK = 7
-
-
-class Reporter(Handler):
+class Reporter(Archiver):
 
     @property
     def handler_id(self) -> int:
@@ -37,49 +22,53 @@ class Reporter(Handler):
         return self._handler_name
 
     @property
-    def registered_tasks(self) -> List[Task]:
+    def registered_tasks(self) -> List[RegisteredTask]:
         return self._registered_tasks.copy()
 
     @property
-    def active_tasks(self) -> None:
-        ...
+    def active_tasks(self) -> List[ActiveTask]:
+        return self._active_tasks.copy()
 
     @property
     def players(self) -> List[Player]:
         return self._players.copy()
 
+    @property
+    def trackers(self) -> List[Tracker]:
+        return self._trackers.copy()
+
     # -------------------- Class Methods -------------------- #
 
     def __init__(self, system, connection, yescom, handler_id: int, handler_name: str) -> None:
-        super().__init__(system, connection)
-
-        self.yescom = yescom
-
-        self._handler_id = handler_id
-        self._handler_name = handler_name
+        super().__init__(system, connection, yescom, handler_id, handler_name, False, True)
 
         self._listeners = []
+        self._archivers = []
+
+        self._config = {}
 
         self._registered_tasks = []
         self._active_tasks = []
         self._players = []
+        self._trackers = []
 
-        self._loaded_chunks = {
-            -1: [],
-            0: [],
-            1: [],
-        }
+        self._account_action_id = 0
 
     # -------------------- Events -------------------- #
 
     def on_packet(self, packet: Packet) -> None:
+        super().on_packet(packet)
+
         if isinstance(packet, TaskSyncPacket):
             self.yescom.logger.debug("Syncing tasks...")
 
             self._registered_tasks.clear()
-            self._registered_tasks.extend(packet.get_tasks())
+            self._registered_tasks.extend(packet.get_registered_tasks())
 
             self.yescom.logger.debug("Done, %i tasks synced." % len(self._registered_tasks))
+
+            for listener in self._listeners:
+                listener.do_full_sync()
 
         elif isinstance(packet, TaskActionPacket):
             if packet.action == TaskActionPacket.Action.START:
@@ -89,10 +78,55 @@ class Reporter(Handler):
                 raise Exception("Got unexpected action STOP, on TaskActionPacket.")
 
             elif packet.action == TaskActionPacket.Action.ADD:
-                ...  # self._push_update(ListenerUpdate(ListenerUpdate.Type.ACTIVE_TASK, None))
+                try:
+                    registered_task = self.get_registered_task(packet.task_name)
+                except LookupError as error:
+                    self.yescom.logger.warn("Error while fetching registered task:")
+                    self.yescom.logger.error(repr(error))
+                    return
 
-            elif packet.action == TaskActionPacket.Action.REMOVE:
-                ...  # self._push_update(ListenerUpdate(ListenerUpdate.Type.ACTIVE_TASK, None))
+                active_task = ActiveTask(registered_task, packet.task_id, packet.get_task_params(), 0, 0, [])
+
+                self.yescom.logger.debug("New task: %r." % active_task)
+
+                if not active_task in self._active_tasks:
+                    self._active_tasks.append(active_task)
+
+                for listener in self._listeners:
+                    listener.add_active_task(active_task)
+
+            else:
+                try:
+                    active_task = self.get_active_task(packet.task_id)
+                except LookupError as error:
+                    self.yescom.logger.warn("Error while fetching active task:")
+                    self.yescom.logger.error(repr(error))
+                    return
+
+                if packet.action == TaskActionPacket.Action.REMOVE:
+                    self._active_tasks.remove(active_task)
+
+                    for listener in self._listeners:
+                        listener.remove_active_task(active_task)
+
+                elif packet.action == TaskActionPacket.Action.UPDATE:
+                    active_task.update(packet.loaded_chunk_task, packet.progress, packet.time_elapsed,
+                                       packet.current_position)
+
+                    for listener in self._listeners:
+                        listener.update_active_task(active_task)
+
+                elif packet.action == TaskActionPacket.Action.RESULT:
+                    active_task.add_result(packet.result)
+
+                    for listener in self._listeners:
+                        listener.on_active_task_result(active_task, packet.result)
+
+        elif isinstance(packet, AccountActionResponsePacket):
+            for listener in self._listeners:
+                if listener.account_action_id == packet.action_id:
+                    listener.account_response(packet.successful, packet.message)
+                    break
 
         elif isinstance(packet, PlayerActionPacket):
             if packet.action == PlayerActionPacket.Action.ADD:
@@ -100,7 +134,9 @@ class Reporter(Handler):
                     self.yescom.logger.debug("New player: %r." % packet.player)
 
                     self._players.append(packet.player)
-                    self._push_update(ListenerUpdate(ListenerUpdate.Type.PLAYER_ADD, packet.player))
+
+                    for listener in self._listeners:
+                        listener.add_player(packet.player)
 
             else:
                 try:
@@ -113,35 +149,69 @@ class Reporter(Handler):
                 if packet.action == PlayerActionPacket.Action.REMOVE:
                     self._players.remove(player)
 
-                    self._push_update(ListenerUpdate(ListenerUpdate.Type.PLAYER_REMOVE, player))
+                    for listener in self._listeners:
+                        listener.remove_player(player)
 
                 elif packet.action == PlayerActionPacket.Action.UPDATE_POSITION:
                     player.position = packet.new_position
                     player.angle = packet.new_angle
 
-                    self._push_update(ListenerUpdate(ListenerUpdate.Type.PLAYER_POS, player))
+                    for listener in self._listeners:
+                        listener.update_player_pos(player)
 
                 elif packet.action == PlayerActionPacket.Action.UPDATE_DIMENSION:
                     player.dimension = packet.new_dimension
 
-                    self._push_update(ListenerUpdate(ListenerUpdate.Type.PLAYER_DIM, player))
+                    for listener in self._listeners:
+                        listener.update_player_dim(player)
 
                 elif packet.action == PlayerActionPacket.Action.UPDATE_HEALTH:
                     player.health = packet.new_health
                     player.food = packet.new_hunger
                     player.saturation = packet.new_saturation
 
-                    self._push_update(ListenerUpdate(ListenerUpdate.Type.PLAYER_HEALTH, player))
+                    for listener in self._listeners:
+                        listener.update_player_health(player)
 
-        elif isinstance(packet, LoadedChunkPacket):
-            self._loaded_chunks[packet.dimension].append(packet.chunk_position)
+        elif isinstance(packet, ChunkStatesPacket):
+            for listener in self._listeners:
+                listener.update_chunk_states(packet.get_chunk_states())
+
+        elif isinstance(packet, TrackerActionPacket):
+            if packet.action == TrackerActionPacket.Action.ADD:
+                if not packet.tracker in self._trackers:
+                    self.yescom.logger.debug("New tracker: %r." % packet.tracker)
+
+                    self._trackers.append(packet.tracker)
+
+                    for listener in self._listeners:
+                        listener.add_tracker(packet.tracker)
+
+            else:
+                try:
+                    tracker = self.get_tracker(packet.tracker_id)
+                except LookupError as error:
+                    self.yescom.logger.warn("Error while fetching tracker:")
+                    self.yescom.logger.error(repr(error))
+                    return
+
+                if packet.action == TrackerActionPacket.Action.REMOVE:
+                    self._trackers.remove(tracker)
+
+                    for listener in self._listeners:
+                        listener.remove_tracker(tracker)
+
+                elif packet.action == TrackerActionPacket.Action.UPDATE:
+                    for listener in self._listeners:
+                        listener.update_tracker(tracker)
+
+        elif isinstance(packet, InfoUpdatePacket):  # Probably don't need to cache this since we get it every 250ms
+            for listener in self._listeners:
+                listener.on_info_update(packet.waiting_queries, packet.ticking_queries, packet.is_connected,
+                                        packet.tick_rate, packet.time_since_last_packet)
 
     def on_update(self) -> None:
         ...
-
-    def _push_update(self, update: ListenerUpdate) -> None:
-        for listener in self._listeners:
-            listener.push_update(update)
 
     def register_listener(self, listener: Listener) -> None:
         if not listener in self._listeners:
@@ -151,10 +221,57 @@ class Reporter(Handler):
         if listener in self._listeners:
             self._listeners.remove(listener)
 
+    def start_task(self, task_name: str, task_params: List[ActiveTask.Parameter]) -> None:
+        task_action = TaskActionPacket()
+        task_action.action = TaskActionPacket.Action.START
+        task_action.task_name = task_name
+        task_action.set_task_params(task_params)
+
+        self.connection.send_packet(task_action)
+
+    def stop_task(self, task_id: int) -> None:
+        task_action = TaskActionPacket()
+        task_action.action = TaskActionPacket.Action.STOP
+        task_action.task_id = task_id
+
+        self.connection.send_packet(task_action)
+
+    def add_account(self, username: str, access_token: str, client_token: str) -> int:
+        self._account_action_id += 1
+
+        account_action = AccountActionPacket()
+        account_action.action = AccountActionPacket.Action.ADD
+        account_action.action_id = self._account_action_id
+        account_action.username = username
+        account_action.access_token = access_token
+        account_action.client_token = client_token
+
+        self.connection.send_packet(account_action)
+
+        return self._account_action_id
+
+    def remove_account(self, username: str) -> None:
+        account_action = AccountActionPacket()
+        account_action.action = AccountActionPacket.Action.REMOVE
+        account_action.username = username
+
+        self.connection.send_packet(account_action)
+
     # -------------------- Tasks -------------------- #
 
-    def get_registered_task(self, name: str) -> Task:
-        ...
+    def get_registered_task(self, name: str) -> RegisteredTask:
+        for registered_task in self._registered_tasks:
+            if registered_task.name == name:
+                return registered_task
+
+        raise LookupError("Couldn't find registered task by name %r." % name)
+
+    def get_active_task(self, task_id: int) -> ActiveTask:
+        for active_task in self._active_tasks:
+            if active_task.task_id == task_id:
+                return active_task
+
+        raise LookupError("Couldn't find active task by ID %i." % task_id)
 
     # -------------------- Players -------------------- #
 
@@ -170,3 +287,20 @@ class Reporter(Handler):
                 return player
 
         raise LookupError("Couldn't find player by name %r." % name)
+
+    # -------------------- Trackers -------------------- #
+
+    def get_tracker(self, tracker_id: int) -> Tracker:
+        for tracker in self._trackers:
+            if tracker.tracked_id == tracker_id:
+                return tracker
+
+        raise LookupError("Couldn't find tracker by ID %i.", tracker_id)
+
+    # -------------------- Other Stuff -------------------- #
+
+    def get_listeners(self) -> List[Listener]:
+        return self._listeners.copy()
+
+    def get_archivers(self) -> List[Archiver]:
+        return self._archivers.copy()

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import typing
 from typing import IO
 
@@ -7,27 +8,6 @@ from .basic import String, Short, Integer, UnsignedShort, Boolean
 from .. import packets
 from ..packets.packet import Packet, Side
 from ...impl.user import User, Group
-
-
-class PacketSpec(Type):
-
-    @classmethod
-    def read(cls, fileobj: IO) -> typing.Type[Packet]:
-        packet_id = UnsignedShort.read(fileobj)
-        packet_name = String.read(fileobj)
-        packet_side = Side.read(fileobj)
-
-        for packet in packets.packets:
-            if packet.ID == packet_id and packet.NAME == packet_name and packet.SIDE == packet_side:
-                return packet
-
-        return packet_id, packet_name, packet_side  # Kinda hacky but whatever
-
-    @classmethod
-    def write(cls, packet_type: typing.Type[Packet], fileobj: IO) -> None:
-        UnsignedShort.write(packet_type.ID, fileobj)
-        String.write(packet_type.NAME, fileobj)
-        Side.write(packet_type.SIDE, fileobj)
 
 
 class UserType(Type):

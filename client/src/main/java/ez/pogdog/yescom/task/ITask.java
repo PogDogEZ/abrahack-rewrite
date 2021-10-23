@@ -1,5 +1,7 @@
 package ez.pogdog.yescom.task;
 
+import java.util.List;
+
 public interface ITask {
 
     void onTick();
@@ -16,6 +18,12 @@ public interface ITask {
      * @param ID The unique ID given to represent this task.
      */
     void setID(int ID);
+
+    /**
+     * For network compatibility, says which parameters have what values for this task.
+     * @return The parameters.
+     */
+    List<TaskRegistry.Parameter> getParameters(); // FIXME: Better way of doing this, maybe use reflection?
 
     boolean isFinished();
 

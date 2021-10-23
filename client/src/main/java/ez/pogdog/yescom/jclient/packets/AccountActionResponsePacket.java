@@ -8,7 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-@Packet.Info(name="account_action_response", id=YCRegistry.ID_OFFSET + 6, side=Packet.Side.CLIENT)
+@Packet.Info(name="account_action_response", id=YCRegistry.ID_OFFSET + 11, side=Packet.Side.CLIENT)
 public class AccountActionResponsePacket extends Packet {
 
     private long actionID;

@@ -107,29 +107,28 @@ class HandShakeHandler(Handler):
         elif isinstance(packet, ClientCapabilitiesPacket):
             rejected = False
 
-            for supported in network.networking.packets.packets:  # Check if we support all the packets they want
-                if not supported in packet.get_accepted():
-                    self.system.logger.debug("Unsupported: %s (%s %i)." % (supported, supported.NAME, supported.ID))
+            unmapped_packets = list(map(lambda known_packet: (known_packet.ID, known_packet.NAME, known_packet.SIDE),
+                                        network.networking.packets.packets))
+
+            for supported in unmapped_packets:  # Check if we support all the packets they want
+                if not supported in packet.get_packets():
                     rejected = True
 
-            """
-            for accepted in packet.get_accepted():  # Check if they support all the packets we want
-                if not accepted in network.networking.packets.packets:
+            for unsupported in packet.get_packets():
+                if not unsupported in unmapped_packets:
                     rejected = True
-            """
 
-            if len(packet.get_unknown()):
-                for unknown in packet.get_unknown():
-                    self.system.logger.debug("Found unknown: %s." % (unknown,))
-                rejected = True
+            event = self.system.event_bus.post(ClientCapabilitiesEvent(unmapped_packets, packet.get_packets(), rejected,
+                                                                       self.connection))
+            unmapped_packets = event.get_unmapped_packets()
 
-            """
-            if None in packet.get_accepted():  # This means we couldn't decode one of the packets they told us about
-                self.system.logger.debug("Found None in accepted.")
-                rejected = True
-            """
+            for supported in unmapped_packets:
+                if not supported in packet.get_packets():
+                    self.system.logger.debug("Unsupported (server-client): %i:%s." % (supported[0], supported[1]))
 
-            event = self.system.event_bus.post(ClientCapabilitiesEvent(packet.get_accepted(), rejected, self.connection))
+            for unsupported in packet.get_packets():
+                if not unsupported in unmapped_packets:
+                    self.system.logger.debug("Unsupported (client-server): %i:%s." % (unsupported[0], unsupported[1]))
 
             self.system.logger.debug("Rejected: %s" % event.get_rejected())
 

@@ -50,8 +50,8 @@ class HandShakeHandler(Handler):
                 self.connection.logger.info("Connected to server '%s', host: %s:%i (protocol version %i)" %
                                             (packet.server_name, self.connection.host, self.connection.port,
                                              packet.protocol_ver))
-                self.connection.logger.info("Server compression: %s, threshold: %i bytes" % (packet.compression(),
-                                                                                      packet.compression_threshold))
+                self.connection.logger.info("Server compression: %s, threshold: %i bytes" %
+                                            (packet.compression(), packet.compression_threshold))
 
                 self.connection.logger.info("Server has encryption enabled: %s" % packet.encryption())
 
@@ -148,7 +148,8 @@ class HandShakeHandler(Handler):
         self.connection.logger.debug("Sending client capabilities...")
 
         client_capabilities = ClientCapabilitiesPacket()
-        client_capabilities.set_accepted(pclient.networking.packets.packets)
+        client_capabilities.set_packets(list(map(lambda packet: (packet.ID, packet.NAME, packet.SIDE),
+                                                 pclient.networking.packets.packets)))
 
         self.connection.send_packet(client_capabilities)
 

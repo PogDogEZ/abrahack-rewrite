@@ -1,10 +1,7 @@
 package ez.pogdog.yescom.data;
 
-public interface ISerializable {
+import java.math.BigInteger;
 
-    /**
-     * Returns the serializer responsible for serializing this.
-     * @return The serializer.
-     */
-    ISerializer getSerializer();
+public interface ISerializable {
+    BigInteger getID();
 }

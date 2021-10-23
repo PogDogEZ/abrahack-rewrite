@@ -11,9 +11,8 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 public class QueryHandler implements IHandler {
 
     private final YesCom yesCom = YesCom.getInstance();
-    private final ConfigHandler configHandler = yesCom.configHandler;
 
-    private final Deque<IQuery> waiting = new ConcurrentLinkedDeque<>();
+    private final List<IQuery> waiting = new ArrayList<>();
     private final Deque<IQuery> ticking = new ConcurrentLinkedDeque<>();
     private final Deque<IQuery> finished = new ConcurrentLinkedDeque<>();
 
@@ -29,29 +28,38 @@ public class QueryHandler implements IHandler {
     public void onTick() {
         queryTicks = Math.max(0.0f, queryTicks - 1.0f);
 
-        List<IQuery> toRemove = new ArrayList<>();
+        int index = 0;
+        while (queryTicks <= 1.0f && index < waiting.size()) {
+            IQuery query;
+            synchronized (this) {
+                query = waiting.get(index);
+            }
 
-        for (IQuery query : sortQueue(waiting)) {
             switch (query.handle()) {
                 case AWAIT: {
+                    ++index;
                     break;
                 }
                 case START: {
                     queryTicks += query.getWeight();
+                    synchronized (this) {
+                        waiting.remove(query);
+                    }
                     ticking.add(query);
+                    break;
                 }
                 case REMOVE: {
-                    toRemove.add(query);
+                    synchronized (this) {
+                        waiting.remove(query);
+                    }
                     break;
                 }
             }
-            if (queryTicks > 1.0f) break;
         }
 
-        toRemove.forEach(waiting::remove);
-        toRemove.clear();
+        List<IQuery> toRemove = new ArrayList<>();
 
-        for (IQuery query: sortQueue(ticking)) {
+        for (IQuery query: ticking) {
             switch (query.tick()) {
                 case AWAIT: {
                     break;
@@ -67,14 +75,29 @@ public class QueryHandler implements IHandler {
         toRemove.forEach(ticking::remove);
 
         while (finished.size() > yesCom.configHandler.MAX_FINISHED_CACHE) finished.removeFirst();
+
+        yesCom.logger.infoDisappearing(String.format("wait/tick: %d/%d, tslp: %dms.",
+                yesCom.queryHandler.getWaitingSize(), yesCom.queryHandler.getTickingSize(),
+                yesCom.connectionHandler.getTimeSinceLastPacket()));
     }
 
     @Override
     public void onExit() {
     }
 
-    public void addQuery(IQuery query) {
-        if (!query.isFinished()) waiting.add(query);
+    public synchronized void addQuery(IQuery query) {
+        if (!query.isFinished()) {
+            int priorityOrdinal = query.getPriority().ordinal();
+
+            for (int index = 0; index < waiting.size(); ++index) {
+                if (waiting.get(index).getPriority().ordinal() < priorityOrdinal) {
+                    waiting.add(index, query);
+                    return;
+                }
+            }
+
+            waiting.add(query);
+        }
     }
 
     public int getWaitingSize() {
@@ -87,64 +110,5 @@ public class QueryHandler implements IHandler {
 
     public List<IQuery> getFinished() {
         return new ArrayList<>(finished);
-    }
-
-    public void cacheCurrent() {
-        cached.addAll(waiting);
-        waiting.clear();
-    }
-
-    public void unCacheCurrent() {
-        waiting.addAll(cached);
-        cached.clear();
-    }
-
-    private Deque<IQuery> sortQueue(Deque<IQuery> queries) {
-        Deque<IQuery> userPriorityQueue = new ConcurrentLinkedDeque<>();
-        Deque<IQuery> highPriorityQueue = new ConcurrentLinkedDeque<>();
-        Deque<IQuery> mediumPriorityQueue = new ConcurrentLinkedDeque<>();
-        Deque<IQuery> lowPriorityQueue = new ConcurrentLinkedDeque<>();
-
-        for (IQuery query : queries) {
-            switch (query.getPriority()) {
-                case USER:
-                    userPriorityQueue.add(query);
-                    break;
-                case HIGH:
-                    highPriorityQueue.add(query);
-                    break;
-                case MEDIUM:
-                    mediumPriorityQueue.add(query);
-                    break;
-                case LOW:
-                    lowPriorityQueue.add(query);
-                    break;
-            }
-        }
-
-        Deque<IQuery> prioritizedQueue = new ConcurrentLinkedDeque<>();
-
-        while (!userPriorityQueue.isEmpty() || !highPriorityQueue.isEmpty() ||
-                !mediumPriorityQueue.isEmpty() || !lowPriorityQueue.isEmpty()) {
-            float userPriority   = (float) (userPriorityQueue.size() * configHandler.USER_MULTIPLIER);
-            float highPriority   = (float) (highPriorityQueue.size() * configHandler.HIGH_MULTIPLIER);
-            float mediumPriority = (float) (mediumPriorityQueue.size() * configHandler.MEDIUM_MULTIPLIER);
-            float lowPriority    = (float) (lowPriorityQueue.size() * configHandler.LOW_MULTIPLIER);
-
-            // Gets the highest value out of priorities
-            float max = Math.max(userPriority, Math.max(highPriority, Math.max(mediumPriority, lowPriority)));
-
-            if (max == highPriority) {
-                prioritizedQueue.addLast(highPriorityQueue.poll());
-            } else if (max == mediumPriority) {
-                prioritizedQueue.addLast(mediumPriorityQueue.poll());
-            } else if (max == lowPriority) {
-                prioritizedQueue.addLast(lowPriorityQueue.poll());
-            } else {
-                prioritizedQueue.addLast(userPriorityQueue.poll());
-            }
-        }
-
-        return prioritizedQueue;
     }
 }

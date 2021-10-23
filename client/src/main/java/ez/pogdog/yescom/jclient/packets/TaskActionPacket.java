@@ -3,6 +3,7 @@ package ez.pogdog.yescom.jclient.packets;
 import ez.pogdog.yescom.jclient.YCRegistry;
 import ez.pogdog.yescom.task.ITask;
 import ez.pogdog.yescom.task.TaskRegistry;
+import ez.pogdog.yescom.util.ChunkPosition;
 import me.iska.jclient.network.packet.Packet;
 import me.iska.jclient.network.packet.Registry;
 import me.iska.jclient.network.packet.Type;
@@ -18,23 +19,33 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Packet.Info(name="task_action", id=YCRegistry.ID_OFFSET + 4, side=Packet.Side.BOTH)
+@Packet.Info(name="task_action", id=YCRegistry.ID_OFFSET + 9, side=Packet.Side.BOTH)
 public class TaskActionPacket extends Packet {
 
     private Action action;
     private ITask task;
-    private TaskRegistry.RegisteredTask registeredTask;
     private int taskID;
+    private boolean loadedChunkTask;
 
-    public TaskActionPacket(Action action, ITask task, TaskRegistry.RegisteredTask registeredTask, int taskID) {
+    private float progress;
+    private int timeElapsed;
+    private ChunkPosition currentPosition;
+    private String result;
+
+    public TaskActionPacket(Action action, ITask task, int taskID, boolean loadedChunkTask, float progress, int timeElapsed,
+                            ChunkPosition currentPosition, String result) {
         this.action = action;
         this.task = task;
-        this.registeredTask = registeredTask;
         this.taskID = taskID;
+        this.loadedChunkTask = loadedChunkTask;
+        this.progress = progress;
+        this.timeElapsed = timeElapsed;
+        this.currentPosition = currentPosition;
+        this.result = result;
     }
 
     public TaskActionPacket(ITask task, int taskID) {
-        this(Action.ADD, task, null, taskID);
+        this(Action.ADD, task, taskID, false, task.getProgress(), task.getTimeElapsed(), new ChunkPosition(0, 0), "");
     }
 
     public TaskActionPacket(ITask task) {
@@ -42,11 +53,39 @@ public class TaskActionPacket extends Packet {
     }
 
     public TaskActionPacket(int taskID) {
-        this(Action.REMOVE, null, null, taskID);
+        this(Action.REMOVE, null, taskID, false, 0.0f, 0, new ChunkPosition(0, 0), "");
+    }
+
+    public TaskActionPacket(int taskID, boolean loadedChunkTask, float progress, int timeElapsed, ChunkPosition currentPosition) {
+        this(Action.UPDATE, null, taskID, loadedChunkTask, progress, timeElapsed, currentPosition, "");
+    }
+
+    public TaskActionPacket(int taskID, float progress, int timeElapsed, ChunkPosition currentPosition) {
+        this(taskID, true, progress, timeElapsed, currentPosition);
+    }
+
+    public TaskActionPacket(ITask task, float progress, int timeElapsed, ChunkPosition currentPosition) {
+        this(task.getID(), progress, timeElapsed, currentPosition);
+    }
+
+    public TaskActionPacket(int taskID, float progress, int timeElapsed) {
+        this(taskID, false, progress, timeElapsed, new ChunkPosition(0, 0));
+    }
+
+    public TaskActionPacket(ITask task, float progress, int timeElapsed) {
+        this(task.getID(), progress, timeElapsed);
+    }
+
+    public TaskActionPacket(int taskID, String result) {
+        this(Action.RESULT, null, taskID, false, 0.0f, 0, new ChunkPosition(0, 0), result);
+    }
+
+    public TaskActionPacket(ITask task, String result) {
+        this(task.getID(), result);
     }
 
     public TaskActionPacket() {
-        this(Action.ADD, null, null, 0);
+        this(Action.ADD, null, 0, false, 0.0f, 0, new ChunkPosition(0, 0), "");
     }
 
     @Override
@@ -55,57 +94,96 @@ public class TaskActionPacket extends Packet {
 
         switch (action) {
             case START: {
-                TaskRegistry.RegisteredTask task = TaskRegistry.getTask(Registry.STRING.read(inputStream));
+                TaskRegistry.RegisteredTask registeredTask = TaskRegistry.getTask(Registry.STRING.read(inputStream));
+                List<TaskRegistry.Parameter> parameters = new ArrayList<>();
 
-                if (task != null) { // Holy fuck uh this is a lot of weird class stuff hopefully it works
-                    List<Object> parameters = new ArrayList<>();
+                int paramsToRead = Registry.UNSIGNED_SHORT.read(inputStream);
+                for (int index = 0; index < paramsToRead; ++index) parameters.add(YCRegistry.PARAMETER.read(inputStream));
 
-                    int paramsToRead = Registry.UNSIGNED_SHORT.read(inputStream);
-                    for (int index = 0; index < paramsToRead; ++index) {
-                        TaskRegistry.ParamDescription paramDescription = task.getParamDescriptions().get(index);
-                        try {
-                            Type<?> type = Registry.knownTypes.get(paramDescription.getDataType().getClazz()).newInstance();
-
-                            switch (paramDescription.getInputType()) {
+                if (registeredTask != null) {
+                    try {
+                        Constructor<? extends ITask> constructor = registeredTask.getTaskClazz().getConstructor(
+                                registeredTask.getParamDescriptions().stream()
+                                        .map(paramDescription -> {
+                                            switch (paramDescription.getInputType()) {
+                                                default:
+                                                case SINGULAR: {
+                                                    return paramDescription.getDataType().getClazz();
+                                                }
+                                                case ARRAY: {
+                                                    return List.class;
+                                                }
+                                            }
+                                        })
+                                        .toArray(Class[]::new));
+                        task = constructor.newInstance(parameters.stream().map(parameter -> {
+                            switch (parameter.getParamDescription().getInputType()) {
+                                default:
                                 case SINGULAR: {
-                                    parameters.add(type.read(inputStream));
-                                    break;
+                                    return parameter.getValue();
                                 }
                                 case ARRAY: {
-                                    List<Object> data = new ArrayList<>();
-
-                                    int elementsToRead = Registry.INT.read(inputStream);
-                                    for (int eIndex = 0; eIndex < elementsToRead; ++eIndex) data.add(type.read(inputStream));
-
-                                    parameters.add(data.toArray());
-                                    break;
+                                    return parameter.getValues();
                                 }
                             }
-                        } catch (InstantiationException | IllegalAccessException ignored) {
-                        }
-                    }
+                        }).toArray());
 
-                    try {
-                        Constructor<? extends ITask> constructor = task.getTaskClazz().getConstructor(
-                                (Class<?>[])task.getParamDescriptions().stream()
-                                        .map(paramDescription -> paramDescription.getDataType().getClazz())
-                                        .toArray());
-                        this.task = constructor.newInstance(parameters.toArray());
-
-                    } catch (NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException ignored) {
+                    } catch (NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException error) {
+                        error.printStackTrace();
                     }
                 }
 
                 break;
             }
             case ADD: {
-                registeredTask = TaskRegistry.getTask(Registry.STRING.read(inputStream));
                 taskID = Registry.UNSIGNED_SHORT.read(inputStream);
+                TaskRegistry.RegisteredTask registeredTask = TaskRegistry.getTask(Registry.STRING.read(inputStream));
+                List<TaskRegistry.Parameter> parameters = new ArrayList<>();
+
+                int paramsToRead = Registry.UNSIGNED_SHORT.read(inputStream);
+                for (int index = 0; index < paramsToRead; ++index) parameters.add(YCRegistry.PARAMETER.read(inputStream));
+
+                if (registeredTask != null) {
+                    try {
+                        Constructor<? extends ITask> constructor = registeredTask.getTaskClazz().getConstructor(
+                                (Class<?>[])registeredTask.getParamDescriptions().stream()
+                                        .map(paramDescription -> paramDescription.getDataType().getClazz())
+                                        .toArray());
+                        task = constructor.newInstance(parameters.stream().map(parameter -> {
+                            switch (parameter.getParamDescription().getInputType()) {
+                                default:
+                                case SINGULAR: {
+                                    return parameter.getValue();
+                                }
+                                case ARRAY: {
+                                    return parameter.getValues();
+                                }
+                            }
+                        }).toArray());
+                        task.setID(taskID);
+
+                    } catch (NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException ignored) {
+                    }
+                }
                 break;
             }
             case STOP:
             case REMOVE: {
                 taskID = Registry.UNSIGNED_SHORT.read(inputStream);
+                break;
+            }
+            case UPDATE: {
+                taskID = Registry.UNSIGNED_SHORT.read(inputStream);
+                loadedChunkTask = Registry.BOOLEAN.read(inputStream);
+                progress = Registry.FLOAT.read(inputStream);
+                timeElapsed = Registry.INT.read(inputStream);
+
+                if (loadedChunkTask) currentPosition = YCRegistry.CHUNK_POSITION.read(inputStream);
+                break;
+            }
+            case RESULT: {
+                taskID = Registry.UNSIGNED_SHORT.read(inputStream);
+                result = Registry.STRING.read(inputStream);
                 break;
             }
         }
@@ -116,17 +194,40 @@ public class TaskActionPacket extends Packet {
         new EnumType<>(Action.class).write(action, outputStream);
 
         switch (action) {
-            case START: { // I can't be bothered to write this since we won't be using it anyway
+            case START: {
+                Registry.STRING.write(TaskRegistry.getTask(task.getClass()).getName(), outputStream);
+
+                Registry.UNSIGNED_SHORT.write(task.getParameters().size(), outputStream);
+                for (TaskRegistry.Parameter parameter : task.getParameters())
+                    YCRegistry.PARAMETER.write(parameter, outputStream);
                 break;
             }
             case ADD: {
-                Registry.STRING.write(registeredTask.getName(), outputStream);
-                Registry.UNSIGNED_SHORT.write(taskID, outputStream);
+                Registry.UNSIGNED_SHORT.write(task.getID(), outputStream);
+                Registry.STRING.write(TaskRegistry.getTask(task.getClass()).getName(), outputStream);
+
+                Registry.UNSIGNED_SHORT.write(task.getParameters().size(), outputStream);
+                for (TaskRegistry.Parameter parameter : task.getParameters())
+                    YCRegistry.PARAMETER.write(parameter, outputStream);
                 break;
             }
             case STOP:
             case REMOVE: {
                 Registry.UNSIGNED_SHORT.write(taskID, outputStream);
+                break;
+            }
+            case UPDATE: {
+                Registry.UNSIGNED_SHORT.write(taskID, outputStream);
+                Registry.BOOLEAN.write(loadedChunkTask, outputStream);
+                Registry.FLOAT.write(progress, outputStream);
+                Registry.INT.write(timeElapsed, outputStream);
+
+                if (loadedChunkTask) YCRegistry.CHUNK_POSITION.write(currentPosition, outputStream);
+                break;
+            }
+            case RESULT: {
+                Registry.UNSIGNED_SHORT.write(taskID, outputStream);
+                Registry.STRING.write(result, outputStream);
                 break;
             }
         }
@@ -148,14 +249,6 @@ public class TaskActionPacket extends Packet {
         this.task = task;
     }
 
-    public TaskRegistry.RegisteredTask getRegisteredTask() {
-        return registeredTask;
-    }
-
-    public void setRegisteredTask(TaskRegistry.RegisteredTask registeredTask) {
-        this.registeredTask = registeredTask;
-    }
-
     public int getTaskID() {
         return taskID;
     }
@@ -164,8 +257,49 @@ public class TaskActionPacket extends Packet {
         this.taskID = taskID;
     }
 
+    public boolean isLoadedChunkTask() {
+        return loadedChunkTask;
+    }
+
+    public void setLoadedChunkTask(boolean loadedChunkTask) {
+        this.loadedChunkTask = loadedChunkTask;
+    }
+
+    public float getProgress() {
+        return progress;
+    }
+
+    public void setProgress(float progress) {
+        this.progress = progress;
+    }
+
+    public int getTimeElapsed() {
+        return timeElapsed;
+    }
+
+    public void setTimeElapsed(int timeElapsed) {
+        this.timeElapsed = timeElapsed;
+    }
+
+    public ChunkPosition getCurrentPosition() {
+        return currentPosition;
+    }
+
+    public void setCurrentPosition(ChunkPosition currentPosition) {
+        this.currentPosition = currentPosition;
+    }
+
+    public String getResult() {
+        return result;
+    }
+
+    public void setResult(String result) {
+        this.result = result;
+    }
+
     public enum Action {
         START, STOP,
-        ADD, REMOVE;
+        ADD, REMOVE,
+        UPDATE, RESULT;
     }
 }

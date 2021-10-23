@@ -11,12 +11,13 @@ public interface ILoadedChunkTask extends ITask {
 
     YesCom yesCom = YesCom.getInstance();
 
+    ChunkPosition getCurrentPosition();
+
     /**
      * Should be called when a loaded chunk is found.
      * @param chunkPosition The position of the chunk
      * @param dimension The dimension.
      */
     default void onLoaded(ChunkPosition chunkPosition, Dimension dimension) {
-        if (yesCom.handler != null) yesCom.handler.onLoadedChunk(chunkPosition, dimension);
     }
 }

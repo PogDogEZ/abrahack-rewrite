@@ -7,6 +7,7 @@ import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +37,7 @@ public class BasicScanTask implements ILoadedChunkTask {
      * @param chunkSkip The server render distance * 2
      * @param dimension The dimension to scan in
      */
-    public BasicScanTask(ChunkPosition startPos, ChunkPosition endPos, int chunkSkip, Dimension dimension, IQuery.Priority priority) {
+    public BasicScanTask(ChunkPosition startPos, ChunkPosition endPos, Integer chunkSkip, Dimension dimension, IQuery.Priority priority) {
         this.startPos = new ChunkPosition(startPos.getX() / chunkSkip, startPos.getZ() / chunkSkip);
         this.endPos = new ChunkPosition(endPos.getX() / chunkSkip, endPos.getZ() / chunkSkip);
         this.chunkSkip = chunkSkip;
@@ -50,7 +51,7 @@ public class BasicScanTask implements ILoadedChunkTask {
         yesCom.logger.debug("Starting basic scan task.");
         yesCom.logger.debug(String.format("Start: %s.", startPos));
         yesCom.logger.debug(String.format("End: %s.", endPos));
-        yesCom.logger.debug("Dimension: ", dimension);
+        yesCom.logger.debug("Dimension:", dimension);
         yesCom.logger.debug(String.format("Max index: %d.", maxIndex));
 
         currentQueries = 0;
@@ -72,8 +73,7 @@ public class BasicScanTask implements ILoadedChunkTask {
             synchronized (this) {
                 ++currentQueries;
 
-                yesCom.queryHandler.addQuery(new IsLoadedQuery(position.getPosition(8, 0, 8),
-                        dimension, priority, yesCom.configHandler.TYPE,
+                yesCom.queryHandler.addQuery(new IsLoadedQuery(position, dimension, priority, yesCom.configHandler.TYPE,
                         (query, result) -> {
                             synchronized (this) {
                                 --currentQueries;
@@ -105,6 +105,21 @@ public class BasicScanTask implements ILoadedChunkTask {
     }
 
     @Override
+    public List<TaskRegistry.Parameter> getParameters() {
+        List<TaskRegistry.Parameter> parameters = new ArrayList<>();
+        List<TaskRegistry.ParamDescription> paramDescriptions = TaskRegistry.getTask(getClass()).getParamDescriptions();
+
+        // Wouldn't have to use the Collections.singletonList if Java was good at type resolving
+        parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(0), Collections.singletonList(startPos)));
+        parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(1), Collections.singletonList(endPos)));
+        parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(2), Collections.singletonList(chunkSkip)));
+        parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(3), Collections.singletonList(dimension)));
+        parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(4), Collections.singletonList(priority)));
+
+        return parameters;
+    }
+
+    @Override
     public boolean isFinished() {
         return currentIndex >= maxIndex && currentQueries <= 0;
     }
@@ -124,11 +139,22 @@ public class BasicScanTask implements ILoadedChunkTask {
         return String.format("Found loaded (basic): %s (dim %s).", object, dimension);
     }
 
+    @Override
+    public ChunkPosition getCurrentPosition() {
+        return new ChunkPosition(
+                (currentIndex % (getMaxX() - getMinX()) + getMinX()) * chunkSkip,
+                (Math.floorDiv(currentIndex, getMaxZ() - getMinZ()) + getMinZ()) * chunkSkip
+        );
+    }
+
     /* ------------------------ Private methods ------------------------ */
 
     private void onLoaded(ChunkPosition chunkPosition) {
         yesCom.logger.info(getFormattedResult(chunkPosition));
+        if (yesCom.handler != null) yesCom.handler.onTaskResult(this, getFormattedResult(chunkPosition));
         onLoaded(chunkPosition, dimension);
+
+        yesCom.trackingHandler.onLoadedChunk(chunkPosition, dimension);
     }
 
     private int getMinX() {
@@ -145,13 +171,6 @@ public class BasicScanTask implements ILoadedChunkTask {
 
     private int getMaxZ() {
         return Math.max(startPos.getZ(), endPos.getZ());
-    }
-
-    private ChunkPosition getCurrentPosition() {
-        return new ChunkPosition(
-                (currentIndex % (getMaxX() - getMinX()) + getMinX()) * chunkSkip,
-                (Math.floorDiv(currentIndex, getMaxZ() - getMinZ()) + getMinZ()) * chunkSkip
-        );
     }
 
     public ChunkPosition getStartPos() {

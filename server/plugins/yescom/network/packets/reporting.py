@@ -3,28 +3,47 @@
 from typing import IO, List
 
 from network.networking.packets import Packet, Side, String
-from network.networking.types import Enum, Type
-from network.networking.types.basic import Boolean, UnsignedInteger, Float, UnsignedShort, Short, Integer
+from network.networking.types import Enum
+from network.networking.types.basic import Boolean, UnsignedInteger, Float, UnsignedShort, Short, Integer, Long
 from plugins.yescom.network.types import PlayerSpec, PositionSpec, AngleSpec, ParamDescriptionSpec, ChunkPositionSpec, \
-    Dimension, Priority
-from plugins.yescom.util import Position, Angle, Task, ChunkPosition
+    ParameterSpec, TrackedPlayerSpec, ChunkStateSpec, TrackerSpec
+from plugins.yescom.util import Position, Angle, RegisteredTask, ChunkPosition, ChunkState, ActiveTask
 
 ID_OFFSET = 255
 
 
+class ConfigActionPacket(Packet):  # TODO: This packet
+
+    ID = ID_OFFSET + 7
+    NAME = "config_action"
+    SIDE = Side.BOTH
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def read(self, fileobj: IO) -> None:
+        ...
+
+    def write(self, fileobj: IO) -> None:
+        ...
+
+    class Action(Enum):
+        ...
+
+
 class TaskSyncPacket(Packet):
 
-    ID = ID_OFFSET + 3
+    ID = ID_OFFSET + 8
     NAME = "task_sync"
     SIDE = Side.CLIENT
 
     def __init__(self) -> None:
         super().__init__()
 
-        self._tasks = []
+        self._registered_tasks = []
 
     def read(self, fileobj: IO) -> None:
-        self._tasks.clear()
+        self._registered_tasks.clear()
 
         tasks_to_read = UnsignedShort.read(fileobj)
         for index in range(tasks_to_read):
@@ -37,11 +56,11 @@ class TaskSyncPacket(Packet):
             for p_index in range(param_descriptions_to_read):
                 param_descriptions.append(ParamDescriptionSpec.read(fileobj))
 
-            self._tasks.append(Task(name, description, param_descriptions))
+            self._registered_tasks.append(RegisteredTask(name, description, param_descriptions))
 
     def write(self, fileobj: IO) -> None:
-        UnsignedShort.write(len(self._tasks), fileobj)
-        for task in self._tasks:
+        UnsignedShort.write(len(self._registered_tasks), fileobj)
+        for task in self._registered_tasks:
             String.write(task.name, fileobj)
             String.write(task.description, fileobj)
 
@@ -49,23 +68,26 @@ class TaskSyncPacket(Packet):
             for param_description in task.param_descriptions:
                 ParamDescriptionSpec.write(param_description, fileobj)
 
-    def get_tasks(self) -> List[Task]:
-        return self._tasks.copy()
+    def get_registered_tasks(self) -> List[RegisteredTask]:
+        return self._registered_tasks.copy()
 
-    def set_tasks(self, tasks: List[Task]) -> None:
-        self._tasks.clear()
-        self._tasks.extend(tasks)
+    def add_registered_task(self, registered_task: RegisteredTask) -> None:
+        self._registered_tasks.append(registered_task)
 
-    def extend_tasks(self, tasks: List[Task]) -> None:
-        self._tasks.extend(tasks)
+    def set_registered_tasks(self, registered_tasks: List[RegisteredTask]) -> None:
+        self._registered_tasks.clear()
+        self._registered_tasks.extend(registered_tasks)
 
-    def add_task(self, task: Task) -> None:
-        self._tasks.append(task)
+    def extend_registered_tasks(self, registered_tasks: List[RegisteredTask]) -> None:
+        self._registered_tasks.extend(registered_tasks)
+
+    def remove_registered_task(self, registered_task: RegisteredTask) -> None:
+        self._registered_tasks.remove(registered_task)
 
 
 class TaskActionPacket(Packet):
 
-    ID = ID_OFFSET + 4
+    ID = ID_OFFSET + 9
     NAME = "task_action"
     SIDE = Side.BOTH
 
@@ -74,11 +96,18 @@ class TaskActionPacket(Packet):
 
         self.action = TaskActionPacket.Action.ADD
         self.task_name = ""
-        self.task_params = {}
+        self._task_params = []
         self.task_id = 0
+        self.loaded_chunk_task = False
+
+        self.progress = 0
+        self.time_elapsed = 0
+        self.current_position = ChunkPosition(0, 0)
+
+        self.result = ""
 
     def read(self, fileobj: IO) -> None:
-        self.task_params.clear()
+        self._task_params.clear()
 
         self.action = TaskActionPacket.Action.read(fileobj)
 
@@ -87,81 +116,98 @@ class TaskActionPacket(Packet):
 
             params_to_read = UnsignedShort.read(fileobj)
             for index in range(params_to_read):
-                param_description = ParamDescriptionSpec.read(fileobj)
-                value = self._get_serializable(param_description.data_type).read(fileobj)
-
-                self.task_params[param_description] = value
+                self._task_params.append(ParameterSpec.read(fileobj))
 
         elif self.action == TaskActionPacket.Action.STOP:
             self.task_id = UnsignedShort.read(fileobj)
 
         elif self.action == TaskActionPacket.Action.ADD:
-            self.task_name = String.read(fileobj)
             self.task_id = UnsignedShort.read(fileobj)
+            self.task_name = String.read(fileobj)
+
+            params_to_read = UnsignedShort.read(fileobj)
+            for index in range(params_to_read):
+                self._task_params.append(ParameterSpec.read(fileobj))
 
         elif self.action == TaskActionPacket.Action.REMOVE:
             self.task_id = UnsignedShort.read(fileobj)
+
+        elif self.action == TaskActionPacket.Action.UPDATE:
+            self.loaded_chunk_task = Boolean.read(fileobj)
+
+            self.progress = Float.read(fileobj)
+            self.time_elapsed = Integer.read(fileobj)
+
+            if self.loaded_chunk_task:
+                self.current_position = ChunkPositionSpec.read(fileobj)
+
+        elif self.action == TaskActionPacket.Action.RESULT:
+            self.result = String.read(fileobj)
 
     def write(self, fileobj: IO) -> None:
         TaskActionPacket.Action.write(self.action, fileobj)
 
         if self.action == TaskActionPacket.Action.START:
             String.write(self.task_name, fileobj)
-            UnsignedShort.write(len(self.task_params), fileobj)
 
-            for parameter in self.task_params:
-                ParamDescriptionSpec.write(parameter, fileobj)
-                self._get_serializable(parameter.data_type).write(self.task_params[parameter], fileobj)
+            UnsignedShort.write(len(self._task_params), fileobj)
+            for parameter in self._task_params:
+                ParameterSpec.write(parameter, fileobj)
 
         elif self.action == TaskActionPacket.Action.STOP:
             UnsignedShort.write(self.task_id, fileobj)
 
         elif self.action == TaskActionPacket.Action.ADD:
-            String.write(self.task_name, fileobj)
             UnsignedShort.write(self.task_id, fileobj)
+            String.write(self.task_name, fileobj)
+
+            UnsignedShort.write(len(self._task_params), fileobj)
+            for parameter in self._task_params:
+                ParameterSpec.write(parameter, fileobj)
 
         elif self.action == TaskActionPacket.Action.REMOVE:
             UnsignedShort.write(self.task_id, fileobj)
 
-    @staticmethod
-    def _get_serializable(data_type: Task.ParamDescription.DataType):  # -> Type:  # FIXME: Ugly ass code
-        if data_type == Task.ParamDescription.DataType.POSITION:
-            return PositionSpec
+        elif self.action == TaskActionPacket.Action.UPDATE:
+            Boolean.write(self.loaded_chunk_task, fileobj)
 
-        elif data_type == Task.ParamDescription.DataType.ANGLE:
-            return AngleSpec
+            Float.write(self.progress, fileobj)
+            Integer.write(self.time_elapsed, fileobj)
 
-        elif data_type == Task.ParamDescription.DataType.CHUNK_POSITION:
-            return ChunkPositionSpec
+            if self.loaded_chunk_task:
+                ChunkPositionSpec.write(self.current_position, fileobj)
 
-        elif data_type == Task.ParamDescription.DataType.DIMENSION:
-            return Dimension
+        elif self.action == TaskActionPacket.Action.RESULT:
+            String.write(self.result, fileobj)
 
-        elif data_type == Task.ParamDescription.DataType.PRIORITY:
-            return Priority
+    def get_task_params(self) -> List[ActiveTask.Parameter]:
+        return self._task_params
 
-        elif data_type == Task.ParamDescription.DataType.STRING:
-            return String
+    def add_task_param(self, task_param: ActiveTask.Parameter) -> None:
+        self._task_params.append(task_param)
 
-        elif data_type == Task.ParamDescription.DataType.INTEGER:
-            return Integer
+    def set_task_params(self, task_params: List[ActiveTask.Parameter]) -> None:
+        self._task_params.clear()
+        self._task_params.extend(task_params)
 
-        elif data_type == Task.ParamDescription.DataType.FLOAT:
-            return Float
+    def extend_task_params(self, task_params: List[ActiveTask.Parameter]) -> None:
+        self._task_params.extend(task_params)
 
-        elif data_type == Task.ParamDescription.DataType.BOOLEAN:
-            return Boolean
+    def remove_task_param(self, task_param: ActiveTask.Parameter) -> None:
+        self._task_params.remove(task_param)
 
     class Action(Enum):
         START = 0
         STOP = 1
         ADD = 2
         REMOVE = 3
+        UPDATE = 4
+        RESULT = 5
 
 
 class AccountActionPacket(Packet):
 
-    ID = ID_OFFSET + 5
+    ID = ID_OFFSET + 10
     NAME = "account_action"
     SIDE = Side.SERVER
 
@@ -171,7 +217,8 @@ class AccountActionPacket(Packet):
         self.action = AccountActionPacket.Action.ADD
         self.action_id = 0
         self.username = ""
-        self.password = ""
+        self.access_token = ""
+        self.client_token = ""
 
     def read(self, fileobj: IO) -> None:
         self.action = AccountActionPacket.Action.read(fileobj)
@@ -179,7 +226,8 @@ class AccountActionPacket(Packet):
         self.username = String.read(fileobj)
 
         if self.action == AccountActionPacket.Action.ADD:
-            self.password = String.read(fileobj)
+            self.access_token = String.read(fileobj)
+            self.client_token = String.read(fileobj)
 
     def write(self, fileobj: IO) -> None:
         AccountActionPacket.Action.write(self.action, fileobj)
@@ -187,7 +235,8 @@ class AccountActionPacket(Packet):
         String.write(self.username, fileobj)
 
         if self.action == AccountActionPacket.Action.ADD:
-            String.write(self.password, fileobj)
+            String.write(self.access_token, fileobj)
+            String.write(self.client_token, fileobj)
 
     class Action(Enum):
         ADD = 0
@@ -196,7 +245,7 @@ class AccountActionPacket(Packet):
 
 class AccountActionResponsePacket(Packet):
 
-    ID = ID_OFFSET + 6
+    ID = ID_OFFSET + 11
     NAME = "account_action_response"
     SIDE = Side.CLIENT
 
@@ -220,7 +269,7 @@ class AccountActionResponsePacket(Packet):
 
 class PlayerActionPacket(Packet):
 
-    ID = ID_OFFSET + 7
+    ID = ID_OFFSET + 12
     NAME = "player_action"
     SIDE = Side.CLIENT
 
@@ -290,22 +339,108 @@ class PlayerActionPacket(Packet):
         UPDATE_HEALTH = 4
 
 
-class LoadedChunkPacket(Packet):
+class ChunkStatesPacket(Packet):
 
-    ID = ID_OFFSET + 8
-    NAME = "loaded_chunk"
+    ID = ID_OFFSET + 13
+    NAME = "chunk_states"
     SIDE = Side.CLIENT
 
     def __init__(self) -> None:
         super().__init__()
 
-        self.chunk_position = ChunkPosition(0, 0)
-        self.dimension = 0
+        self._chunk_states = []
 
     def read(self, fileobj: IO) -> None:
-        self.chunk_position = ChunkPositionSpec.read(fileobj)
-        self.dimension = Short.read(fileobj)
+        self._chunk_states.clear()
+
+        chunk_states_to_read = UnsignedShort.read(fileobj)
+        for index in range(chunk_states_to_read):
+            self._chunk_states.append(ChunkStateSpec.read(fileobj))
 
     def write(self, fileobj: IO) -> None:
-        ChunkPositionSpec.write(self.chunk_position, fileobj)
-        Short.write(self.dimension, fileobj)
+        ...
+
+    def get_chunk_states(self) -> List[ChunkState]:
+        return self._chunk_states.copy()
+
+    def add_chunk_state(self, chunk_state: ChunkState) -> None:
+        self._chunk_states.append(chunk_state)
+
+    def set_chunk_states(self, chunk_states: List[ChunkState]) -> None:
+        self._chunk_states.clear()
+        self._chunk_states.extend(chunk_states)
+
+    def extend_chunk_states(self, chunk_states: List[ChunkState]) -> None:
+        self._chunk_states.extend(chunk_states)
+
+    def remove_chunk_state(self, chunk_state: ChunkState) -> None:
+        self._chunk_states.remove(chunk_state)
+
+
+class TrackerActionPacket(Packet):
+
+    ID = ID_OFFSET + 14
+    NAME = "tracker_action"
+    SIDE = Side.CLIENT
+
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.action = TrackerActionPacket.Action.ADD
+        self.tracker = None
+        self.tracker_id = 0
+
+    def read(self, fileobj: IO) -> None:
+        self.action = TrackerActionPacket.Action.read(fileobj)
+
+        if self.action == TrackerActionPacket.Action.ADD:
+            self.tracker = TrackerSpec.read(fileobj)
+        else:
+            self.tracker_id = Long.read(fileobj)
+
+    def write(self, fileobj: IO) -> None:
+        TrackerActionPacket.Action.write(self.action, fileobj)
+
+        if self.action == TrackerActionPacket.Action.ADD:
+            TrackerSpec.write(self.tracker, fileobj)
+        else:
+            Long.write(self.tracker_id, fileobj)
+
+    class Action(Enum):
+        ADD = 0
+        REMOVE = 1
+        UPDATE = 3
+
+
+class InfoUpdatePacket(Packet):
+
+    ID = ID_OFFSET + 15
+    NAME = "info_update"
+    SIDE = Side.CLIENT
+
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.waiting_queries = 0
+        self.ticking_queries = 0
+        self.is_connected = False
+        self.tick_rate = 20
+        self.time_since_last_packet = 0
+
+    def read(self, fileobj: IO) -> None:
+        self.waiting_queries = UnsignedShort.read(fileobj)
+        self.ticking_queries = UnsignedShort.read(fileobj)
+        self.is_connected = Boolean.read(fileobj)
+
+        if self.is_connected:
+            self.tick_rate = Float.read(fileobj)
+            self.time_since_last_packet = UnsignedShort.read(fileobj)
+
+    def write(self, fileobj: IO) -> None:
+        UnsignedShort.write(self.waiting_queries, fileobj)
+        UnsignedShort.write(self.ticking_queries, fileobj)
+        Boolean.write(self.is_connected, fileobj)
+
+        if self.is_connected:
+            Float.write(self.tick_rate, fileobj)
+            UnsignedShort.write(self.time_since_last_packet, fileobj)

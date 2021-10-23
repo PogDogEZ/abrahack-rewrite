@@ -13,7 +13,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-@Packet.Info(name="player_action", id=YCRegistry.ID_OFFSET + 7, side=Packet.Side.CLIENT)
+@Packet.Info(name="player_action", id=YCRegistry.ID_OFFSET + 12, side=Packet.Side.CLIENT)
 public class PlayerActionPacket extends Packet {
 
     private Action action;
@@ -56,7 +56,7 @@ public class PlayerActionPacket extends Packet {
 
     public PlayerActionPacket(String playerName, Player.FoodStats newStats) {
         this(Action.UPDATE_HEALTH, null, playerName, new Position(0, 0, 0), new Angle(0.0f, 0.0f),
-                Dimension.OVERWORLD, null);
+                Dimension.OVERWORLD, newStats);
     }
 
     public PlayerActionPacket() {

@@ -1,9 +1,11 @@
 # YesCom - Anarchy Coord Exploit
 PogDog Software Suite Presents:
 
-Yescom© - Sequel to Nocom (a similar project by NerdsInc)
+Yescom© - Sequel to Nocom; a project carried out by NerdsInc
 Nocom information found here: https://github.com/nerdsinspace/nocom-explanation/blob/main/README.md
 The program does everything that the nerds did with theirs, but more practicaly implemented.
+
+![Image](rect_4k.png)
 
 # Exploit Behind It
 
@@ -12,7 +14,7 @@ up quickly:
 
 * Open any type of foreign container (chest, ender chest, hopper, NOT your inventory).
 * Move into any chunk with SPacketPlayerPosition (as well as confirming the teleport with CPacketConfirmTeleport).
-* Listen for if you recive a SPacketCloseWindow, which can conclude the chunk is loaded; if you don't recieve the SPacketCloseWindow no one is there.
+* Listen for if you recive a SPacketCloseWindow, which can conclude the chunk is loaded; if you don't recieve the SPacketCloseWindow no one is there
 
 # How Does The Program Work?
 
@@ -23,6 +25,7 @@ The program is essentially split up into 3 different programs which run with 1 a
 * Client 2 (viewer): This is the part that the user actually sees. Written in python because Node is bad, it is what is run of people's PCs instead of our server. People can have multiple of these open, and it synchronously displays all coord exploit data to anyone who is running their own instance of it. You can use this to not only view all the tracked players and loaded chunks, but you can start processes, select chunks to be loaded, and even add and remove accounts from the botnet.
 
 This is a very good way of doing it, as anyone with a registered account can open up the viewer, select the minecraft server they want to be coord exploiting on, add more accounts if they want and start viewing data, querying chunks, etc. All the other programs are running 24/7 on servers and can be accessed whenever needed.
+
 
 # Was My Base Found?
 

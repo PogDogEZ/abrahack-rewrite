@@ -6,7 +6,7 @@ from network.networking.packets.packet import Packet, Side, MetaPacket
 from network.networking.types.basic import UnsignedShort, Integer, String, Boolean, VarInt, Bytes
 from network.networking.types.enum import EncryptionType
 from network.networking.types import Enum
-from network.networking.types.extended import PacketSpec, UserType
+from network.networking.types.extended import UserType
 
 
 class ServerInfoPacket(Packet):
@@ -124,43 +124,40 @@ class ClientCapabilitiesPacket(Packet):
     def __init__(self) -> None:
         super().__init__()
 
-        self._accepted_packets = []
-        self._unknown_packets = []
+        self._packets = []
 
     def read(self, fileobj: IO) -> None:
-        self._accepted_packets.clear()
-        self._unknown_packets.clear()
+        self._packets.clear()
 
         entries = UnsignedShort.read(fileobj)
         for index in range(entries):
-            packet = PacketSpec.read(fileobj)
-            if isinstance(packet, MetaPacket):
-                self._accepted_packets.append(packet)
-            else:
-                self._unknown_packets.append(packet)
+            packet_id = UnsignedShort.read(fileobj)
+            packet_name = String.read(fileobj)
+            packet_side = Side.read(fileobj)
+
+            self._packets.append((packet_id, packet_name, packet_side))
 
     def write(self, fileobj: IO) -> None:
-        UnsignedShort.write(len(self._accepted_packets), fileobj)
+        UnsignedShort.write(len(self._packets), fileobj)
 
-        for packet in self._accepted_packets:
-            PacketSpec.write(packet, fileobj)
+        for packet in self._packets:
+            UnsignedShort.write(packet[0], fileobj)
+            String.write(packet[1], fileobj)
+            Side.write(packet[2], fileobj)
 
-    def get_accepted(self) -> List[Packet]:
-        return self._accepted_packets.copy()
+    def get_packets(self) -> List[Tuple[int, str, Side]]:
+        return self._packets.copy()
 
-    def set_accepted(self, accepted_packets: List[Packet]) -> None:
-        self._accepted_packets.clear()
-        self._accepted_packets.extend(accepted_packets)
+    def set_packets(self, packets: List[Tuple[int, str, Side]]) -> None:
+        self._packets.clear()
+        self._packets.extend(packets)
 
-    def extend_accepted(self, accepted_packets: List[Packet]) -> None:
-        self._accepted_packets.extend(accepted_packets)
+    def extend_packets(self, packets: List[Tuple[int, str, Side]]) -> None:
+        self._packets.extend(packets)
 
-    def add_accepted(self, packet: Packet) -> None:
-        if not packet in self._accepted_packets:
-            self._accepted_packets.append(packet)
-
-    def get_unknown(self) -> List[Tuple[int, str, Side]]:
-        return self._unknown_packets.copy()
+    def add_packet(self, packet: Tuple[int, str, Side]) -> None:
+        if not packet in self._packets:
+            self._packets.append(packet)
 
 
 class ClientCapabilitiesResponsePacket(Packet):

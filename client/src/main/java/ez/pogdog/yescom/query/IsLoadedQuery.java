@@ -47,9 +47,14 @@ public class IsLoadedQuery implements IQuery {
         result = null;
     }
 
+    public IsLoadedQuery(ChunkPosition position, Dimension dimension, Priority priority, Type type,
+                         BiConsumer<IsLoadedQuery, Result> callBack) {
+        this(position.getPosition(8, 0, 8), dimension, priority, type, callBack);
+    }
+
     @Override
     public String toString() {
-        return String.format("IsLoadedQuery(position=%s, dataType=%s)", position, type.name());
+        return String.format("IsLoadedQuery(position=%s, type=%s)", position, type.name());
     }
 
     @Override
@@ -62,6 +67,7 @@ public class IsLoadedQuery implements IQuery {
         if (!yesCom.connectionHandler.isConnected() || yesCom.connectionHandler.getTimeSinceLastPacket() >= yesCom.configHandler.MAX_PACKET_TIME)
             return HandleAction.AWAIT;
 
+        finished = false;
         result = null;
 
         switch (type) {
@@ -166,6 +172,12 @@ public class IsLoadedQuery implements IQuery {
 
     private void onFinished() {
         player.removePacketListener(listenerID);
+
+        if (result == Result.LOADED) {
+            yesCom.dataHandler.onLoaded(getChunkPosition(), dimension);
+        } else {
+            yesCom.dataHandler.onUnloaded(getChunkPosition(), dimension);
+        }
     }
 
     /* ------------------------ Public Methods ------------------------ */
@@ -188,7 +200,7 @@ public class IsLoadedQuery implements IQuery {
     }
 
     public ChunkPosition getChunkPosition() {
-        return new ChunkPosition(position.getX() /16, position.getZ() / 16);
+        return new ChunkPosition(position.getX() >> 4, position.getZ() >> 4);
     }
 
     public Dimension getDimension() {

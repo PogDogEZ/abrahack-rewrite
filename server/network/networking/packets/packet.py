@@ -18,7 +18,7 @@ class Side(Enum):
 
 class MetaPacket(type):
 
-    def __new__(cls, name: str, bases, body):
+    def __new__(mcs, name: str, bases, body):
         assert "ID" in body, "Derived packets from 'Packet' must have field 'ID'."
         assert "NAME" in body, "Derived packets from 'Packet' must have field 'NAME'."
         assert "SIDE" in body, "Derived packets from 'Packet' must have field 'SIDE'."
@@ -31,7 +31,7 @@ class MetaPacket(type):
         assert isinstance(body["SIDE"], int), \
             "Derived packets from 'Packet' must have field 'SIDE' of type SideEnum."
 
-        return super().__new__(cls, name, bases, body)
+        return super().__new__(mcs, name, bases, body)
 
     def __repr__(self) -> str:
         return "MetaPacket()"

@@ -462,9 +462,6 @@ class System:
         self._groups.remove(group)
         self.logger.debug("Group '%r' removed." % group)
 
-    def register_packets(self, packets: List[Type[Packet]]) -> None:
-        network.networking.packets.packets.extend(packets)
-
     # -------------------- Update -------------------- #
 
     @perm_check(permission=5)

@@ -74,7 +74,7 @@ public class ChunkPosition {
     }
 
     public BlockPosition getPosition() {
-        return getPosition(0,0,0);
+        return getPosition(0, 0, 0);
     }
 
     public BlockPosition getPosition(BlockPosition offset) {

@@ -9,7 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-@Packet.Info(name="account_action", id=YCRegistry.ID_OFFSET + 5, side=Packet.Side.SERVER)
+@Packet.Info(name="account_action", id=YCRegistry.ID_OFFSET + 10, side=Packet.Side.SERVER)
 public class AccountActionPacket extends Packet {
 
     private Action action;

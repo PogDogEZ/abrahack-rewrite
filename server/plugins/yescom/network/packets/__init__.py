@@ -11,21 +11,57 @@ from .shared import *
 listening_packets = [
     YCInitRequestPacket,
     YCInitResponsePacket,
+    YCExtendedResponsePacket,  # Technically it's not actually a packet here but I'm lazy
+    UpdateDataIDsPacket,
+    DataRequestPacket,
+    DataResponsePacket,
+    DataPartPacket,
+    ReporterActionPacket,
+    SelectReporterPacket,
+    SyncReporterPacket,
+    listening.TaskActionPacket,
+    listening.PlayerActionPacket,
+    listening.AccountActionPacket,
+    listening.AccountActionResponsePacket,
+    listening.ChunkStatesPacket,
+    listening.TrackerActionPacket,
+    listening.InfoUpdatePacket,
 ]
 
 reporting_packets = [
     YCInitRequestPacket,
     YCInitResponsePacket,
+    YCExtendedResponsePacket,
+    UpdateDataIDsPacket,
+    DataRequestPacket,
+    DataResponsePacket,
+    DataPartPacket,
+    ConfigActionPacket,
     TaskSyncPacket,
-    TaskActionPacket,
+    reporting.TaskActionPacket,
     reporting.AccountActionPacket,
     reporting.AccountActionResponsePacket,
-    PlayerActionPacket,
-    LoadedChunkPacket,
+    reporting.PlayerActionPacket,
+    reporting.ChunkStatesPacket,
+    reporting.TrackerActionPacket,
+    reporting.InfoUpdatePacket,
+]
+
+archiving_packets = [
+    YCInitRequestPacket,
+    YCInitResponsePacket,
+    YCExtendedResponsePacket,
+    UpdateDataIDsPacket,
+    DataRequestPacket,
+    DataResponsePacket,
+    DataPartPacket,
 ]
 
 all_packets = listening_packets.copy()
 # Avoid duplicates
 for packet in reporting_packets:
+    if not packet in all_packets:
+        all_packets.append(packet)
+for packet in archiving_packets:
     if not packet in all_packets:
         all_packets.append(packet)

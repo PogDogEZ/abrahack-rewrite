@@ -149,6 +149,7 @@ class Connection(threading.Thread):
 
     # -------------------- Packet read -------------------- #
 
+
     def _attempt_read_packet(self, read_timeout: float) -> Packet:
         with self._write_lock:
             try:
@@ -157,15 +158,18 @@ class Connection(threading.Thread):
             except socket.timeout:
                 return None
 
-            self._sock.settimeout(5)
-
             if not len(header_bytes):
-                time.sleep(0.1)  # Server may have disconnected us so let's wait to find out
+                time.sleep(0.1)  # Peer may have disconnected, let's wait to find out
 
                 if not self.should_exit:
-                    raise ConnectionAbortedError("Connection to server has been aborted (no information).")
+                    raise ConnectionAbortedError("Connection to peer has been aborted (no information).")
                 else:
                     return None
+
+            self._sock.settimeout(30)
+
+            while len(header_bytes) < 7:
+                header_bytes += self._sock.recv(7 - len(header_bytes))
 
             header_bytes = io.BytesIO(header_bytes)
 
@@ -176,8 +180,8 @@ class Connection(threading.Thread):
             packet_buffer = io.BytesIO()
             packet_buffer.write(self._sock.recv(packet_length))
 
-            while len(packet_buffer.getvalue()) < packet_length:  # Read excess packet data if we weren't able to read it all
-                packet_buffer.write(self._sock.recv(packet_length - len(packet_buffer.getvalue())))
+            while packet_buffer.tell() < packet_length:  # Read excess packet data if we weren't able to read it all
+                packet_buffer.write(self._sock.recv(packet_length - packet_buffer.tell()))
 
             for packet in pclient.networking.packets.packets:
                 if packet.ID == packet_id:
@@ -199,11 +203,11 @@ class Connection(threading.Thread):
             return None
 
     def _read_packets(self) -> None:
-        read_timeout = 0.005
+        read_timeout = 0.001
         if len(self._packet_queue):
-            read_timeout = 0.001  # We have more packets to send so no time to wait for new receives
+            read_timeout = 0.01  # We have more packets to send so no time to wait for new receives
 
-        for index in range(50):
+        for index in range(300):
             try:
                 packet = self._attempt_read_packet(read_timeout)
             except Exception as error:
@@ -236,20 +240,22 @@ class Connection(threading.Thread):
     # -------------------- Packet write -------------------- #
 
     def _send_queued_packets(self) -> None:
-        for index in range((len(self._packet_queue) if len(self._packet_queue) < 300 else 300)):
+        for index in range(min(15, len(self._packet_queue))):
             self._write_packet_instant(self._packet_queue.popleft())
 
     def _write_packet_instant(self, packet: Packet, no_compression: bool = False) -> None:
-        if self._write_lock:
+        with self._write_lock:
             packet_data = io.BytesIO()
             buffer = io.BytesIO()
+
+            # print(packet)
 
             packet.write(packet_data)
             packet_data = packet_data.getvalue()
 
             flags = 0
 
-            if self.compression_enabled() and len(packet_data) > self.get_compression_threshold() and not no_compression:
+            if self._compression and len(packet_data) > self._compression_threshold and not no_compression:
                 flags |= 1
                 packet_data = zlib.compress(packet_data)
 
@@ -258,7 +264,12 @@ class Connection(threading.Thread):
             UnsignedShort.write(packet.ID, buffer)
             buffer.write(packet_data)
 
-            self._sock.send(buffer.getvalue())
+            try:
+                self._sock.settimeout(30)
+                self._sock.sendall(buffer.getvalue())
+            except Exception as error:
+                if not self.should_exit:
+                    self.exit(repr(error))
 
     def send_packet(self, packet: Packet, force: bool = False, no_compression: bool = False) -> None:
         # assert isinstance(packet, Packet), "Param 'packet' must be of type Packet."
