@@ -59,8 +59,9 @@ public class PanicTracker implements ITracker {
                 trackedPlayer.setRenderDistance(newRenderDistance);
                 trackedPlayer.setDimension(currentResolver.getDimension());
                 yesCom.trackingHandler.trackBasic(trackedPlayer);
+
             } else {
-                yesCom.trackingHandler.removeTracker(this);
+                doLogout();
             }
         }
     }

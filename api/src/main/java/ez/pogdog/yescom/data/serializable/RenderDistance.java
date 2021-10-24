@@ -23,7 +23,7 @@ public class RenderDistance implements ISerializable {
     }
 
     public RenderDistance(ChunkPosition centerPosition, int renderDistance, float errorX, float errorZ) {
-        this(new BigInteger("0"), centerPosition, renderDistance, errorX, errorZ);
+        this(BigInteger.ZERO, centerPosition, renderDistance, errorX, errorZ);
     }
 
     @Override

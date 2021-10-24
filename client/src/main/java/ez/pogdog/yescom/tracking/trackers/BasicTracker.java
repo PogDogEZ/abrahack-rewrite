@@ -27,19 +27,19 @@ public class BasicTracker implements ITracker {
     private boolean awaitingOnlineCheck;
 
     private ChunkPosition centerOffset;
+    private ChunkPosition lastCenterOffset;
 
     private long lastLoadedChunk;
-
-    private long lastQueryMeasure;
-    private int queries;
 
     public BasicTracker(long trackerID, TrackedPlayer trackedPlayer) {
         this.trackerID = trackerID;
         this.trackedPlayer = trackedPlayer;
 
         lastUpdate = System.currentTimeMillis() - 100;
-        updateTime = 100;
-        lastQueryMeasure = System.currentTimeMillis();
+        updateTime = 100; // Start off fast initially as we don't know how fast they are travelling
+
+        centerOffset = new ChunkPosition(0, 0);
+        lastCenterOffset = new ChunkPosition(0, 0);
     }
 
     @Override
@@ -50,14 +50,10 @@ public class BasicTracker implements ITracker {
         if (!awaitingMovementCheck) {
             doMovementCheck();
 
-            if (!awaitingOnlineCheck && System.currentTimeMillis() - lastLoadedChunk > yesCom.configHandler.BASIC_TRACKER_ONLINE_CHECK_TIME)
+            // FIXME: Remove the inverted mode cos obviously it won't work, or overhaul it to actually work because it could be faster
+            if (!yesCom.configHandler.BASIC_TRACKER_INVERT && !awaitingOnlineCheck &&
+                    System.currentTimeMillis() - lastLoadedChunk > yesCom.configHandler.BASIC_TRACKER_ONLINE_CHECK_TIME)
                 doOnlineCheck();
-        }
-        long deltaTime = System.currentTimeMillis() - lastQueryMeasure;
-        if(deltaTime > 1000) {
-            lastQueryMeasure = System.currentTimeMillis();
-            yesCom.logger.debug(String.format("%.1f queries per second", queries / (deltaTime / 1000.0f)));
-            queries = 0;
         }
     }
 
@@ -90,7 +86,6 @@ public class BasicTracker implements ITracker {
                     (int)Math.pow(-1, index + 1) * distance,
                     (int)Math.pow(-1, Math.ceil((index + 1) / 2.0f)) * distance);
 
-            ++queries;
             IsLoadedQuery isLoadedQuery = new IsLoadedQuery(
                     trackedPlayer.getRenderDistance().getCenterPosition().add(offset), trackedPlayer.getDimension(),
                     IQuery.Priority.MEDIUM, yesCom.configHandler.TYPE, (query, result) -> {
@@ -115,14 +110,27 @@ public class BasicTracker implements ITracker {
                 if (currentQueries.isEmpty() || (currentQueries.size() == 1 && awaitingOnlineCheck)) { // Done
                     awaitingMovementCheck = false;
 
-                    trackedPlayer.setRenderDistance(new RenderDistance(
-                            trackedPlayer.getRenderDistance().getCenterPosition().subtract(centerOffset),
-                            yesCom.configHandler.RENDER_DISTANCE,
-                            (float)(Math.pow(yesCom.configHandler.RENDER_DISTANCE, 2) / centerOffset.getX()),
-                            (float)(Math.pow(yesCom.configHandler.RENDER_DISTANCE, 2) / centerOffset.getZ())));
-                    // trackedPlayer.getTrackingData().addRenderDistance(trackedPlayer.getRenderDistance());
+                    if (!centerOffset.equals(new ChunkPosition(0, 0))) {
+                        updateTime = 100; // TODO: Adjust this automatically based on speed I guess + check speed estimation works
+
+                        ChunkPosition shift = new ChunkPosition((centerOffset.getX() + lastCenterOffset.getX()) / 2,
+                                (centerOffset.getZ() + lastCenterOffset.getZ()) / 2);
+
+                        trackedPlayer.setRenderDistance(yesCom.dataHandler.newRenderDistance(
+                                trackedPlayer.getRenderDistance().getCenterPosition().subtract(shift),
+                                yesCom.configHandler.RENDER_DISTANCE,
+                                (float)(Math.pow(yesCom.configHandler.RENDER_DISTANCE, 2) / centerOffset.getX()),
+                                (float)(Math.pow(yesCom.configHandler.RENDER_DISTANCE, 2) / centerOffset.getZ())));
+
+                    } else {
+                        updateTime = 1000;
+                    }
+
+                    lastCenterOffset = centerOffset;
+                    trackedPlayer.getTrackingData().addRenderDistance(trackedPlayer.getRenderDistance());
                 }
             });
+
             currentQueries.add(isLoadedQuery);
             yesCom.queryHandler.addQuery(isLoadedQuery);
         }
@@ -135,23 +143,23 @@ public class BasicTracker implements ITracker {
             return;
         }
 
-        ++queries;
         IsLoadedQuery isLoadedQuery = new IsLoadedQuery(
                 trackedPlayer.getRenderDistance().getCenterPosition(), trackedPlayer.getDimension(), IQuery.Priority.HIGH,
                 yesCom.configHandler.TYPE, (query, result) -> {
-                    currentQueries.remove(query);
+            currentQueries.remove(query);
 
-                    if (result != IsLoadedQuery.Result.LOADED) {
-                        yesCom.logger.debug(String.format("Failed online check for %s.", trackedPlayer));
-                        if(yesCom.trackingHandler.getTracker(trackerID) != null){
-                            yesCom.trackingHandler.trackPanic(trackedPlayer);
-                        }
-                    } else {
-                        lastLoadedChunk = System.currentTimeMillis();
-                    }
+            if (result != IsLoadedQuery.Result.LOADED) {
+                yesCom.logger.debug(String.format("Failed online check for %s.", trackedPlayer));
+                if(yesCom.trackingHandler.getTracker(trackerID) != null){
+                    yesCom.trackingHandler.trackPanic(trackedPlayer);
+                }
+            } else {
+                lastLoadedChunk = System.currentTimeMillis();
+            }
 
-                    awaitingOnlineCheck = false;
-                });
+            awaitingOnlineCheck = false;
+        });
+
         currentQueries.add(isLoadedQuery);
         yesCom.queryHandler.addQuery(isLoadedQuery);
     }

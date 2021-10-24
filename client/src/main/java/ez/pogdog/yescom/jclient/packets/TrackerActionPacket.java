@@ -102,6 +102,14 @@ public class TrackerActionPacket extends Packet {
         this.trackerID = trackerID;
     }
 
+    public TrackedPlayer getTrackedPlayer() {
+        return trackedPlayer;
+    }
+
+    public void setTrackedPlayer(TrackedPlayer trackedPlayer) {
+        this.trackedPlayer = trackedPlayer;
+    }
+
     public enum Action {
         ADD, REMOVE, UPDATE;
     }
