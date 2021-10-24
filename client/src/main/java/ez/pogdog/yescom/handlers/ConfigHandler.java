@@ -89,10 +89,6 @@ public class ConfigHandler implements IHandler {
      */
     public int BASIC_TRACKER_ONLINE_CHECK_TIME = 5000;
     /**
-     * Whether to invert the checks, so it checks more unloaded chunks rather than loaded.
-     */
-    public boolean BASIC_TRACKER_INVERT = true;
-    /**
      * How far to check from known chunks.
      */
     public int BASIC_TRACKER_DIST = 3;

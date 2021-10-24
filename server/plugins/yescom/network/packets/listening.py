@@ -219,7 +219,7 @@ class SyncReporterPacket(Packet):
         self._players.clear()
         self._players.extend(players)
 
-    def extend_player(self, players: List[Player]) -> None:
+    def extend_players(self, players: List[Player]) -> None:
         self._players.extend(players)
 
     def remove_player(self, player: Player) -> None:

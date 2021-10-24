@@ -11,12 +11,12 @@ class GotoPopup(Tk):
     INSTANCE = None
 
     def __init__(self, main_frame) -> None:
-        super().__init__()
-
         if GotoPopup.INSTANCE is not None:
             GotoPopup.INSTANCE.lift()
             GotoPopup.INSTANCE.focus_force()
             return
+
+        super().__init__()
 
         GotoPopup.INSTANCE = self
 

@@ -38,7 +38,7 @@ class MainFrame(Frame):
     def left_offset(self) -> Tuple[int, int]:
         return self._left_offset[0], self._left_offset[1]
 
-    def __init__(self, master, viewer, *args, size: Tuple[int, int] = (768, 576), **kwargs) -> None:
+    def __init__(self, master, viewer, *args, size: Tuple[int, int] = Config.VIEWER_SIZE, **kwargs) -> None:
         super().__init__(master, *args, bg="#%02x%02x%02x" % Config.WINDOW_COLOUR, width=size[0], height=size[1],
                          **kwargs)
 

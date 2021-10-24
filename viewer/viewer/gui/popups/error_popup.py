@@ -11,10 +11,10 @@ class ErrorPopup(Tk):
     INSTANCE = None
 
     def __init__(self, message: str, error: str) -> None:
-        super().__init__()
-
         if ErrorPopup.INSTANCE is not None:
             ErrorPopup.INSTANCE.destroy()
+
+        super().__init__()
 
         ErrorPopup.INSTANCE = self
 

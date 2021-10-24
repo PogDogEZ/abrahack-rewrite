@@ -19,12 +19,12 @@ class LoginPopup(Tk):
         return "" if self._password_var is None else self._password_var.get()
 
     def __init__(self, server_name: str, call_back) -> None:
-        super().__init__()
-
         if LoginPopup.INSTANCE is not None:
             LoginPopup.INSTANCE.lift()
             LoginPopup.INSTANCE.focus_force()
             return
+
+        super().__init__()
 
         LoginPopup.INSTANCE = self
 

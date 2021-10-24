@@ -11,12 +11,12 @@ class AccountsPopup(Tk):
     INSTANCE = None
 
     def __init__(self, viewer) -> None:
-        super().__init__()
-
         if AccountsPopup.INSTANCE is not None:
             AccountsPopup.INSTANCE.lift()
             AccountsPopup.INSTANCE.focus_force()
             return
+
+        super().__init__()
 
         AccountsPopup.INSTANCE = self
 
@@ -55,12 +55,18 @@ class AccountsPopup(Tk):
         password_entry.grid(row=1, column=1, sticky=NW)
 
         username_entry.focus_force()
-        ConfigButton(add_account_frame, text="Login Mojang Account.").grid(row=2, column=0, columnspan=2, pady=(3, 0),
-                                                                           sticky=NW)
-        ConfigButton(add_account_frame, text="Login MS Account.").grid(row=3, column=0, columnspan=2, sticky=NW)
+        ConfigButton(add_account_frame, text="Login Mojang Account").grid(row=2, column=0, columnspan=2, pady=(3, 0),
+                                                                          sticky=NW)
+        ConfigButton(add_account_frame, text="Login MS Account").grid(row=3, column=0, columnspan=2, sticky=NW)
 
-        self._goto = ConfigButton(self, text="Goto Player.")
-        self._remove = ConfigButton(self, text="Remove Account.")
+        buttons_frame = Frame(self, bg="#%02x%02x%02x" % Config.WINDOW_COLOUR)
+        buttons_frame.grid(row=4, column=0, columnspan=2, padx=3, pady=(0, 3), sticky=W)
+
+        self._goto = ConfigButton(buttons_frame, text="Goto Player", command=self._goto_account)
+        self._goto.grid(row=0, column=0, padx=(0, 2), sticky=W)
+        self._remove = ConfigButton(buttons_frame, text="Remove Account", command=self._remove_account)
+        self._remove.grid(row=0, column=1, padx=(0, 2), sticky=W)
+        ConfigButton(buttons_frame, text="Exit", command=self.destroy).grid(row=0, column=2, sticky=W)
 
         self.after(10, self.on_update)
         self.mainloop()
@@ -68,6 +74,37 @@ class AccountsPopup(Tk):
     def destroy(self) -> None:
         AccountsPopup.INSTANCE = None
         super().destroy()
+
+    def _goto_account(self) -> None:
+        if self.viewer.current_reporter == -1:
+            self.main_frame.do_error_popup("An error occurred while attempting to show info for an account:",
+                                           "No current reporter.")
+            return
+
+        reporter = self.viewer.get_reporter(handler_id=self.viewer.current_reporter)
+
+        for entry in self._listbox.curselection():
+            display_name = self._listbox.get(entry)
+            player = reporter.get_player(display_name)
+
+            self.main_frame.current_dimension = player.dimension + 1
+            self.main_frame.goto(player.position.x / 16, player.position.z / 16)
+            self.main_frame.scale_and_pan(self.main_frame.size[0] / 2, self.main_frame.size[1] / 2, 3, 3)
+
+    def _remove_account(self) -> None:
+        if self.viewer.current_reporter == -1:
+            self.main_frame.do_error_popup("An error occurred while attempting to remove an account:",
+                                           "No current reporter.")
+            return
+
+        reporter = self.viewer.get_reporter(handler_id=self.viewer.current_reporter)
+
+        for entry in self._listbox.curselection():
+            display_name = self._listbox.get(entry)
+            player = reporter.get_player(display_name)
+
+            self.viewer.remove_account(player.username)
+            self._listbox.delete(entry)
 
     def on_update(self) -> None:
         players = []

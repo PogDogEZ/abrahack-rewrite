@@ -11,7 +11,14 @@ class ReporterPopup(Tk):
     INSTANCE = None
 
     def __init__(self, viewer) -> None:
+        if ReporterPopup.INSTANCE is not None:
+            ReporterPopup.INSTANCE.focus_force()
+            ReporterPopup.INSTANCE.lift()
+            return
+
         super().__init__()
+
+        ReporterPopup.INSTANCE = self
 
         self.viewer = viewer
 
@@ -48,6 +55,10 @@ class ReporterPopup(Tk):
 
         self.after(10, self.on_update)
         self.mainloop()
+
+    def destroy(self) -> None:
+        ReporterPopup.INSTANCE = None
+        super().destroy()
 
     def _select_reporter(self) -> None:
         for entry in self._reporter_listbox.curselection():

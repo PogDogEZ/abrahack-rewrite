@@ -51,6 +51,8 @@ class MainMenu(Menu):
 
         self.add_command(label="Accounts", command=lambda: AccountsPopup(self.viewer))
 
+        self.add_command(label="Trackers")
+
         self._layers_menu = Menu(self, tearoff=0, bg="#%02x%02x%02x" % Config.WINDOW_COLOUR,
                                  activebackground="#%02x%02x%02x" % Config.WIDGET_COLOUR, font=Config.FONT,
                                  borderwidth=2, activeborderwidth=0, relief=SOLID)

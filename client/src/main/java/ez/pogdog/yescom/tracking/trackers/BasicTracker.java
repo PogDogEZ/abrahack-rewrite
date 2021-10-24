@@ -47,14 +47,7 @@ public class BasicTracker implements ITracker {
         if (System.currentTimeMillis() - lastUpdate < updateTime) return;
         lastUpdate = System.currentTimeMillis();
 
-        if (!awaitingMovementCheck) {
-            doMovementCheck();
-
-            // FIXME: Remove the inverted mode cos obviously it won't work, or overhaul it to actually work because it could be faster
-            if (!yesCom.configHandler.BASIC_TRACKER_INVERT && !awaitingOnlineCheck &&
-                    System.currentTimeMillis() - lastLoadedChunk > yesCom.configHandler.BASIC_TRACKER_ONLINE_CHECK_TIME)
-                doOnlineCheck();
-        }
+        if (!awaitingMovementCheck) doMovementCheck();
     }
 
 
@@ -79,7 +72,7 @@ public class BasicTracker implements ITracker {
         awaitingMovementCheck = true;
         centerOffset = new ChunkPosition(0, 0);
 
-        int distance = yesCom.configHandler.BASIC_TRACKER_DIST + (yesCom.configHandler.BASIC_TRACKER_INVERT ? yesCom.configHandler.RENDER_DISTANCE : 0);
+        int distance = yesCom.configHandler.BASIC_TRACKER_DIST;
 
         for (int index = 0; index < 4; ++index) {
             ChunkPosition offset = new ChunkPosition(
@@ -98,11 +91,7 @@ public class BasicTracker implements ITracker {
                             Math.max(-yesCom.configHandler.BASIC_TRACKER_DIST, Math.min(yesCom.configHandler.BASIC_TRACKER_DIST,
                                     offset.getZ())) * 2);
 
-                    if (yesCom.configHandler.BASIC_TRACKER_INVERT) {
-                        centerOffset = centerOffset.subtract(newOffset);
-                    } else {
-                        centerOffset = centerOffset.add(newOffset);
-                    }
+                    centerOffset = centerOffset.add(newOffset);
                 } else {
                     lastLoadedChunk = System.currentTimeMillis();
                 }
@@ -136,7 +125,7 @@ public class BasicTracker implements ITracker {
         }
     }
 
-    private void doOnlineCheck() {
+    private void doOnlineCheck() { // Could be used for something else, idk what yet tho
         awaitingOnlineCheck = true;
         if (trackedPlayer.getRenderDistance() == null) {
             yesCom.logger.warn(String.format("Couldn't do online check for %s, no render distance data.", trackedPlayer));
