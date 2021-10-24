@@ -48,6 +48,11 @@ public class BasicTracker implements ITracker {
         lastUpdate = System.currentTimeMillis();
 
         if (!awaitingMovementCheck) doMovementCheck();
+        if (System.currentTimeMillis() - lastLoadedChunk > yesCom.configHandler.BASIC_TRACKER_ONLINE_CHECK_TIME) {
+            yesCom.logger.debug(String.format("Failed online check for %s.", trackedPlayer));
+            // Avoid duplicates
+            if (yesCom.trackingHandler.getTracker(trackerID) != null) yesCom.trackingHandler.trackPanic(trackedPlayer);
+        }
     }
 
 

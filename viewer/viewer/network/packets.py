@@ -821,7 +821,7 @@ class TrackerActionPacket(Packet):
     class Action(Enum):
         ADD = 0
         REMOVE = 1
-        UPDATE = 3
+        UPDATE = 2
 
 
 class InfoUpdatePacket(Packet):
