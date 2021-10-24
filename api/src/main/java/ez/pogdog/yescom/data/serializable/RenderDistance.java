@@ -55,8 +55,8 @@ public class RenderDistance implements ISerializable {
      * @return Whether the positions lies within this render distance.
      */
     public boolean contains(ChunkPosition chunkPosition) {
-        return Math.abs(centerPosition.getX() - chunkPosition.getX()) < Math.ceil(renderDistance / 2.0f) &&
-                Math.abs(centerPosition.getZ() - chunkPosition.getZ()) < Math.ceil(renderDistance / 2.0f);
+        return Math.abs(centerPosition.getX() - chunkPosition.getX()) < Math.ceil(renderDistance / 2.0f + errorX) &&
+                Math.abs(centerPosition.getZ() - chunkPosition.getZ()) < Math.ceil(renderDistance / 2.0f + errorZ);
     }
 
     /**

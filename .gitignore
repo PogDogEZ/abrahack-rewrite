@@ -10,7 +10,6 @@
 /api/build/
 
 /viewer/.idea/
-/viewer/venv/
 
 /server/.idea/
 /server/trusted_handlers/

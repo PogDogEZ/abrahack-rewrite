@@ -195,6 +195,17 @@ public class TrackingHandler implements IHandler {
         }
     }
 
+    public void handleLogout(TrackedPlayer trackedPlayer) {
+        if (!trackedPlayer.isLoggedOut()) {
+            trackedPlayer.setLoggedOut(true);
+            removeTrackedPlayer(trackedPlayer);
+            addLoggedPlayer(trackedPlayer);
+
+            yesCom.connectionHandler.recentLeaves.forEach((uuid, time) -> trackedPlayer.putPossiblePlayer(uuid,
+                    trackedPlayer.getPossiblePlayer(uuid) + 1));
+        }
+    }
+
     public boolean isChunkKnown(ChunkPosition chunkPosition, Dimension dimension) {
         return onlinePlayers.stream()
                 .anyMatch(trackedPlayer ->trackedPlayer.getDimension() == dimension && trackedPlayer.getRenderDistance().contains(chunkPosition));
