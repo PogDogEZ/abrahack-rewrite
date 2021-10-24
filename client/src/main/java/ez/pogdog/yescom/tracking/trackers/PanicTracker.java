@@ -24,7 +24,7 @@ public class PanicTracker implements ITracker {
 
     @Override
     public void onTick() {
-        if(currentResolver == null) {
+        if (currentResolver == null) {
             ChunkPosition possiblePosition = trackedPlayer.getRenderDistance().getCenterPosition();
             switch (trackedPlayer.getDimension()) {
                 case NETHER: {

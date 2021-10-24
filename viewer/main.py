@@ -25,6 +25,6 @@ if __name__ == "__main__":
 
     viewer = Viewer(logger)
 
-    MainFrame(root, viewer)
+    ConnectFrame(root, viewer)
 
     root.mainloop()

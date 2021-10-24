@@ -85,7 +85,7 @@ class YCHandler(Handler):
                 for player in packet.get_players():
                     reporter.add_player(player)
 
-                for tracker in packet.get_tracked_players():
+                for tracker in packet.get_trackers():
                     reporter.add_tracker(tracker)
 
             else:

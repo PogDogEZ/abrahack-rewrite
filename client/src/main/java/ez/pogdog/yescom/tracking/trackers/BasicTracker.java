@@ -47,12 +47,6 @@ public class BasicTracker implements ITracker {
         lastUpdate = System.currentTimeMillis();
 
         if (!awaitingMovementCheck) doMovementCheck();
-
-        if (System.currentTimeMillis() - lastLoadedChunk > yesCom.configHandler.BASIC_TRACKER_ONLINE_CHECK_TIME) {
-            yesCom.logger.debug(String.format("Failed online check for %s.", trackedPlayer));
-            // Avoid duplicates
-            if (yesCom.trackingHandler.getTracker(trackerID) != null) yesCom.trackingHandler.trackPanic(trackedPlayer);
-        }
     }
 
 
@@ -105,8 +99,12 @@ public class BasicTracker implements ITracker {
                     awaitingMovementCheck = false;
                     updateTime = 100; // TODO: Adjust this automatically based on speed I guess + check speed estimation works
 
-                    ChunkPosition shift = new ChunkPosition((centerOffset.getX() + lastCenterOffset.getX()) / 2,
-                            (centerOffset.getZ() + lastCenterOffset.getZ()) / 2);
+                    double velocity = trackedPlayer.getTrackingData().getVelocity(System.currentTimeMillis() - 2000, System.currentTimeMillis());
+                    yesCom.logger.debug(String.format("%s has estimated velocity: %.2f.", trackedPlayer, velocity));
+
+                    ChunkPosition shift = new ChunkPosition(
+                            (int)(centerOffset.getX() * 0.75 + lastCenterOffset.getX() * 0.25),
+                            (int)(centerOffset.getZ() * 0.75 + lastCenterOffset.getZ() * 0.25));
 
                     trackedPlayer.setRenderDistance(yesCom.dataHandler.newRenderDistance(
                             trackedPlayer.getRenderDistance().getCenterPosition().subtract(shift),
@@ -116,6 +114,12 @@ public class BasicTracker implements ITracker {
 
                     lastCenterOffset = centerOffset;
                     // trackedPlayer.getTrackingData().addRenderDistance(trackedPlayer.getRenderDistance());
+
+                    if (System.currentTimeMillis() - lastLoadedChunk > yesCom.configHandler.BASIC_TRACKER_ONLINE_CHECK_TIME) {
+                        yesCom.logger.info(String.format("Failed online check for %s.", trackedPlayer));
+                        // Avoid duplicates
+                        if (yesCom.trackingHandler.getTracker(trackerID) != null) yesCom.trackingHandler.trackPanic(trackedPlayer);
+                    }
                 }
             });
 

@@ -6,7 +6,8 @@ from pclient.networking.types import Enum
 from pclient.networking.types.basic import UnsignedShort, String, Bytes, Boolean, Integer, VarInt, Float, Short, Long
 from viewer.network.types import ChunkPositionSpec, TrackedPlayerSpec, ChunkStateSpec, AngleSpec, PositionSpec, \
     PlayerSpec, ParameterSpec, ParamDescriptionSpec, TrackerSpec
-from viewer.util import ChunkState, ChunkPosition, Position, Angle, TrackedPlayer, Player, ActiveTask, RegisteredTask
+from viewer.util import ChunkState, ChunkPosition, Position, Angle, TrackedPlayer, Player, ActiveTask, RegisteredTask, \
+    Tracker
 
 ID_OFFSET = 255
 
@@ -330,7 +331,7 @@ class SyncReporterPacket(Packet):
         self._registered_tasks = []
         self._active_tasks = []
         self._players = []
-        self._tracked_players = []
+        self._trackers = []
 
     def read(self, fileobj: IO) -> None:
         self.has_reporter = Boolean.read(fileobj)
@@ -384,9 +385,9 @@ class SyncReporterPacket(Packet):
             for index in range(players_to_read):
                 self._players.append(PlayerSpec.read(fileobj))
 
-            tracked_players_to_read = Integer.read(fileobj)
-            for index in range(tracked_players_to_read):
-                self._tracked_players.append(TrackedPlayerSpec.read(fileobj))
+            trackers_to_read = Integer.read(fileobj)
+            for index in range(trackers_to_read):
+                self._trackers.append(TrackerSpec.read(fileobj))
 
     def write(self, fileobj: IO) -> None:
         Boolean.write(self.has_reporter, fileobj)
@@ -424,9 +425,9 @@ class SyncReporterPacket(Packet):
             for player in self._players:
                 PlayerSpec.write(player, fileobj)
 
-            Integer.write(len(self._tracked_players), fileobj)
-            for tracked_player in self._tracked_players:
-                TrackedPlayerSpec.write(tracked_player, fileobj)
+            Integer.write(len(self._trackers), fileobj)
+            for tracker in self._trackers:
+                TrackerSpec.write(tracker, fileobj)
 
     def get_registered_tasks(self) -> List[RegisteredTask]:
         return self._registered_tasks.copy()
@@ -476,21 +477,21 @@ class SyncReporterPacket(Packet):
     def remove_player(self, player: Player) -> None:
         self._players.remove(player)
 
-    def get_tracked_players(self) -> List[TrackedPlayer]:
-        return self._tracked_players.copy()
+    def get_trackers(self) -> List[Tracker]:
+        return self._trackers.copy()
 
-    def add_tracked_player(self, tracked_player: TrackedPlayer) -> None:
-        self._tracked_players.append(tracked_player)
+    def add_tracker(self, tracker: Tracker) -> None:
+        self._trackers.append(tracker)
 
-    def set_tracked_players(self, tracked_players: List[TrackedPlayer]) -> None:
-        self._tracked_players.clear()
-        self._tracked_players.extend(tracked_players)
+    def set_trackers(self, trackers: List[Tracker]) -> None:
+        self._trackers.clear()
+        self._trackers.extend(trackers)
 
-    def extend_tracked_player(self, tracked_players: List[TrackedPlayer]) -> None:
-        self._tracked_players.extend(tracked_players)
+    def extend_trackers(self, trackers: List[Tracker]) -> None:
+        self._trackers.extend(trackers)
 
-    def remove_tracked_player(self, tracked_player: TrackedPlayer) -> None:
-        self._tracked_players.remove(tracked_player)
+    def remove_tracker(self, tracker: Tracker) -> None:
+        self._trackers.remove(tracker)
 
 
 class TaskActionPacket(Packet):

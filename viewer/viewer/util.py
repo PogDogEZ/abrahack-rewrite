@@ -543,7 +543,7 @@ class Reporter:  # FIXME: Move this out of here
         return self._players.copy()
 
     @property
-    def tracked_players(self) -> List[TrackedPlayer]:
+    def trackers(self) -> List[Tracker]:
         return self._trackers.copy()
 
     @property
@@ -703,10 +703,10 @@ class Reporter:  # FIXME: Move this out of here
             if tracker.tracker_id == tracker_id:
                 return tracker
 
-        raise LookupError("Couldn't find tracked player by ID %i." % tracker_id)
+        raise LookupError("Couldn't find tracker by ID %i." % tracker_id)
 
     def get_trackers(self) -> List[Tracker]:
-         return self._trackers.copy()
+        return self._trackers.copy()
 
     # ------------------------------ Online players ------------------------------ #
 
