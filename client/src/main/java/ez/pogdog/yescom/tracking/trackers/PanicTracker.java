@@ -1,0 +1,84 @@
+package ez.pogdog.yescom.tracking.trackers;
+
+import ez.pogdog.yescom.YesCom;
+import ez.pogdog.yescom.data.serializable.RenderDistance;
+import ez.pogdog.yescom.data.serializable.TrackedPlayer;
+import ez.pogdog.yescom.tracking.IResolver;
+import ez.pogdog.yescom.tracking.ITracker;
+import ez.pogdog.yescom.tracking.resolvers.DimChangeResolver;
+import ez.pogdog.yescom.util.ChunkPosition;
+import ez.pogdog.yescom.util.Dimension;
+
+/**
+ * This is just a test, plz make better Arzi
+ */
+public class PanicTracker implements ITracker {
+
+    private final long trackerID;
+    private final TrackedPlayer player;
+    private IResolver currentResolver;
+
+    private final YesCom yesCom = YesCom.getInstance();
+
+    public PanicTracker(long id, TrackedPlayer player) {
+        trackerID = id;
+        this.player = player;
+    }
+
+    @Override
+    public void onTick() {
+        if(currentResolver == null) {
+            ChunkPosition possiblePosition = player.getRenderDistance().getCenterPosition();
+            switch (player.getDimension()) {
+                case NETHER: {
+                    if (yesCom.connectionHandler.hasAccountsIn(Dimension.OVERWORLD)) {
+                        currentResolver = new DimChangeResolver(
+                                new ChunkPosition(possiblePosition.getX() * 8, possiblePosition.getZ() * 8),
+                                Dimension.OVERWORLD);
+                    } else {
+                        //doLogout();
+                    }
+                    break;
+                }
+                case OVERWORLD: {
+                    if (yesCom.connectionHandler.hasAccountsIn(Dimension.NETHER)) {
+                        currentResolver = new DimChangeResolver(
+                                new ChunkPosition(possiblePosition.getX() / 8, possiblePosition.getZ() / 8),
+                                Dimension.NETHER);
+                    } else {
+                        //doLogout();
+                    }
+                    break;
+                }
+                case END: {
+                   //doLogout();
+                    break;
+                }
+            }
+        } else if(currentResolver.isComplete()) {
+            RenderDistance newRenderDistance = currentResolver.getRenderDistance();
+            if(newRenderDistance != null) {
+                player.setRenderDistance(newRenderDistance);
+                player.setDimension(currentResolver.getDimension());
+                yesCom.trackingHandler.trackBasic(player);
+            } else {
+                yesCom.trackingHandler.removeTracker(this);
+            }
+        }
+    }
+
+    @Override
+    public void onLost() {
+
+    }
+
+    @Override
+    public long getTrackerID() {
+        return trackerID;
+    }
+
+    @Override
+    public TrackedPlayer getTrackedPlayer() {
+        return player;
+    }
+}

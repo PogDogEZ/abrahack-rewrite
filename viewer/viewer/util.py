@@ -344,6 +344,10 @@ class ActiveTask:
 class ChunkState:
 
     @property
+    def chunk_state_id(self) -> int:
+        return self._chunk_state_id
+
+    @property
     def state(self):  # -> ChunkState.State:
         return self._state
 
@@ -359,15 +363,75 @@ class ChunkState:
     def found_at(self) -> int:
         return self._found_at
 
-    def __init__(self, state, chunk_position: ChunkPosition, dimension: int, found_at: int) -> None:
+    def __init__(self, chunk_state_id: int, state, chunk_position: ChunkPosition, dimension: int, found_at: int) -> None:
+        self._chunk_state_id = chunk_state_id
         self._state = state
         self._chunk_position = chunk_position
         self._dimension = dimension
         self._found_at = found_at
 
+    def __repr__(self) -> str:
+        return "ChunkState(ID=%i, state=%s, position=%r)" % (self._chunk_state_id,
+                                                             ChunkState.State.name_from_value(self._state),
+                                                             self._chunk_position)
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, ChunkState):
+            return False
+        else:
+            return other._chunk_state_id == self._chunk_state_id
+
     class State(Enum):
         LOADED = 0
         UNLOADED = 1
+
+class RenderDistance:
+
+    @property
+    def render_distance_id(self) -> int:
+        return self._render_distance_id
+
+    @property
+    def center_position(self) -> ChunkPosition:
+        return self._center_position
+
+    @property
+    def render_distance(self) -> int:
+        return self._render_distance
+
+    @property
+    def error_x(self) -> float:
+        return self._error_x
+
+    @property
+    def error_z(self) -> float:
+        return self._error_z
+
+    def __init__(self, render_distance_id: int, center_position: ChunkPosition, render_distance: int, error_x: float,
+                 error_z: float) -> None:
+        self._render_distance_id = render_distance_id
+        self._center_position = center_position
+        self._render_distance = render_distance
+        self._error_x = error_x
+        self._error_z = error_z
+
+    def __repr__(self) -> str:
+        return "RenderDistance(ID=%i, center=%r)" % (self._render_distance_id, self._center_position)
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, RenderDistance):
+            return False
+        else:
+            return other._render_distance_id == self._render_distance_id
+
+
+class TrackingData:
+
+    def __init__(self, previous_render_distances: Dict[int, int]) -> None:
+        self._previous_render_distances = previous_render_distances.copy()
+
+    def get_render_distances(self) -> Dict[int, int]:
+        return self._previous_render_distances.copy()
 
 
 class TrackedPlayer:
@@ -377,32 +441,39 @@ class TrackedPlayer:
         return self._tracked_player_id
 
     @property
-    def position(self) -> ChunkPosition:
-        return self._position
+    def tracking_data(self) -> TrackingData:
+        return self._tracking_data
+
+    @property
+    def render_distance(self) -> RenderDistance:
+        return self._render_distance
 
     @property
     def dimension(self) -> int:
         return self._dimension
 
     @property
-    def speed_x(self) -> float:
-        return self._speed_x
+    def logged_out(self) -> bool:
+        return self._logged_out
 
     @property
-    def speed_z(self) -> float:
-        return self._speed_z
+    def found_at(self) -> int:
+        return self._found_at
 
-    def __init__(self, tracked_player_id: int, position: ChunkPosition, dimension: int, speed_x: float,
-                 speed_z: float) -> None:
+    def __init__(self, tracked_player_id: int, tracking_data: TrackingData, render_distance: RenderDistance,
+                 dimension: int, logged_out: bool, found_at: int) -> None:
         self._tracked_player_id = tracked_player_id
-        self._position = position
+        self._tracking_data = tracking_data
+        self._render_distance = render_distance
         self._dimension = dimension
-        self._speed_x = speed_x
-        self._speed_z = speed_z
+        self._logged_out = logged_out
+        self._found_at = found_at
+
+        self._possible_players = {}
 
     def __repr__(self) -> str:
-        return "TrackedPlayer(ID=%i, position=%s, dimension=%i)" % (self._tracked_player_id, self._position,
-                                                                    self._dimension)
+        return "TrackedPlayer(ID=%i, render_distance=%s, dimension=%i)" % (self._tracked_player_id,
+                                                                           self._render_distance, self._dimension)
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, TrackedPlayer):
@@ -410,13 +481,43 @@ class TrackedPlayer:
         else:
             return other._tracked_player_id == self._tracked_player_id
 
-    def update_position(self, position: ChunkPosition, dimension: int) -> None:
-        self._position = position
-        self._dimension = dimension
+    def get_possible_players(self) -> Dict[UUID, int]:
+        return self._possible_players.copy()
 
-    def update_speed(self, speed_x: float, speed_z: float) -> None:
-        self._speed_x = speed_x
-        self._speed_z = speed_z
+    def put_possible_player(self, uuid: UUID, count: int) -> None:
+        self._possible_players[uuid] = count
+
+    def set_possible_players(self, possible_players: Dict[UUID, int]) -> None:
+        self._possible_players.clear()
+        self._possible_players.update(possible_players)
+
+    def put_possible_players(self, possible_players: Dict[UUID, int]) -> None:
+        self._possible_players.update(possible_players)
+
+    def remove_possible_player(self, uuid: UUID) -> None:
+        del self._possible_players[uuid]
+
+
+class Tracker:
+
+    @property
+    def tracker_id(self) -> int:
+        return self._tracker_id
+
+    @property
+    def tracked_player(self) -> TrackedPlayer:
+        return self._tracked_player
+
+    @tracked_player.setter
+    def tracked_player(self, tracked_player: TrackedPlayer) -> None:
+        self._tracked_player = tracked_player
+
+    def __init__(self, tracker_id: int, tracked_player: TrackedPlayer) -> None:
+        self._tracker_id = tracker_id
+        self._tracked_player = tracked_player
+
+    def __repr__(self) -> str:
+        return "Tracked(ID=%i, player=%r)" % (self._tracker_id, self._tracked_player)
 
 
 class Reporter:  # FIXME: Move this out of here
@@ -443,7 +544,7 @@ class Reporter:  # FIXME: Move this out of here
 
     @property
     def tracked_players(self) -> List[TrackedPlayer]:
-        return self._tracked_players.copy()
+        return self._trackers.copy()
 
     @property
     def online_players(self) -> Dict[UUID, str]:
@@ -476,7 +577,7 @@ class Reporter:  # FIXME: Move this out of here
         self._registered_tasks = []
         self._active_tasks = []
         self._players = []
-        self._tracked_players = []
+        self._trackers = []
 
         self._dim_data = {
             -1: {},
@@ -500,7 +601,7 @@ class Reporter:  # FIXME: Move this out of here
 
     def reset(self) -> None:
         self._players.clear()
-        self._tracked_players.clear()
+        self._trackers.clear()
         self._online_players.clear()
 
         self._waiting_queries = 0
@@ -589,20 +690,23 @@ class Reporter:  # FIXME: Move this out of here
 
     # ------------------------------ Tracked players ------------------------------ #
 
-    def add_tracked_player(self, tracked_player: TrackedPlayer) -> None:
-        if not tracked_player in self._tracked_players:
-            self._tracked_players.append(tracked_player)
+    def add_tracker(self, tracker: Tracker) -> None:
+        if not tracker in self._trackers:
+            self._trackers.append(tracker)
 
-    def remove_tracked_player(self, tracked_player: TrackedPlayer) -> None:
-        if tracked_player in self._tracked_players:
-            self._tracked_players.remove(tracked_player)
+    def remove_tracker(self, tracker: Tracker) -> None:
+        if tracker in self._trackers:
+            self._trackers.remove(tracker)
 
-    def get_tracked_player(self, tracked_player_id: int) -> TrackedPlayer:
-        for tracked_player in self._tracked_players:
-            if tracked_player.tracked_player_id == tracked_player_id:
-                return tracked_player
+    def get_tracker(self, tracker_id: int) -> Tracker:
+        for tracker in self._trackers:
+            if tracker.tracker_id == tracker_id:
+                return tracker
 
-        raise LookupError("Couldn't find tracked player by ID %i." % tracked_player_id)
+        raise LookupError("Couldn't find tracked player by ID %i." % tracker_id)
+
+    def get_trackers(self) -> List[Tracker]:
+         return self._trackers.copy()
 
     # ------------------------------ Online players ------------------------------ #
 

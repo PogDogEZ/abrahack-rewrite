@@ -115,6 +115,7 @@ class Connection(GenericSystemObject):
             except Exception as error:
                 self.system.logger.error("Exception in connection: '%r': %r" % (self, error))
                 self.exit(repr(error))
+                
                 return
 
             if packet is None or self.system.event_bus.post(PrePacketInEvent(packet, self)):

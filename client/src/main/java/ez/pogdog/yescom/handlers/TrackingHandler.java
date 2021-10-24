@@ -10,6 +10,7 @@ import ez.pogdog.yescom.tracking.ITracker;
 import ez.pogdog.yescom.tracking.resolvers.MultiResolver;
 import ez.pogdog.yescom.tracking.resolvers.QuickResolver;
 import ez.pogdog.yescom.tracking.trackers.BasicTracker;
+import ez.pogdog.yescom.tracking.trackers.PanicTracker;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
 
@@ -64,6 +65,12 @@ public class TrackingHandler implements IHandler {
                 resolvers.remove(resolver);
             }
         });
+        new ArrayList<>(trackers.values()).forEach(tracker ->{
+            tracker.onTick();
+            if(yesCom.handler != null) {
+                yesCom.handler.onTrackerUpdate(tracker);
+            }
+        });
     }
 
     @Override
@@ -75,9 +82,13 @@ public class TrackingHandler implements IHandler {
         Dimension dimension = quickResolver.getDimension();
 
         if (onlinePlayers.stream().noneMatch(trackedPlayer -> trackedPlayer.getDimension() == dimension &&
-                trackedPlayer.getRenderDistance().contains(renderDistance.getCenterPosition())))
-            addTrackedPlayer(yesCom.dataHandler.newTrackedPlayer(new TrackedPlayer.TrackingData(yesCom.dataHandler), renderDistance, dimension, false,
-                    System.currentTimeMillis()));
+                trackedPlayer.getRenderDistance().contains(renderDistance.getCenterPosition()))) {
+
+            TrackedPlayer player = yesCom.dataHandler.newTrackedPlayer(new TrackedPlayer.TrackingData(yesCom.dataHandler), renderDistance, dimension, false,
+                    System.currentTimeMillis());
+            addTrackedPlayer(player);
+            trackBasic(player);
+        }
     }
 
     public void onPlayerJoin(UUID uuid) {
@@ -136,6 +147,10 @@ public class TrackingHandler implements IHandler {
 
     public synchronized void trackPanic(TrackedPlayer trackedPlayer) {
         yesCom.logger.debug(String.format("Starting panic tracker for %s.", trackedPlayer));
+        new HashMap<>(trackers).forEach((trackerID, tracker) -> {
+            if (tracker.getTrackedPlayer().equals(trackedPlayer)) removeTracker(tracker);
+        });
+        addTracker(new PanicTracker(trackerID++, trackedPlayer));
         /*
         if (trackedPlayer.getCurrentTracker() != null) trackedPlayer.getCurrentTracker().onLost();
          */
@@ -172,7 +187,7 @@ public class TrackingHandler implements IHandler {
     }
 
     public void removeTracker(ITracker tracker) {
-        if (trackers.containsKey(tracker.getTrackerID()) && trackers.get(tracker.getTrackerID()).equals(tracker)) {
+        if (trackers.containsKey(tracker.getTrackerID())) {
             tracker.onLost();
             trackers.remove(tracker.getTrackerID());
 

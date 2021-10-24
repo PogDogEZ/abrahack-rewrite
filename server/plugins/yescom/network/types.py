@@ -156,15 +156,17 @@ class ChunkStateSpec(Type):
 
     @classmethod
     def read(cls, fileobj: IO) -> ChunkState:
+        chunk_state_id = VarInt.read(fileobj)
         state = ChunkState.State.read(fileobj)
         position = ChunkPositionSpec.read(fileobj)
         dimension = Short.read(fileobj)
         found_at = Long.read(fileobj)
 
-        return ChunkState(state, position, dimension, found_at)
+        return ChunkState(chunk_state_id, state, position, dimension, found_at)
 
     @classmethod
     def write(cls, chunk_state: ChunkState, fileobj: IO) -> None:
+        VarInt.write(chunk_state.chunk_state_id, fileobj)
         ChunkState.State.write(chunk_state.state, fileobj)
         ChunkPositionSpec.write(chunk_state.chunk_position, fileobj)
         Short.write(chunk_state.dimension, fileobj)

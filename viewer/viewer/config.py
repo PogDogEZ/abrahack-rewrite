@@ -9,11 +9,11 @@ class Config:
     _CLIENT_SECRET = "PQF7Q~B4uVSljll6GogkZvNA~01wN_n~rUPd4"
     _REDIRECT_URI = "https://pogdog.azurewebsites.net/.auth/login/aad/callback"
 
-    FONT = ("Calibri", 11, "bold")
-    TYPE_FONT = ("Source Code Pro Semibold", 10)
-    SMALL_TYPE_FONT = ("Source Code Pro Semibold", 9)
-    LARGE_FONT = ("Calibri", 12, "bold")
-    SMALL_FONT = ("Calibri", 9, "bold")
+    FONT = ("Calibri", 13, "bold")
+    TYPE_FONT = ("Cascadia Code SemiBold", 10)
+    SMALL_TYPE_FONT = ("Cascadia Code SemiBold", 9)
+    LARGE_FONT = ("Calibri", 15, "bold")
+    SMALL_FONT = ("Calibri", 12, "bold")
     BORDER_WIDTH = 2
     RELIEF = SOLID
 

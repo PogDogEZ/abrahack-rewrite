@@ -4,9 +4,10 @@ from typing import IO
 from uuid import UUID
 
 from pclient.networking.types import Type
-from pclient.networking.types.basic import Double, Integer, String, Float, Short, UnsignedShort, Long, Bytes
+from pclient.networking.types.basic import Double, Integer, String, Float, Short, UnsignedShort, Long, Bytes, VarInt, \
+    Boolean
 from viewer.util import Position, ChunkPosition, Player, Angle, RegisteredTask, ActiveTask, TrackedPlayer, ChunkState, \
-    DataType
+    DataType, RenderDistance, TrackingData, Tracker
 
 
 class PositionSpec(Type):
@@ -155,37 +156,110 @@ class ChunkStateSpec(Type):
 
     @classmethod
     def read(cls, fileobj: IO) -> ChunkState:
+        chunk_state_id = VarInt.read(fileobj)
         state = ChunkState.State.read(fileobj)
         position = ChunkPositionSpec.read(fileobj)
         dimension = Short.read(fileobj)
         found_at = Long.read(fileobj)
 
-        return ChunkState(state, position, dimension, found_at)
+        return ChunkState(chunk_state_id, state, position, dimension, found_at)
 
     @classmethod
     def write(cls, chunk_state: ChunkState, fileobj: IO) -> None:
+        VarInt.write(chunk_state.chunk_state_id, fileobj)
         ChunkState.State.write(chunk_state.state, fileobj)
         ChunkPositionSpec.write(chunk_state.chunk_position, fileobj)
         Short.write(chunk_state.dimension, fileobj)
         Long.write(chunk_state.found_at, fileobj)
+
+class RenderDistanceSpec(Type):
+
+    @classmethod
+    def read(cls, fileobj: IO) -> RenderDistance:
+        render_distance_id = VarInt.read(fileobj)
+        center_position = ChunkPositionSpec.read(fileobj)
+        render_distance = UnsignedShort.read(fileobj)
+        error_x = Float.read(fileobj)
+        error_z = Float.read(fileobj)
+
+        return RenderDistance(render_distance_id, center_position, render_distance, error_x, error_z)
+
+    @classmethod
+    def write(cls, render_distance: RenderDistance, fileobj: IO) -> None:
+        VarInt.write(render_distance.render_distance_id, fileobj)
+        ChunkPositionSpec.write(render_distance.center_position, fileobj)
+        UnsignedShort.write(render_distance.render_distance, fileobj)
+        Float.write(render_distance.error_x, fileobj)
+        Float.write(render_distance.error_z, fileobj)
 
 
 class TrackedPlayerSpec(Type):
 
     @classmethod
     def read(cls, fileobj: IO) -> TrackedPlayer:
-        tracked_player_id = Integer.read(fileobj)
-        position = ChunkPositionSpec.read(fileobj)
-        dimension = Short.read(fileobj)
-        speed_x = Float.read(fileobj)
-        speed_z = Float.read(fileobj)
+        tracked_player_id = VarInt.read(fileobj)
 
-        return TrackedPlayer(tracked_player_id, position, dimension, speed_x, speed_z)
+        possible_players = {}
+        possible_players_to_read = UnsignedShort.read(fileobj)
+        for index in range(possible_players_to_read):
+            uuid = UUID(bytes=Bytes.read(fileobj))
+            count = UnsignedShort.read(fileobj)
+            possible_players[uuid] = count
+
+        render_distances = {}
+        render_distances_to_read = UnsignedShort.read(fileobj)
+        for index in range(render_distances_to_read):
+            timestamp = Long.read(fileobj)
+            render_distance_id = VarInt.read(fileobj)
+            render_distances[timestamp] = render_distance_id
+
+        render_distance = RenderDistanceSpec.read(fileobj)
+        dimension = Short.read(fileobj)
+        logged_out = Boolean.read(fileobj)
+        found_at = Long.read(fileobj)
+
+        tracked_player = TrackedPlayer(tracked_player_id, TrackingData(render_distances), render_distance, dimension,
+                                       logged_out, found_at)
+        tracked_player.set_possible_players(possible_players)
+
+        return tracked_player
 
     @classmethod
     def write(cls, tracked_player: TrackedPlayer, fileobj: IO) -> None:
-        Integer.write(tracked_player.tracked_player_id, fileobj)
-        ChunkPositionSpec.write(tracked_player.position, fileobj)
+        VarInt.write(tracked_player.tracked_player_id, fileobj)
+
+        possible_players = tracked_player.get_possible_players()
+        UnsignedShort.write(len(possible_players), fileobj)
+        for uuid in possible_players:
+            Bytes.write(uuid.bytes, fileobj)
+            UnsignedShort.write(possible_players[uuid], fileobj)
+
+        render_distances = tracked_player.tracking_data.get_render_distances()
+        UnsignedShort.write(len(render_distances), fileobj)
+        for timestamp in render_distances:
+            Long.write(timestamp, fileobj)
+            VarInt.write(render_distances[timestamp], fileobj)
+
+        RenderDistanceSpec.write(tracked_player.render_distance, fileobj)
         Short.write(tracked_player.dimension, fileobj)
-        Float.write(tracked_player.speed_x, fileobj)
-        Float.write(tracked_player.speed_z, fileobj)
+        Boolean.write(tracked_player.logged_out, fileobj)
+        Long.write(tracked_player.found_at, fileobj)
+
+
+class TrackerSpec(Type):
+
+    @classmethod
+    def read(cls, fileobj: IO) -> Tracker:
+        tracker_id = Long.read(fileobj)
+        tracked_player = TrackedPlayerSpec.read(fileobj)
+
+        return Tracker(tracker_id, tracked_player)
+
+    @classmethod
+    def write(cls, tracker: Tracker, fileobj: IO) -> None:
+        Long.write(tracker.tracked_id, fileobj)
+        TrackedPlayerSpec.write(tracker.tracked_player, fileobj)
+
+
+
+

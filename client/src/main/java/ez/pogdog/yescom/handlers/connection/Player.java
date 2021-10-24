@@ -185,8 +185,10 @@ public class Player {
                 lastTimeUpdate = System.currentTimeMillis();
                 lastWorldTicks = updateTime.getWorldAge();
             } else {
-                tickValues.add((updateTime.getWorldAge() - lastWorldTicks) / ((System.currentTimeMillis() - lastTimeUpdate) / 1000.0f));
-                while (tickValues.size() > 20) tickValues.remove(0);
+                synchronized (this) {
+                    tickValues.add((updateTime.getWorldAge() - lastWorldTicks) / ((System.currentTimeMillis() - lastTimeUpdate) / 1000.0f));
+                    while (tickValues.size() > 20) tickValues.remove(0);
+                }
             }
         }
 
@@ -304,7 +306,7 @@ public class Player {
      * Returns the mean server tickrate that this player has recorded.
      * @return The mean server tickrate.
      */
-    public float getMeanTickRate() {
+    public synchronized float getMeanTickRate() {
         return Math.max(0.0f, Math.min(30.0f, (float)tickValues.stream().mapToDouble(Float::doubleValue).sum() / Math.max(1.0f, tickValues.size())));
     }
 

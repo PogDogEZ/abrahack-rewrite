@@ -30,12 +30,16 @@ public class BasicTracker implements ITracker {
 
     private long lastLoadedChunk;
 
+    private long lastQueryMeasure;
+    private int queries;
+
     public BasicTracker(long trackerID, TrackedPlayer trackedPlayer) {
         this.trackerID = trackerID;
         this.trackedPlayer = trackedPlayer;
 
         lastUpdate = System.currentTimeMillis() - 100;
         updateTime = 100;
+        lastQueryMeasure = System.currentTimeMillis();
     }
 
     @Override
@@ -49,7 +53,14 @@ public class BasicTracker implements ITracker {
             if (!awaitingOnlineCheck && System.currentTimeMillis() - lastLoadedChunk > yesCom.configHandler.BASIC_TRACKER_ONLINE_CHECK_TIME)
                 doOnlineCheck();
         }
+        long deltaTime = System.currentTimeMillis() - lastQueryMeasure;
+        if(deltaTime > 1000) {
+            lastQueryMeasure = System.currentTimeMillis();
+            yesCom.logger.debug(String.format("%.1f queries per second", queries / (deltaTime / 1000.0f)));
+            queries = 0;
+        }
     }
+
 
     @Override
     public void onLost() {
@@ -74,11 +85,12 @@ public class BasicTracker implements ITracker {
 
         int distance = yesCom.configHandler.BASIC_TRACKER_DIST + (yesCom.configHandler.BASIC_TRACKER_INVERT ? yesCom.configHandler.RENDER_DISTANCE : 0);
 
-        for (int index = 0; index < 3; ++index) {
+        for (int index = 0; index < 4; ++index) {
             ChunkPosition offset = new ChunkPosition(
                     (int)Math.pow(-1, index + 1) * distance,
                     (int)Math.pow(-1, Math.ceil((index + 1) / 2.0f)) * distance);
 
+            ++queries;
             IsLoadedQuery isLoadedQuery = new IsLoadedQuery(
                     trackedPlayer.getRenderDistance().getCenterPosition().add(offset), trackedPlayer.getDimension(),
                     IQuery.Priority.MEDIUM, yesCom.configHandler.TYPE, (query, result) -> {
@@ -118,12 +130,12 @@ public class BasicTracker implements ITracker {
 
     private void doOnlineCheck() {
         awaitingOnlineCheck = true;
-
         if (trackedPlayer.getRenderDistance() == null) {
             yesCom.logger.warn(String.format("Couldn't do online check for %s, no render distance data.", trackedPlayer));
             return;
         }
 
+        ++queries;
         IsLoadedQuery isLoadedQuery = new IsLoadedQuery(
                 trackedPlayer.getRenderDistance().getCenterPosition(), trackedPlayer.getDimension(), IQuery.Priority.HIGH,
                 yesCom.configHandler.TYPE, (query, result) -> {
@@ -131,7 +143,9 @@ public class BasicTracker implements ITracker {
 
                     if (result != IsLoadedQuery.Result.LOADED) {
                         yesCom.logger.debug(String.format("Failed online check for %s.", trackedPlayer));
-                        yesCom.trackingHandler.trackPanic(trackedPlayer);
+                        if(yesCom.trackingHandler.getTracker(trackerID) != null){
+                            yesCom.trackingHandler.trackPanic(trackedPlayer);
+                        }
                     } else {
                         lastLoadedChunk = System.currentTimeMillis();
                     }

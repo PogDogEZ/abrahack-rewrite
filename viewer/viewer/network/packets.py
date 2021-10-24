@@ -3,9 +3,9 @@ from typing import IO, List
 
 from pclient.networking.packets import Side, Packet
 from pclient.networking.types import Enum
-from pclient.networking.types.basic import UnsignedShort, String, Bytes, Boolean, Integer, VarInt, Float, Short
+from pclient.networking.types.basic import UnsignedShort, String, Bytes, Boolean, Integer, VarInt, Float, Short, Long
 from viewer.network.types import ChunkPositionSpec, TrackedPlayerSpec, ChunkStateSpec, AngleSpec, PositionSpec, \
-    PlayerSpec, ParameterSpec, ParamDescriptionSpec
+    PlayerSpec, ParameterSpec, ParamDescriptionSpec, TrackerSpec
 from viewer.util import ChunkState, ChunkPosition, Position, Angle, TrackedPlayer, Player, ActiveTask, RegisteredTask
 
 ID_OFFSET = 255
@@ -782,70 +782,46 @@ class ChunkStatesPacket(Packet):
         self._chunk_states.remove(chunk_state)
 
 
-class TrackedPlayerActionPacket(Packet):
+class TrackerActionPacket(Packet):
 
     ID = ID_OFFSET + 15
-    NAME = "tracked_player_action"
+    NAME = "tracker_action"
     SIDE = Side.SERVER
 
     def __init__(self) -> None:
         super().__init__()
 
-        self.action = TrackedPlayerActionPacket.Action.ADD
-
+        self.action = TrackerActionPacket.Action.ADD
+        self.tracker = None
+        self.tracker_id = 0
         self.tracked_player = None
-        self.tracked_player_id = 0
-
-        self.new_position = ChunkPosition(0, 0)
-        self.new_dimension = 0
-
-        self.new_speed_x = 0
-        self.new_speed_z = 0
 
     def read(self, fileobj: IO) -> None:
-        self.action = TrackedPlayerActionPacket.Action.read(fileobj)
+        self.action = TrackerActionPacket.Action.read(fileobj)
 
-        if self.action == TrackedPlayerActionPacket.Action.ADD:
-            self.tracked_player = TrackedPlayerSpec.read(fileobj)
+        if self.action == TrackerActionPacket.Action.ADD:
+            self.tracker = TrackerSpec.read(fileobj)
         else:
-            self.tracked_player_id = Integer.read(fileobj)
+            self.tracker_id = Long.read(fileobj)
 
-            if self.action == TrackedPlayerActionPacket.Action.REMOVE:
-                ...
-
-            elif self.action == TrackedPlayerActionPacket.Action.UPDATE_POSITION:
-                self.new_position = ChunkPositionSpec.read(fileobj)
-                self.new_dimension = Short.read(fileobj)
-
-            elif self.action == TrackedPlayerActionPacket.Action.UPDATE_SPEED:
-                self.new_speed_x = Float.read(fileobj)
-                self.new_speed_z = Float.read(fileobj)
+            if self.action == TrackerActionPacket.Action.UPDATE:
+                self.tracked_player = TrackedPlayerSpec.read(fileobj)
 
     def write(self, fileobj: IO) -> None:
-        TrackedPlayerActionPacket.Action.write(self.action, fileobj)
+        TrackerActionPacket.Action.write(self.action, fileobj)
 
-        if self.action == TrackedPlayerActionPacket.Action.ADD:
-            TrackedPlayerSpec.write(self.tracked_player, fileobj)
-
+        if self.action == TrackerActionPacket.Action.ADD:
+            TrackerSpec.write(self.tracker, fileobj)
         else:
-            Integer.write(self.tracked_player_id, fileobj)
+            Long.write(self.tracker_id, fileobj)
 
-            if self.action == TrackedPlayerActionPacket.Action.REMOVE:
-                ...
-
-            elif self.action == TrackedPlayerActionPacket.Action.UPDATE_POSITION:
-                ChunkPositionSpec.write(self.new_position, fileobj)
-                Short.write(self.new_dimension, fileobj)
-
-            elif self.action == TrackedPlayerActionPacket.Action.UPDATE_SPEED:
-                Float.write(self.new_speed_x, fileobj)
-                Float.write(self.new_speed_z, fileobj)
+            if self.action == TrackerActionPacket.Action.UPDATE:
+                TrackedPlayerSpec.write(self.tracked_player, fileobj)
 
     class Action(Enum):
         ADD = 0
         REMOVE = 1
-        UPDATE_POSITION = 2
-        UPDATE_SPEED = 3
+        UPDATE = 3
 
 
 class InfoUpdatePacket(Packet):
@@ -898,6 +874,6 @@ packets = (
     AccountActionPacket,
     AccountActionResponsePacket,
     ChunkStatesPacket,
-    TrackedPlayerActionPacket,
+    TrackerActionPacket,
     InfoUpdatePacket,
 )

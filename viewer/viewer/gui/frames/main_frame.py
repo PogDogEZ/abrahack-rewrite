@@ -38,7 +38,7 @@ class MainFrame(Frame):
     def left_offset(self) -> Tuple[int, int]:
         return self._left_offset[0], self._left_offset[1]
 
-    def __init__(self, master, viewer, *args, size: Tuple[int, int] = (1024, 768), **kwargs) -> None:
+    def __init__(self, master, viewer, *args, size: Tuple[int, int] = (768, 576), **kwargs) -> None:
         super().__init__(master, *args, bg="#%02x%02x%02x" % Config.WINDOW_COLOUR, width=size[0], height=size[1],
                          **kwargs)
 
@@ -106,6 +106,7 @@ class MainFrame(Frame):
 
         # Setup events
         self.image_label.bind("<Button>", self.on_click)
+        self.image_label.bind("<MouseWheel>", self.on_click)
         self.image_label.bind("<ButtonRelease>", self.on_release)
         self.image_label.bind("<Motion>", self.on_motion)
 
@@ -280,11 +281,11 @@ class MainFrame(Frame):
 
     # noinspection PyUnresolvedReferences
     def on_click(self, event: Event) -> None:
-        if event.num == 4:
+        if event.num == 4 or event.delta == 120:
             self.scale_and_pan(event.x, event.y,
                                self._current_scale[0] + self._current_scale[0] / Config.SCALE_SENSITIVITY,
                                self._current_scale[1] + self._current_scale[1] / Config.SCALE_SENSITIVITY)
-        elif event.num == 5:
+        elif event.num == 5 or event.delta == -120:
             self.scale_and_pan(event.x, event.y,
                                self._current_scale[0] - self._current_scale[0] / Config.SCALE_SENSITIVITY,
                                self._current_scale[1] - self._current_scale[1] / Config.SCALE_SENSITIVITY)
