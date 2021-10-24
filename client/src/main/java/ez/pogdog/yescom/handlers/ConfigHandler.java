@@ -87,7 +87,7 @@ public class ConfigHandler implements IHandler {
      * How long to wait since the last loaded chunk before checking if the player is online. Recommended lower if
      * inverted is on.
      */
-    public int BASIC_TRACKER_ONLINE_CHECK_TIME = 5000;
+    public int BASIC_TRACKER_ONLINE_CHECK_TIME = 1000;
     /**
      * How far to check from known chunks.
      */

@@ -24,7 +24,6 @@ public class BasicTracker implements ITracker {
     private int updateTime;
 
     private boolean awaitingMovementCheck;
-    private boolean awaitingOnlineCheck;
 
     private ChunkPosition centerOffset;
     private ChunkPosition lastCenterOffset;
@@ -48,6 +47,7 @@ public class BasicTracker implements ITracker {
         lastUpdate = System.currentTimeMillis();
 
         if (!awaitingMovementCheck) doMovementCheck();
+
         if (System.currentTimeMillis() - lastLoadedChunk > yesCom.configHandler.BASIC_TRACKER_ONLINE_CHECK_TIME) {
             yesCom.logger.debug(String.format("Failed online check for %s.", trackedPlayer));
             // Avoid duplicates
@@ -101,27 +101,21 @@ public class BasicTracker implements ITracker {
                     lastLoadedChunk = System.currentTimeMillis();
                 }
 
-                if (currentQueries.isEmpty() || (currentQueries.size() == 1 && awaitingOnlineCheck)) { // Done
+                if (currentQueries.isEmpty()) { // Done
                     awaitingMovementCheck = false;
+                    updateTime = 100; // TODO: Adjust this automatically based on speed I guess + check speed estimation works
 
-                    if (!centerOffset.equals(new ChunkPosition(0, 0))) {
-                        updateTime = 100; // TODO: Adjust this automatically based on speed I guess + check speed estimation works
+                    ChunkPosition shift = new ChunkPosition((centerOffset.getX() + lastCenterOffset.getX()) / 2,
+                            (centerOffset.getZ() + lastCenterOffset.getZ()) / 2);
 
-                        ChunkPosition shift = new ChunkPosition((centerOffset.getX() + lastCenterOffset.getX()) / 2,
-                                (centerOffset.getZ() + lastCenterOffset.getZ()) / 2);
-
-                        trackedPlayer.setRenderDistance(yesCom.dataHandler.newRenderDistance(
-                                trackedPlayer.getRenderDistance().getCenterPosition().subtract(shift),
-                                yesCom.configHandler.RENDER_DISTANCE,
-                                (float)(Math.pow(yesCom.configHandler.RENDER_DISTANCE, 2) / centerOffset.getX()),
-                                (float)(Math.pow(yesCom.configHandler.RENDER_DISTANCE, 2) / centerOffset.getZ())));
-
-                    } else {
-                        updateTime = 1000;
-                    }
+                    trackedPlayer.setRenderDistance(yesCom.dataHandler.newRenderDistance(
+                            trackedPlayer.getRenderDistance().getCenterPosition().subtract(shift),
+                            yesCom.configHandler.RENDER_DISTANCE,
+                            (float)(Math.pow(yesCom.configHandler.RENDER_DISTANCE, 2) / centerOffset.getX()),
+                            (float)(Math.pow(yesCom.configHandler.RENDER_DISTANCE, 2) / centerOffset.getZ())));
 
                     lastCenterOffset = centerOffset;
-                    trackedPlayer.getTrackingData().addRenderDistance(trackedPlayer.getRenderDistance());
+                    // trackedPlayer.getTrackingData().addRenderDistance(trackedPlayer.getRenderDistance());
                 }
             });
 
@@ -131,7 +125,6 @@ public class BasicTracker implements ITracker {
     }
 
     private void doOnlineCheck() { // Could be used for something else, idk what yet tho
-        awaitingOnlineCheck = true;
         if (trackedPlayer.getRenderDistance() == null) {
             yesCom.logger.warn(String.format("Couldn't do online check for %s, no render distance data.", trackedPlayer));
             return;
@@ -150,8 +143,6 @@ public class BasicTracker implements ITracker {
             } else {
                 lastLoadedChunk = System.currentTimeMillis();
             }
-
-            awaitingOnlineCheck = false;
         });
 
         currentQueries.add(isLoadedQuery);
