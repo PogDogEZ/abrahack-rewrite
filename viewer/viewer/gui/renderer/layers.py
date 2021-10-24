@@ -156,35 +156,38 @@ class TrackedPlayersLayer(Layer):
         super().__init__(renderer, "tracked_players", {})
 
     def draw(self, image: np.ndarray) -> np.ndarray:
-        tracked_players = []
+        trackers = []
 
         if self.renderer.viewer.current_reporter != -1:
             reporter = self.renderer.viewer.get_reporter(handler_id=self.renderer.viewer.current_reporter)
-            tracked_players = reporter.tracked_players
+            trackers = reporter.get_trackers()
 
         scale = self.renderer.main_frame.scale
         left_offset = self.renderer.main_frame.left_offset
 
-        for tracked_player in tracked_players:
+        for tracker in trackers:
+            tracked_player = tracker.tracked_player
+            position = tracked_player.render_distance.center_position
+
             if tracked_player.dimension == self.renderer.main_frame.current_dimension - 1:
-                self.renderer.draw_rect(image, tracked_player.position.x - math.floor(Config.RENDER_DISTANCE / 2),
-                                        tracked_player.position.z - math.floor(Config.RENDER_DISTANCE / 2),
-                                        tracked_player.position.x + math.ceil(Config.RENDER_DISTANCE / 2),
-                                        tracked_player.position.z + math.ceil(Config.RENDER_DISTANCE / 2), (0, 0, 255),
+                self.renderer.draw_rect(image, position.x - math.floor(Config.RENDER_DISTANCE / 2),
+                                        position.z - math.floor(Config.RENDER_DISTANCE / 2),
+                                        position.x + math.ceil(Config.RENDER_DISTANCE / 2),
+                                        position.z + math.ceil(Config.RENDER_DISTANCE / 2), (0, 0, 255),
                                         self.renderer.scaled_line_width(*self.renderer.main_frame.scale, -.5))
 
-                top_left_coords = (int((tracked_player.position.x - math.floor(Config.RENDER_DISTANCE / 2) + left_offset[0]) *
+                top_left_coords = (int((position.x - math.floor(Config.RENDER_DISTANCE / 2) + left_offset[0]) *
                                        Config.CHUNK_SIZE[0] * scale[0]),
-                                   int((tracked_player.position.z - math.floor(Config.RENDER_DISTANCE / 2) + left_offset[1] - 0.1) *
+                                   int((position.z - math.floor(Config.RENDER_DISTANCE / 2) + left_offset[1] - 0.1) *
                                        Config.CHUNK_SIZE[1] * scale[1]))
-                center_coords = (int((tracked_player.position.x + 0.5 + left_offset[0]) * Config.CHUNK_SIZE[0] * scale[0]),
-                                 int((tracked_player.position.z + 0.5 + left_offset[1]) * Config.CHUNK_SIZE[1] * scale[1]))
+                center_coords = (int((position.x + 0.5 + left_offset[0]) * Config.CHUNK_SIZE[0] * scale[0]),
+                                 int((position.z + 0.5 + left_offset[1]) * Config.CHUNK_SIZE[1] * scale[1]))
 
-                speed = (tracked_player.speed_x ** 2 + tracked_player.speed_z ** 2) ** .5
+                #speed = (tracked_player.speed_x ** 2 + tracked_player.speed_z ** 2) ** .5
 
                 image = cv2.circle(image, center_coords, round(scale[0] * 2), Config.PLAYER_COLOUR, -1, cv2.LINE_AA)
-                image = cv2.putText(image, "ID: %i, speed: %.1f chunks/s (%.1f blocks/s)" %
-                                    (tracked_player.tracked_player_id, speed, speed * 16),
+                image = cv2.putText(image, "ID: %i" %
+                                    (tracked_player.tracked_player_id),
                                     top_left_coords, cv2.FONT_HERSHEY_PLAIN,
                                     scale[0] / 3, (255, 255, 255), round(scale[0] / 2), cv2.LINE_AA)
 

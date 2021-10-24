@@ -389,6 +389,7 @@ class TrackerActionPacket(Packet):
         self.action = TrackerActionPacket.Action.ADD
         self.tracker = None
         self.tracker_id = 0
+        self.tracked_player = None
 
     def read(self, fileobj: IO) -> None:
         self.action = TrackerActionPacket.Action.read(fileobj)
@@ -398,6 +399,9 @@ class TrackerActionPacket(Packet):
         else:
             self.tracker_id = Long.read(fileobj)
 
+            if self.action == TrackerActionPacket.Action.UPDATE:
+                self.tracked_player = TrackedPlayerSpec.read(fileobj)
+
     def write(self, fileobj: IO) -> None:
         TrackerActionPacket.Action.write(self.action, fileobj)
 
@@ -405,6 +409,9 @@ class TrackerActionPacket(Packet):
             TrackerSpec.write(self.tracker, fileobj)
         else:
             Long.write(self.tracker_id, fileobj)
+
+            if self.action == TrackerActionPacket.Action.UPDATE:
+                TrackedPlayerSpec.write(self.tracked_player, fileobj)
 
     class Action(Enum):
         ADD = 0

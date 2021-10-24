@@ -202,6 +202,8 @@ class Reporter(Archiver):
                         listener.remove_tracker(tracker)
 
                 elif packet.action == TrackerActionPacket.Action.UPDATE:
+                    tracker.tracked_player = packet.tracked_player
+
                     for listener in self._listeners:
                         listener.update_tracker(tracker)
 

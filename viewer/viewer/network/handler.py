@@ -3,7 +3,7 @@
 from typing import List
 
 from viewer.network.packets import YCInitRequestPacket, YCInitResponsePacket, ReporterActionPacket, SyncReporterPacket, \
-    TaskActionPacket, PlayerActionPacket, AccountActionPacket, AccountActionResponsePacket, TrackedPlayerActionPacket, \
+    TaskActionPacket, PlayerActionPacket, AccountActionPacket, AccountActionResponsePacket, TrackerActionPacket, \
     InfoUpdatePacket, ChunkStatesPacket
 from viewer.util import Reporter, RegisteredTask, ActiveTask
 from pclient.networking.handlers import Handler
@@ -85,8 +85,8 @@ class YCHandler(Handler):
                 for player in packet.get_players():
                     reporter.add_player(player)
 
-                for tracked_player in packet.get_tracked_players():
-                    reporter.add_tracked_player(tracked_player)
+                for tracker in packet.get_tracked_players():
+                    reporter.add_tracker(tracker)
 
             else:
                 self.viewer._current_reporter = -1
@@ -176,7 +176,7 @@ class YCHandler(Handler):
 
             reporter.update_chunk_states(packet.get_chunk_states())
 
-        elif isinstance(packet, TrackedPlayerActionPacket):
+        elif isinstance(packet, TrackerActionPacket):
             try:
                 reporter = self.viewer.get_reporter(handler_id=self.viewer.current_reporter)
             except LookupError as error:
@@ -184,27 +184,24 @@ class YCHandler(Handler):
                 self.viewer.logger.error(repr(error))
                 return
 
-            if packet.action == TrackedPlayerActionPacket.Action.ADD:
-                self.viewer.logger.debug("Got tracked player: %r." % packet.tracked_player)
+            if packet.action == TrackerActionPacket.Action.ADD:
+                self.viewer.logger.debug("Got tracker: %r." % packet.tracker)
 
-                reporter.add_tracked_player(packet.tracked_player)
+                reporter.add_tracker(packet.tracker)
 
             else:
                 try:
-                    tracked_player = reporter.get_tracked_player(packet.tracked_player_id)
+                    tracker = reporter.get_tracker(packet.tracker_id)
                 except LookupError as error:
-                    self.viewer.logger.warn("Error while fetching tracked player:")
+                    self.viewer.logger.warn("Error while fetching tracker:")
                     self.viewer.logger.error(repr(error))
                     return
 
-                if packet.action == TrackedPlayerActionPacket.Action.REMOVE:
-                    reporter.remove_tracked_player(tracked_player)
+                if packet.action == TrackerActionPacket.Action.REMOVE:
+                    reporter.remove_tracker(tracker)
 
-                elif packet.action == TrackedPlayerActionPacket.Action.UPDATE_POSITION:
-                    tracked_player.update_position(packet.new_position, packet.new_dimension)
-
-                elif packet.action == TrackedPlayerActionPacket.Action.UPDATE_SPEED:
-                    tracked_player.update_speed(packet.new_speed_x, packet.new_speed_z)
+                elif packet.action == TrackerActionPacket.Action.UPDATE:
+                    tracker.tracked_player = packet.tracked_player
 
         elif isinstance(packet, InfoUpdatePacket):
             try:

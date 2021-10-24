@@ -483,6 +483,10 @@ class Tracker:
     def tracked_player(self) -> TrackedPlayer:
         return self._tracked_player
 
+    @tracked_player.setter
+    def tracked_player(self, tracked_player : TrackedPlayer) -> None:
+        self._tracked_player = tracked_player
+
     def __init__(self, tracker_id: int, tracked_player: TrackedPlayer) -> None:
         self._tracker_id = tracker_id
         self._tracked_player = tracked_player

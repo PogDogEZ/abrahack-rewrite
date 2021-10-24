@@ -221,6 +221,7 @@ class Listener(Handler):
         tracker_action = TrackerActionPacket()
         tracker_action.action = TrackerActionPacket.Action.UPDATE
         tracker_action.tracker_id = tracker.tracked_id
+        tracker_action.tracked_player = tracker.tracked_player
 
         self.connection.send_packet(tracker_action)
 
