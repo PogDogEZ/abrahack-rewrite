@@ -53,8 +53,14 @@ public class TrackingHandler implements IHandler {
 
                 if (trackedPlayer.getTrackingSince() > overLapping.get().getTrackingSince()) { // Keep the older one
                     removeTrackedPlayer(overLapping.get());
+                    new HashMap<>(trackers).forEach((trackerID, tracker) -> {
+                        if (tracker.getTrackedPlayer().equals(overLapping.get())) removeTracker(tracker);
+                    });
                 } else {
                     removeTrackedPlayer(trackedPlayer);
+                    new HashMap<>(trackers).forEach((trackerID, tracker) -> {
+                        if (tracker.getTrackedPlayer().equals(trackedPlayer)) removeTracker(tracker);
+                    });
                 }
             }
         });
@@ -88,6 +94,14 @@ public class TrackingHandler implements IHandler {
                     System.currentTimeMillis());
             addTrackedPlayer(player);
             trackBasic(player);
+
+        } else {
+            onlinePlayers.forEach(trackedPlayer -> {
+                if (trackedPlayer.getDimension() == dimension && trackedPlayer.getRenderDistance().contains(renderDistance.getCenterPosition())) {
+                    trackedPlayer.setRenderDistance(renderDistance);
+                    trackBasic(trackedPlayer);
+                }
+            });
         }
     }
 
@@ -102,8 +116,11 @@ public class TrackingHandler implements IHandler {
 
                         yesCom.logger.info(String.format("Reassigning %s due to potential login.", loggedPlayer));
 
+                        loggedPlayer.setLoggedOut(false);
                         removeLoggedPlayer(loggedPlayer);
                         addTrackedPlayer(loggedPlayer);
+
+                        quickResolve(loggedPlayer.getRenderDistance().getCenterPosition(), loggedPlayer.getDimension(), 4);
                     }
                 }));
             }
@@ -203,6 +220,8 @@ public class TrackingHandler implements IHandler {
 
             yesCom.connectionHandler.recentLeaves.forEach((uuid, time) -> trackedPlayer.putPossiblePlayer(uuid,
                     trackedPlayer.getPossiblePlayer(uuid) + 1));
+            yesCom.logger.info(String.format("%s has logged out, most probable: %s.", trackedPlayer,
+                    yesCom.connectionHandler.getNameForUUID(trackedPlayer.getBestPossiblePlayer())));
         }
     }
 

@@ -97,7 +97,17 @@ public class BasicTracker implements ITracker {
 
                 if (currentQueries.isEmpty()) { // Done
                     awaitingMovementCheck = false;
-                    updateTime = 100; // TODO: Adjust this automatically based on speed I guess + check speed estimation works
+
+                    int updateTimeAddition = 0;
+
+                    if (centerOffset.equals(new ChunkPosition(0, 0)) && lastCenterOffset.equals(new ChunkPosition(0, 0))) {
+                        updateTimeAddition += updateTime / 4;
+                    } else {
+                        updateTimeAddition -= updateTime / 4;
+                    }
+
+                    // TODO: Adjust this automatically based on speed I guess + check speed estimation works
+                    updateTime = Math.max(100, Math.min(updateTime + updateTimeAddition, 3500));
 
                     double velocity = trackedPlayer.getTrackingData().getVelocity(System.currentTimeMillis() - 2000, System.currentTimeMillis());
                     yesCom.logger.debug(String.format("%s has estimated velocity: %.2f.", trackedPlayer, velocity));
@@ -108,9 +118,7 @@ public class BasicTracker implements ITracker {
 
                     trackedPlayer.setRenderDistance(yesCom.dataHandler.newRenderDistance(
                             trackedPlayer.getRenderDistance().getCenterPosition().subtract(shift),
-                            yesCom.configHandler.RENDER_DISTANCE,
-                            (float)(Math.pow(yesCom.configHandler.RENDER_DISTANCE, 2) / centerOffset.getX()),
-                            (float)(Math.pow(yesCom.configHandler.RENDER_DISTANCE, 2) / centerOffset.getZ())));
+                            yesCom.configHandler.RENDER_DISTANCE, centerOffset.getX(), centerOffset.getZ()));
 
                     lastCenterOffset = centerOffset;
                     // trackedPlayer.getTrackingData().addRenderDistance(trackedPlayer.getRenderDistance());

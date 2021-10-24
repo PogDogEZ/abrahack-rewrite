@@ -230,10 +230,10 @@ public class YesCom {
 
         if (handler != null) {
             if (connectionHandler.isConnected()) {
-                handler.onInfoUpdate(queryHandler.getWaitingSize(), queryHandler.getTickingSize(),
+                handler.onInfoUpdate(queryHandler.getWaitingSize(), queryHandler.getTickingSize(), queryHandler.getQueriesPerSecond(),
                         connectionHandler.getMeanTickRate(), connectionHandler.getTimeSinceLastPacket());
             } else {
-                handler.onInfoUpdate(queryHandler.getWaitingSize(), queryHandler.getTickingSize());
+                handler.onInfoUpdate(queryHandler.getWaitingSize(), queryHandler.getTickingSize(), queryHandler.getQueriesPerSecond());
             }
         }
 

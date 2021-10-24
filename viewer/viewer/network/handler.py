@@ -211,8 +211,8 @@ class YCHandler(Handler):
                 self.viewer.logger.error(repr(error))
                 return
 
-            reporter.update_info(packet.waiting_queries, packet.ticking_queries, packet.is_connected, packet.tick_rate,
-                                 packet.time_since_last_packet)
+            reporter.update_info(packet.waiting_queries, packet.ticking_queries, packet.queries_per_second,
+                                 packet.is_connected, packet.tick_rate, packet.time_since_last_packet)
 
     def init(self) -> None:
         if self._initialized:

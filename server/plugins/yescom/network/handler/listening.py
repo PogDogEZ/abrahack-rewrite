@@ -225,11 +225,12 @@ class Listener(Handler):
 
         self.connection.send_packet(tracker_action)
 
-    def on_info_update(self, waiting_queries: int, ticking_queries: int, is_connected: bool, tick_rate: float,
-                       time_since_last_packet: int) -> None:
+    def on_info_update(self, waiting_queries: int, ticking_queries: int, queries_per_second: float, is_connected: bool,
+                       tick_rate: float, time_since_last_packet: int) -> None:
         info_update = InfoUpdatePacket()
         info_update.waiting_queries = waiting_queries
         info_update.ticking_queries = ticking_queries
+        info_update.queries_per_second = queries_per_second
         info_update.is_connected = is_connected
         info_update.tick_rate = tick_rate
         info_update.time_since_last_packet = time_since_last_packet

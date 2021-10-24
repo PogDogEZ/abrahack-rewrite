@@ -186,8 +186,13 @@ class TrackedPlayersLayer(Layer):
 
                 # speed = (tracked_player.speed_x ** 2 + tracked_player.speed_z ** 2) ** .5
 
+                username = "unknown"
+                best_uuid = tracked_player.get_best_possible_player()
+                if best_uuid is not None:
+                    username = self.renderer.viewer.get_name_for_uuid(best_uuid)
+
                 image = cv2.circle(image, center_coords, round(scale[0] * 2), Config.PLAYER_COLOUR, -1, cv2.LINE_AA)
-                image = cv2.putText(image, "ID: %i" % tracked_player.tracked_player_id, top_left_coords,
+                image = cv2.putText(image, "ID: %i, name: %r" % (tracked_player.tracked_player_id, username), top_left_coords,
                                     cv2.FONT_HERSHEY_PLAIN, scale[0] / 3, (255, 255, 255), round(scale[0] / 2),
                                     cv2.LINE_AA)
 

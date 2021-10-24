@@ -16,17 +16,30 @@ public class QueryHandler implements IHandler {
     private final Deque<IQuery> ticking = new ConcurrentLinkedDeque<>();
     private final Deque<IQuery> finished = new ConcurrentLinkedDeque<>();
 
-    private final List<IQuery> cached = new ArrayList<>();
+    private final List<Float> queryRateSamples = new ArrayList<>();
 
     private float queryTicks;
 
+    private int currentQueries;
+    private long lastQueryUpdate;
+
     public QueryHandler() {
         queryTicks = 0.0f;
+
+        currentQueries = 0;
+        lastQueryUpdate = System.currentTimeMillis();
     }
 
     @Override
     public void onTick() {
         queryTicks = Math.max(0.0f, queryTicks - 1.0f);
+
+        if (System.currentTimeMillis() - lastQueryUpdate > 250) {
+            queryRateSamples.add(currentQueries / 0.25f);
+            while (queryRateSamples.size() > 10) queryRateSamples.remove(0);
+            lastQueryUpdate = System.currentTimeMillis();
+            currentQueries = 0;
+        }
 
         int index = 0;
         while (queryTicks <= 1.0f && index < waiting.size()) {
@@ -41,6 +54,7 @@ public class QueryHandler implements IHandler {
                     break;
                 }
                 case START: {
+                    ++currentQueries;
                     queryTicks += query.getWeight();
                     synchronized (this) {
                         waiting.remove(query);
@@ -106,6 +120,10 @@ public class QueryHandler implements IHandler {
 
     public int getTickingSize() {
         return ticking.size();
+    }
+
+    public float getQueriesPerSecond() {
+        return queryRateSamples.stream().reduce(Float::sum).orElse(0.0f) / Math.max(1.0f, queryRateSamples.size());
     }
 
     public List<IQuery> getFinished() {

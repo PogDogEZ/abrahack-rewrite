@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import operator
 import typing
 from typing import List, Tuple, Dict, ValuesView, KeysView
 from uuid import UUID
@@ -481,6 +481,15 @@ class TrackedPlayer:
         else:
             return other._tracked_player_id == self._tracked_player_id
 
+    def get_best_possible_player(self) -> UUID:
+        if not self._possible_players:
+            return None
+        else:
+            return sorted(self._possible_players, key=operator.itemgetter(1))[0]
+
+    def get_possible_player(self, uuid: UUID) -> int:
+        return self._possible_players.get(uuid, 0)
+
     def get_possible_players(self) -> Dict[UUID, int]:
         return self._possible_players.copy()
 
@@ -559,6 +568,10 @@ class Reporter:  # FIXME: Move this out of here
         return self._ticking_queries
 
     @property
+    def queries_per_second(self) -> float:
+        return self._queries_per_second
+
+    @property
     def is_connected(self) -> bool:
         return self._is_connected
 
@@ -589,6 +602,7 @@ class Reporter:  # FIXME: Move this out of here
 
         self._waiting_queries = 0
         self._ticking_queries = 0
+        self._queries_per_second = 0
 
         self._is_connected = False
         self._tick_rate = 20
@@ -611,10 +625,11 @@ class Reporter:  # FIXME: Move this out of here
         self._tick_rate = 20
         self._time_since_last_packet = 0
 
-    def update_info(self, waiting_queries: int, ticking_queries: int, is_connected: bool, tick_rate: float = 20,
-                    time_since_last_packet: int = 0):
+    def update_info(self, waiting_queries: int, ticking_queries: int, queries_per_second: float, is_connected: bool,
+                    tick_rate: float = 20, time_since_last_packet: int = 0):
         self._waiting_queries = waiting_queries
         self._ticking_queries = ticking_queries
+        self._queries_per_second = queries_per_second
         self._is_connected = is_connected
         self._tick_rate = tick_rate
         self._time_since_last_packet = time_since_last_packet

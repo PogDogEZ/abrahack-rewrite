@@ -17,6 +17,7 @@ class InfoFrame(Frame):
 
         self._waiting_queries = ConfigLabel(self, text="Waiting queries: 0")
         self._ticking_queries = ConfigLabel(self, text="Ticking queries: 0")
+        self._queries_per_second = ConfigLabel(self, text="QPS: 0")
 
         self._tick_rate = ConfigLabel(self, text="Tickrate: 20.0tps")
         self._time_since_last_packet = ConfigLabel(self, text="TSLP: 0ms")
@@ -29,6 +30,7 @@ class InfoFrame(Frame):
     def on_update(self) -> None:
         waiting_queries = 0
         ticking_queries = 0
+        queries_per_second = 0
 
         tick_rate = 20
         time_since_last_packet = 0
@@ -40,6 +42,7 @@ class InfoFrame(Frame):
 
             waiting_queries = reporter.waiting_queries
             ticking_queries = reporter.ticking_queries
+            queries_per_second = reporter.queries_per_second
 
             tick_rate = reporter.tick_rate
             time_since_last_packet = reporter.time_since_last_packet
@@ -48,6 +51,7 @@ class InfoFrame(Frame):
 
         self._waiting_queries.config(text="Waiting queries: %i" % waiting_queries)
         self._ticking_queries.config(text="Ticking queries: %i" % ticking_queries)
+        self._queries_per_second.config(text="QPS: %.1f" % queries_per_second)
 
         self._tick_rate.config(text="Tickrate: %.1ftps" % tick_rate)
         self._time_since_last_packet.config(text="TSLP: %ims" % time_since_last_packet)

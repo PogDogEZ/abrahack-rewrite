@@ -209,8 +209,8 @@ class Reporter(Archiver):
 
         elif isinstance(packet, InfoUpdatePacket):  # Probably don't need to cache this since we get it every 250ms
             for listener in self._listeners:
-                listener.on_info_update(packet.waiting_queries, packet.ticking_queries, packet.is_connected,
-                                        packet.tick_rate, packet.time_since_last_packet)
+                listener.on_info_update(packet.waiting_queries, packet.ticking_queries, packet.queries_per_second,
+                                        packet.is_connected, packet.tick_rate, packet.time_since_last_packet)
 
     def on_update(self) -> None:
         ...

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from typing import List
+from uuid import UUID
 
 from viewer.network.handler import YCHandler
 from viewer.network.packets import SelectReporterPacket
@@ -76,6 +77,8 @@ class Viewer:
         self._current_reporter = -1
         self._reporters = []
 
+        self._uuid_to_username_cache = {}
+
     def __repr__(self) -> str:
         return "Viewer()"
 
@@ -151,6 +154,12 @@ class Viewer:
     def remove_account(self, username: str) -> None:
         if self._current_reporter != -1:
             self._handler.remove_account(username)
+
+    def set_name_for_uuid(self, uuid: UUID, name: str) -> None:
+        self._uuid_to_username_cache[uuid] = name
+
+    def get_name_for_uuid(self, uuid: UUID) -> str:
+        return self._uuid_to_username_cache.get(uuid, "")
 
     def on_exit(self) -> None:
         if self.connection is not None:

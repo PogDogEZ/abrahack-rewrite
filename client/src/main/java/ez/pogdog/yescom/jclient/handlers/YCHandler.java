@@ -589,12 +589,12 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
     /* ------------------------ Info Events ------------------------ */
 
-    public void onInfoUpdate(int waitingQueries, int tickingQueries, float tickRate, int timeSinceLastPacket) {
-        queuedPackets.add(new InfoUpdatePacket(waitingQueries, tickingQueries, tickRate, timeSinceLastPacket));
+    public void onInfoUpdate(int waitingQueries, int tickingQueries, float queriesPerSecond, float tickRate, int timeSinceLastPacket) {
+        queuedPackets.add(new InfoUpdatePacket(waitingQueries, tickingQueries, queriesPerSecond, tickRate, timeSinceLastPacket));
     }
 
-    public void onInfoUpdate(int waitingQueries, int tickingQueries) {
-        queuedPackets.add(new InfoUpdatePacket(waitingQueries, tickingQueries));
+    public void onInfoUpdate(int waitingQueries, int tickingQueries, float queriesPerSecond) {
+        queuedPackets.add(new InfoUpdatePacket(waitingQueries, tickingQueries, queriesPerSecond));
     }
 
     /* ------------------------ Setters and Getters ------------------------ */

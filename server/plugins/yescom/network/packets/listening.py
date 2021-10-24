@@ -584,6 +584,7 @@ class InfoUpdatePacket(Packet):
 
         self.waiting_queries = 0
         self.ticking_queries = 0
+        self.queries_per_second = 0
         self.is_connected = False
         self.tick_rate = 20
         self.time_since_last_packet = 0
@@ -591,6 +592,7 @@ class InfoUpdatePacket(Packet):
     def read(self, fileobj: IO) -> None:
         self.waiting_queries = UnsignedShort.read(fileobj)
         self.ticking_queries = UnsignedShort.read(fileobj)
+        self.queries_per_second = Float.read(fileobj)
         self.is_connected = Boolean.read(fileobj)
 
         if self.is_connected:
@@ -600,6 +602,7 @@ class InfoUpdatePacket(Packet):
     def write(self, fileobj: IO) -> None:
         UnsignedShort.write(self.waiting_queries, fileobj)
         UnsignedShort.write(self.ticking_queries, fileobj)
+        Float.write(self.queries_per_second, fileobj)
         Boolean.write(self.is_connected, fileobj)
 
         if self.is_connected:

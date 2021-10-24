@@ -17,31 +17,38 @@ public class InfoUpdatePacket extends Packet {
 
     private int waitingQueries;
     private int tickingQueries;
+    private float queriesPerSecond;
     private boolean isConnected;
     private float tickRate;
     private int timeSinceLastPacket;
 
-    public InfoUpdatePacket(int waitingQueries, int tickingQueries, boolean isConnected, float tickRate,
+    public InfoUpdatePacket(int waitingQueries, int tickingQueries, float queriesPerSecond, boolean isConnected, float tickRate,
                             int timeSinceLastPacket) {
         this.waitingQueries = waitingQueries;
         this.tickingQueries = tickingQueries;
+        this.queriesPerSecond = queriesPerSecond;
         this.isConnected = isConnected;
         this.tickRate = tickRate;
         this.timeSinceLastPacket = timeSinceLastPacket;
     }
 
-    public InfoUpdatePacket(int waitingQueries, int tickingQueries, float tickRate, int timeSinceLastPacket) {
-        this(waitingQueries, tickingQueries, true, tickRate, timeSinceLastPacket);
+    public InfoUpdatePacket(int waitingQueries, int tickingQueries, float queriesPerSecond, float tickRate, int timeSinceLastPacket) {
+        this(waitingQueries, tickingQueries, queriesPerSecond, true, tickRate, timeSinceLastPacket);
     }
 
-    public InfoUpdatePacket(int waitingQueries, int tickingQueries) {
-        this(waitingQueries, tickingQueries, false, 20.0f, 0);
+    public InfoUpdatePacket(int waitingQueries, int tickingQueries, float queriesPerSecond) {
+        this(waitingQueries, tickingQueries, queriesPerSecond, false, 20.0f, 0);
+    }
+
+    public InfoUpdatePacket() {
+        this(0, 0, 0.0f, false, 20.0f, 0);
     }
 
     @Override
     public void read(InputStream inputStream) throws IOException {
         waitingQueries = Registry.UNSIGNED_SHORT.read(inputStream);
         tickingQueries = Registry.UNSIGNED_SHORT.read(inputStream);
+        queriesPerSecond = Registry.FLOAT.read(inputStream);
         isConnected = Registry.BOOLEAN.read(inputStream);
 
         if (isConnected) {
@@ -54,6 +61,7 @@ public class InfoUpdatePacket extends Packet {
     public void write(OutputStream outputStream) throws IOException {
         Registry.UNSIGNED_SHORT.write(waitingQueries, outputStream);
         Registry.UNSIGNED_SHORT.write(tickingQueries, outputStream);
+        Registry.FLOAT.write(queriesPerSecond, outputStream);
         Registry.BOOLEAN.write(isConnected, outputStream);
 
         if (isConnected) {
@@ -76,6 +84,14 @@ public class InfoUpdatePacket extends Packet {
 
     public void setTickingQueries(int tickingQueries) {
         this.tickingQueries = tickingQueries;
+    }
+
+    public float getQueriesPerSecond() {
+        return queriesPerSecond;
+    }
+
+    public void setQueriesPerSecond(float queriesPerSecond) {
+        this.queriesPerSecond = queriesPerSecond;
     }
 
     public boolean getIsConnected() {

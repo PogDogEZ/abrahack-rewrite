@@ -39,6 +39,8 @@ public class ConnectionHandler implements IHandler {
     private final List<Player> players = new ArrayList<>();
     private final Map<UUID, Long> healthLogout = new HashMap<>();
 
+    private final Map<UUID, String> UUIDtoNameCache = new HashMap<>();
+
     private final String host;
     private final int port;
 
@@ -313,6 +315,14 @@ public class ConnectionHandler implements IHandler {
 
     public synchronized boolean isConnected() {
         return players.stream().anyMatch(Player::isConnected);
+    }
+
+    public void setNameForUUID(UUID uuid, String name) {
+        UUIDtoNameCache.put(uuid, name);
+    }
+
+    public String getNameForUUID(UUID uuid) {
+        return UUIDtoNameCache.getOrDefault(uuid, "");
     }
 
     /* ------------------------ Setters and Getters ------------------------ */

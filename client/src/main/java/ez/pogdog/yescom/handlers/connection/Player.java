@@ -22,13 +22,11 @@ import ez.pogdog.yescom.util.Position;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -161,6 +159,8 @@ public class Player {
                     Arrays.stream(serverListEntry.getEntries()).forEach(entry -> {
                         UUID uuid = entry.getProfile().getId();
                         String name = entry.getProfile().getName();
+
+                        yesCom.connectionHandler.setNameForUUID(uuid, name);
 
                         onlinePlayers.put(uuid, name);
                         notifyJoinLeaveListeners(PlayerAction.ADD, uuid);
