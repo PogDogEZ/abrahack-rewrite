@@ -323,6 +323,7 @@ public class PlayerHandler {
     }
 
     public void onExit() {
+        queryMap.forEach((teleportID, query) -> query.reschedule());
         player.removePacketListener(listenerID);
     }
 

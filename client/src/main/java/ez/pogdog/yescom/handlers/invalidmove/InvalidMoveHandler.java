@@ -56,7 +56,10 @@ public class InvalidMoveHandler implements IHandler {
 
     public void removeHandle(Player player) {
         PlayerHandler handle = getHandle(player);
-        if (handle != null) handles.remove(handle);
+        if (handle != null) {
+            handle.onExit();
+            handles.remove(handle);
+        }
     }
 
     public Player startQuery(IsLoadedQuery query) {
