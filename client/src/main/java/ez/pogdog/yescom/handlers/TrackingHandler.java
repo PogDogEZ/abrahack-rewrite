@@ -211,6 +211,10 @@ public class TrackingHandler implements IHandler {
                 .orElse(null);
     }
 
+    public List<ITracker> getTrackers() {
+        return new ArrayList<>(trackers.values());
+    }
+
     public void addTracker(ITracker tracker) {
         if (!trackers.containsKey(tracker.getTrackerID()) && !trackers.containsValue(tracker)) {
             trackers.put(tracker.getTrackerID(), tracker);

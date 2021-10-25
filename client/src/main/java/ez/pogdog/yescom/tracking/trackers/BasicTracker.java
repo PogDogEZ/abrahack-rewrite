@@ -73,7 +73,6 @@ public class BasicTracker implements ITracker {
         awaitingMovementCheck = true;
         centerOffset = new ChunkPosition(0, 0);
 
-        int renderDistance = (yesCom.configHandler.RENDER_DISTANCE - 1) / 2;
         int distance = yesCom.configHandler.BASIC_TRACKER_DIST;
 
         for (int index = 0; index < 4; ++index) {
@@ -85,8 +84,7 @@ public class BasicTracker implements ITracker {
                 currentQueries.remove(query);
 
                 if (result != IsLoadedQuery.Result.LOADED) {
-                    ChunkPosition newOffset = new ChunkPosition(offset.getX() * distance, offset.getZ() * distance);
-                    centerOffset = centerOffset.add(newOffset);
+                    centerOffset = centerOffset.add(offset.getX() * distance, offset.getZ() * distance);
                 } else {
                     lastLoadedChunk = System.currentTimeMillis();
                 }
@@ -107,6 +105,8 @@ public class BasicTracker implements ITracker {
 
                     double velocity = trackedPlayer.getTrackingData().getVelocity(System.currentTimeMillis() - 2000, System.currentTimeMillis());
                     yesCom.logger.debug(String.format("%s has estimated velocity: %.2f.", trackedPlayer, velocity));
+
+                    yesCom.logger.info(String.format("%s: %dms", trackedPlayer, updateTime));
 
                     ChunkPosition shift = new ChunkPosition(
                             (int)(centerOffset.getX() * 0.75 + lastCenterOffset.getX() * 0.25),

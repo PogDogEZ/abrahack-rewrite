@@ -59,11 +59,13 @@ public class TrackedPlayerType extends Type<TrackedPlayer> {
             Registry.UNSIGNED_SHORT.write(entry.getValue(), outputStream);
         }
 
-        Registry.UNSIGNED_SHORT.write(value.getTrackingData().getRenderDistances().size(), outputStream);
+        Registry.UNSIGNED_SHORT.write(0, outputStream); // TODO: More data efficient solution
+        /*
         for (Map.Entry<Long, BigInteger> entry : value.getTrackingData().getRenderDistances().entrySet()) {
             Registry.LONG.write(entry.getKey(), outputStream);
             Registry.VARINT.write(entry.getValue(), outputStream);
         }
+         */
 
         YCRegistry.RENDER_DISTANCE.write(value.getRenderDistance(), outputStream);
         YCRegistry.DIMENSION.write(value.getDimension(), outputStream);

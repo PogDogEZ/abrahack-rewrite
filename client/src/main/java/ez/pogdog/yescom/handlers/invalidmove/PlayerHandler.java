@@ -204,6 +204,7 @@ public class PlayerHandler {
             packetsSinceCloseWindow = 0;
 
         } else if (packet instanceof ServerOpenWindowPacket) {
+            openAttempts = 0;
             storageOpen = true;
             if (expectingOpen) expectingOpen = false;
 

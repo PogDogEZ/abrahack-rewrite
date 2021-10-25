@@ -64,7 +64,6 @@ class MainFrame(Frame):
         self._last_update = time.time()
 
         self.selected_chunks = []
-        self.waiting_chunks = []
 
         # for x in range(-10, 10):
         #     for y in range(-10, 10):
@@ -111,7 +110,11 @@ class MainFrame(Frame):
         self.image_label.bind("<Motion>", self.on_motion)
 
         self.master.after(10, self.on_update)
-        self.master.protocol("WM_DELETE_WINDOW", self.on_exit)
+        self.master.protocol("WM_DELETE_WINDOW", self.destroy)
+
+    def destroy(self) -> None:
+        self._exited = True
+        self.viewer.on_exit()
 
     # ------------------------------ Utility methods ------------------------------ #
 
@@ -310,12 +313,6 @@ class MainFrame(Frame):
             self._left_offset[0] += (event.x - self.mouse_position[0]) / Config.CHUNK_SIZE[0] / self._current_scale[0]
             self._left_offset[1] += (event.y - self.mouse_position[1]) / Config.CHUNK_SIZE[1] / self._current_scale[1]
         self.mouse_position = (event.x, event.y)
-
-    def on_exit(self) -> None:
-        self._exited = True
-        self.viewer.on_exit()
-        self.destroy()
-        self.master.destroy()
 
     def on_update(self) -> None:
         # print(1 / (time.time() - self._last_update))

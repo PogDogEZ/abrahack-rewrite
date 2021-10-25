@@ -30,7 +30,8 @@ class MainMenu(Menu):
         file_menu = Menu(self, tearoff=0, bg="#%02x%02x%02x" % Config.WINDOW_COLOUR,
                          activebackground="#%02x%02x%02x" % Config.WIDGET_COLOUR, font=Config.FONT, borderwidth=2,
                          activeborderwidth=0, relief=SOLID)
-        file_menu.add_command(label="Quit.", command=self.main_frame.on_exit)
+        file_menu.add_command(label="Refresh.", command=self._refresh_reporter)
+        file_menu.add_command(label="Quit.", command=self.main_frame.destroy)
 
         self.add_cascade(label="File", menu=file_menu)
 
@@ -77,6 +78,9 @@ class MainMenu(Menu):
 
         self.add_cascade(label="test", menu=test_menu)
         """
+
+    def _refresh_reporter(self) -> None:
+        self.viewer.current_reporter = self.viewer.current_reporter
 
     def _do_layers_popup(self) -> None:
         if self._layers_popup is None:

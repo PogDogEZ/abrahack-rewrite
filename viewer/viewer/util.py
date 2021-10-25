@@ -614,12 +614,18 @@ class Reporter:  # FIXME: Move this out of here
     # ------------------------------ Misc ------------------------------ #
 
     def reset(self) -> None:
+        self._active_tasks.clear()
         self._players.clear()
         self._trackers.clear()
         self._online_players.clear()
 
+        self._dim_data[-1].clear()
+        self._dim_data[0].clear()
+        self._dim_data[1].clear()
+
         self._waiting_queries = 0
         self._ticking_queries = 0
+        self._queries_per_second = 0
 
         self._is_connected = False
         self._tick_rate = 20

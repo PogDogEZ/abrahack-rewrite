@@ -135,11 +135,30 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
                 yesCom.logger.debug(String.format("We are handler ID %d.", initResponse.getHandlerID()));
 
-                yesCom.logger.debug("Syncing tasks...");
+                yesCom.logger.info("Successfully initialized YC connection.");
+                yesCom.logger.info("Syncing with server...");
+
+                yesCom.logger.debug("Syncing registered tasks...");
                 connection.sendPacket(new TaskSyncPacket());
                 yesCom.logger.debug("Done.");
 
-                yesCom.logger.info("Successfully initialized YC connection.");
+                yesCom.logger.debug("Syncing active tasks...");
+                yesCom.getTasks().forEach(this::onTaskAdded);
+                yesCom.logger.debug("Done.");
+
+                yesCom.logger.debug("Syncing players...");
+                yesCom.connectionHandler.getPlayers().forEach(this::onPlayerAdded);
+                yesCom.logger.debug("Done.");
+
+                yesCom.logger.debug("Syncing trackers...");
+                yesCom.trackingHandler.getTrackers().forEach(this::onTrackerAdded);
+                yesCom.logger.debug("Done.");
+
+                yesCom.logger.debug("Syncing online players...");
+                yesCom.connectionHandler.getOnlinePlayers().forEach(this::onPlayerJoin);
+                yesCom.logger.debug("Done.");
+
+                yesCom.logger.info("Synced.");
             }
 
         } else if (packet instanceof DataRequestPacket) {

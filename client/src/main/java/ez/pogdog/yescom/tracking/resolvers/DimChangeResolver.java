@@ -89,8 +89,7 @@ public class DimChangeResolver implements IResolver {
                                 queries.forEach(IsLoadedQuery::cancel);
                                 queries.clear();
 
-                                quickResolver = new QuickResolver(query.getChunkPosition(), dimension, 4, resolver -> {
-                                });
+                                quickResolver = new QuickResolver(query.getChunkPosition(), dimension, 4, resolver -> {});
                             }
                         }
                     });

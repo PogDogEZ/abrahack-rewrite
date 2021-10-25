@@ -55,7 +55,7 @@ public class ConfigHandler implements IHandler {
     public int MAX_FINISHED_CACHE = 50;
 
     public int LOGIN_CACHE_TIME = 5000;
-    public int LOGOUT_CACHE_TIME = 20000;
+    public int LOGOUT_CACHE_TIME = 30000;
 
     /**
      * Health logout stuff.

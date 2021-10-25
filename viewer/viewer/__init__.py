@@ -57,6 +57,10 @@ class Viewer:
 
     @current_reporter.setter
     def current_reporter(self, handler_id: int) -> None:
+        if self._current_reporter != -1:
+            self.get_reporter(handler_id=self._current_reporter).reset()
+        self._current_reporter = -1
+
         select_reporter = SelectReporterPacket()
         select_reporter.selected_reporter = handler_id
 

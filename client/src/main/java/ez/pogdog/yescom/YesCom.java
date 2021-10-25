@@ -293,6 +293,10 @@ public class YesCom {
         }
     }
 
+    public List<ITask> getTasks() {
+        return new ArrayList<>(currentTasks);
+    }
+
     public void addTask(ITask task) {
         if (!currentTasks.contains(task)) {
             currentTasks.add(task);
