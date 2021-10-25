@@ -76,8 +76,11 @@ class TestGroup(Group):
     def __init__(self, group_name: str, proxy_names: List[str], group_id: int, default_permission: int, system) -> None:
         super().__init__(group_name, proxy_names, group_id, default_permission, system)
 
-        self.add_user(User("iska", "t", False, 4, 0, self, self.system))
+        self.add_user(User("iska", "t", False, 4, 0, self, self.system))  # FIXME: This is dumb (duh) make this work properly
         self.add_user(User("node", "t", False, 4, 1, self, self.system))
+        self.add_user(User("nathan", "ilovenode", False, 4, 2, self, self.system))
+        self.add_user(User("arzi", "ilovenode", False, 4, 3, self, self.system))
+        self.add_user(User("yescom", "fucknerdsinc", False, 4, 4, self, self.system))
 
         for user in self._users:
             self.system.add_user(user)

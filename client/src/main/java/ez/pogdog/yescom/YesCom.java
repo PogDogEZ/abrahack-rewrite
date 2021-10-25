@@ -129,9 +129,6 @@ public class YesCom {
 
     public final Logger logger;
 
-    public final Connection connection;
-    public final YCHandler handler;
-
     public final AccountHandler accountHandler;
     public final ConfigHandler configHandler;
     public final ConnectionHandler connectionHandler;
@@ -140,6 +137,14 @@ public class YesCom {
     public final DataHandler dataHandler;
     public final TrackingHandler trackingHandler;
     private final List<ITask> currentTasks = new ArrayList<>();
+
+    private final String handlerName;
+    private final boolean noYCConnection;
+
+    public Connection connection;
+    public YCHandler handler;
+
+    private int reconnectAttempts;
 
     private boolean alive;
     private int taskID;
@@ -167,19 +172,13 @@ public class YesCom {
         dataHandler = new DataHandler();
         trackingHandler = new TrackingHandler();
 
-        if (noYCConnection) {
-            connection = null;
-            handler = null;
+        this.handlerName = handlerName;
+        this.noYCConnection = noYCConnection;
 
-        } else {
-            connection = new Connection(configHandler.HOST_NAME, configHandler.HOST_PORT, logger);
-            connection.setAuthSuppliers(
-                    () -> new User(configHandler.USERNAME, 1, 4,
-                            new Group(configHandler.GROUP_NAME, 1, 4)),
-                    () -> configHandler.PASSWORD);
-            handler = new YCHandler(connection, handlerName);
-            connection.addHandler(handler);
-        }
+        connection = null;
+        handler = null;
+
+        reconnectAttempts = 0;
 
         alive = true;
         taskID = 0;
@@ -188,7 +187,15 @@ public class YesCom {
     }
 
     private void onTick() {
-        if (connection != null && !connection.isConnected() && !connection.isExited()) {
+        if (!noYCConnection && (connection == null || (!connection.isConnected() && (!connection.isExited() || ++reconnectAttempts < 5)))) {
+            connection = new Connection(configHandler.HOST_NAME, configHandler.HOST_PORT, logger);
+            connection.setAuthSuppliers(
+                    () -> new User(configHandler.USERNAME, 1, 4,
+                            new Group(configHandler.GROUP_NAME, 1, 4)),
+                    () -> configHandler.PASSWORD);
+            handler = new YCHandler(connection, handlerName);
+            connection.addHandler(handler);
+
             try {
                 connection.connect();
             } catch (IOException ignored) {
@@ -199,6 +206,8 @@ public class YesCom {
             logger.fatal(String.format("Connection closed due to: %s", connection.getExitReason()));
             exit();
             return;
+        } else {
+            reconnectAttempts = 0;
         }
 
         if (connection != null && handler != null && connection.getHandler() instanceof DefaultHandler &&

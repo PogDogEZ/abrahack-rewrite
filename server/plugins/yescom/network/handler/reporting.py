@@ -297,7 +297,7 @@ class Reporter(Archiver):
             if tracker.tracked_id == tracker_id:
                 return tracker
 
-        raise LookupError("Couldn't find tracker by ID %i.", tracker_id)
+        raise LookupError("Couldn't find tracker by ID %i." % tracker_id)
 
     # -------------------- Other Stuff -------------------- #
 

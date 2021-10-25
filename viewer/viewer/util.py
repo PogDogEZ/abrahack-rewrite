@@ -485,7 +485,7 @@ class TrackedPlayer:
         if not self._possible_players:
             return None
         else:
-            return sorted(self._possible_players, key=operator.itemgetter(1))[0]
+            return sorted(list(self._possible_players.items()), key=operator.itemgetter(1))[0][0]
 
     def get_possible_player(self, uuid: UUID) -> int:
         return self._possible_players.get(uuid, 0)

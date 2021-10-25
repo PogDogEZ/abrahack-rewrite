@@ -289,6 +289,8 @@ class TaskActionPacket(Packet):
             self.task_id = UnsignedShort.read(fileobj)
 
         elif self.action == TaskActionPacket.Action.UPDATE:
+            self.task_id = UnsignedShort.read(fileobj)
+
             self.loaded_chunk_task = Boolean.read(fileobj)
 
             self.progress = Float.read(fileobj)
@@ -325,6 +327,8 @@ class TaskActionPacket(Packet):
             UnsignedShort.write(self.task_id, fileobj)
 
         elif self.action == TaskActionPacket.Action.UPDATE:
+            UnsignedShort.write(self.task_id, fileobj)
+
             Boolean.write(self.loaded_chunk_task, fileobj)
 
             Float.write(self.progress, fileobj)
