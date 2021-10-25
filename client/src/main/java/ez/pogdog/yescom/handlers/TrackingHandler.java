@@ -28,6 +28,8 @@ public class TrackingHandler implements IHandler {
     private final Map<Long, ITracker> trackers = new HashMap<>();
     private final List<IResolver> resolvers = new ArrayList<>();
 
+    private final List<UUID> handlingLogins = new ArrayList<>();
+
     private long trackerID;
 
     public TrackingHandler() {
@@ -106,6 +108,13 @@ public class TrackingHandler implements IHandler {
     }
 
     public void onPlayerJoin(UUID uuid) {
+        if (loggedPlayers.isEmpty()) return; // No one to check for
+
+        synchronized (this) {
+            if (handlingLogins.contains(uuid)) return;
+            handlingLogins.add(uuid);
+        }
+
         loggedPlayers.forEach(loggedPlayer -> {
             if (loggedPlayer.getPossiblePlayer(uuid) > 0) {
                 yesCom.queryHandler.addQuery(new IsLoadedQuery(loggedPlayer.getRenderDistance().getCenterPosition(),
@@ -114,13 +123,20 @@ public class TrackingHandler implements IHandler {
                         loggedPlayer.putPossiblePlayer(uuid, loggedPlayer.getPossiblePlayer(uuid) + 3);
                         loggedPlayer.setLoggedOut(false);
 
-                        yesCom.logger.info(String.format("Reassigning %s due to potential login.", loggedPlayer));
+                        yesCom.logger.info(String.format("Reassigning %s due to potential login for player %s.", loggedPlayer,
+                                yesCom.connectionHandler.getNameForUUID(uuid)));
 
                         loggedPlayer.setLoggedOut(false);
                         removeLoggedPlayer(loggedPlayer);
                         addTrackedPlayer(loggedPlayer);
 
                         quickResolve(loggedPlayer.getRenderDistance().getCenterPosition(), loggedPlayer.getDimension(), 4);
+                    } else {
+                        loggedPlayer.putPossiblePlayer(uuid, loggedPlayer.getPossiblePlayer(uuid) - 1);
+                    }
+
+                    synchronized (this) {
+                        handlingLogins.remove(uuid);
                     }
                 }));
             }
@@ -216,12 +232,16 @@ public class TrackingHandler implements IHandler {
         if (!trackedPlayer.isLoggedOut()) {
             trackedPlayer.setLoggedOut(true);
             removeTrackedPlayer(trackedPlayer);
-            addLoggedPlayer(trackedPlayer);
 
-            yesCom.connectionHandler.recentLeaves.forEach((uuid, time) -> trackedPlayer.putPossiblePlayer(uuid,
-                    trackedPlayer.getPossiblePlayer(uuid) + 1));
-            yesCom.logger.info(String.format("%s has logged out, most probable: %s.", trackedPlayer,
-                    yesCom.connectionHandler.getNameForUUID(trackedPlayer.getBestPossiblePlayer())));
+            if (!yesCom.connectionHandler.recentLeaves.isEmpty()) {
+                addLoggedPlayer(trackedPlayer);
+                yesCom.connectionHandler.recentLeaves.forEach((uuid, time) -> trackedPlayer.putPossiblePlayer(uuid,
+                        trackedPlayer.getPossiblePlayer(uuid) + 1));
+                yesCom.logger.info(String.format("%s has logged out, most probable: %s.", trackedPlayer,
+                        yesCom.connectionHandler.getNameForUUID(trackedPlayer.getBestPossiblePlayer())));
+            } else {
+                yesCom.logger.warn(String.format("Lost tracked player %s, no probable logouts.", trackedPlayer));
+            }
         }
     }
 

@@ -314,7 +314,7 @@ public class PlayerHandler {
                     if (player.getCurrentTP() > teleportID || query.getTickingTime() > yesCom.configHandler.INVALID_MOVE_TIMEOUT) {
                         yesCom.logger.debug(String.format("%s has timed out (packet loss?), cancelling.", query));
                         queryMap.remove(teleportID);
-                        query.cancel();
+                        query.reschedule();
                     }
                 });
             }
@@ -363,7 +363,7 @@ public class PlayerHandler {
         player.sendPacket(new ClientTeleportConfirmPacket(player.getCurrentTP()));
 
         synchronized (this) {
-            queryMap.forEach((teleportID, query) -> query.cancel());
+            queryMap.forEach((teleportID, query) -> query.reschedule());
             queryMap.clear();
             windowToTPIDMap.clear();
         }

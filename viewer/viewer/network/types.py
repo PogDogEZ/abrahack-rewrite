@@ -172,6 +172,7 @@ class ChunkStateSpec(Type):
         Short.write(chunk_state.dimension, fileobj)
         Long.write(chunk_state.found_at, fileobj)
 
+
 class RenderDistanceSpec(Type):
 
     @classmethod

@@ -55,7 +55,10 @@ public class QueryHandler implements IHandler {
                 }
                 case START: {
                     ++currentQueries;
-                    queryTicks += query.getWeight();
+                    float queryWeight = query.getWeight();
+                    // Safeguard against this
+                    if (Float.isFinite(queryWeight)) queryTicks += queryWeight;
+
                     synchronized (this) {
                         waiting.remove(query);
                     }

@@ -6,11 +6,7 @@ import ez.pogdog.yescom.handlers.connection.Player;
 import ez.pogdog.yescom.query.IsLoadedQuery;
 import ez.pogdog.yescom.util.Dimension;
 
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.Deque;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
 public class InvalidMoveHandler implements IHandler {
@@ -28,12 +24,21 @@ public class InvalidMoveHandler implements IHandler {
     public final List<Integer> VALID_STORAGES = Arrays.asList(23, 54, 130, 154, 158);
 
     private final Deque<PlayerHandler> handles = new ConcurrentLinkedDeque<>();
+    private final Map<Dimension, Integer> availableAccounts = new HashMap<>();
 
     @Override
     public void onTick() {
         if (yesCom.configHandler.TYPE != IsLoadedQuery.Type.INVALID_MOVE) return;
 
         handles.forEach(PlayerHandler::onTick);
+        for (Dimension dimension : Dimension.values()) {
+            availableAccounts.put(dimension, (int)handles.stream()
+                    .filter(handle -> handle.getPlayer().isConnected() &&
+                            handle.getPlayer().getTimeLoggedIn() > yesCom.configHandler.MIN_TIME_CONNECTED &&
+                            handle.getPlayer().getDimension().equals(dimension) &&
+                            handle.isStorageOpen())
+                    .count());
+        }
     }
 
     @Override
@@ -71,11 +76,6 @@ public class InvalidMoveHandler implements IHandler {
     }
 
     public int getAvailableAccounts(Dimension dimension) {
-        return (int)handles.stream()
-                .filter(handle -> handle.getPlayer().isConnected() &&
-                        handle.getPlayer().getTimeLoggedIn() > yesCom.configHandler.MIN_TIME_CONNECTED &&
-                        handle.getPlayer().getDimension().equals(dimension) &&
-                        handle.isStorageOpen())
-                .count();
+        return availableAccounts.getOrDefault(dimension, 0); // Even more optimisation!
     }
 }

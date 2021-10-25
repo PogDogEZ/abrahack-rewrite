@@ -65,7 +65,7 @@ public class TrackedPlayer implements ISerializable {
      */
     public UUID getBestPossiblePlayer() {
         return possiblePlayers.entrySet().stream()
-                .min(Comparator.comparingInt(Map.Entry::getValue))
+                .max(Comparator.comparingInt(Map.Entry::getValue))
                 .map(Map.Entry::getKey)
                 .orElse(null);
     }
@@ -187,10 +187,8 @@ public class TrackedPlayer implements ISerializable {
             return new ChunkPosition((int)xSum, (int)zSum);
         }
 
-        private List<ChunkPosition> getData(long from, long until) {
-            Map<Long, ChunkPosition> realData = previousRenderDistances.entrySet().stream()
-                    .filter(entry -> from > entry.getKey() && until <= entry.getKey()) // TODO: Account for render distance error
-                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> dataProvider.getRenderDistance(entry.getValue()).getCenterPosition()));
+        private Map<Long, ChunkPosition> getData(long from, long until) {
+            /*
             List<ChunkPosition> positions = new ArrayList<>();
 
             for (long offset = 0; offset < until - from; ++offset) {
@@ -202,32 +200,41 @@ public class TrackedPlayer implements ISerializable {
                     positions.add(realPosition);
                 }
             }
+             */
 
-            return positions;
+            return previousRenderDistances.entrySet().stream()
+                    .filter(entry -> from > entry.getKey() && until <= entry.getKey()) // TODO: Account for render distance error
+                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> dataProvider.getRenderDistance(entry.getValue()).getCenterPosition()));
         }
 
         /**
          * Returns estimated velocity based on previous data recorded.
          * @param from When to measure data from.
          * @param until When to measure data until.
-         * @return The estimated velocity in chunks(s^(-1)).
+         * @return The estimated velocity in chunks/s.
          */
         public double getVelocity(long from, long until) {
-            List<ChunkPosition> previousPositions = getData(from / 1000L, until / 1000L);
+            Map<Long, ChunkPosition> previousPositions = getData(from / 1000L, until / 1000L);
 
-            ChunkPosition averageVelocity = new ChunkPosition(0, 0);
+            double averageX = 0.0;
+            double averageZ = 0.0;
+
             ChunkPosition lastPosition = null;
+            long lastTime = 0L;
 
-            for (ChunkPosition chunkPosition : previousPositions) {
+            for (Map.Entry<Long, ChunkPosition> entry : previousPositions.entrySet()) {
                 if (lastPosition == null) {
-                    lastPosition = chunkPosition;
+                    lastPosition = entry.getValue();
+                    lastTime = entry.getKey();
                 } else {
-                    averageVelocity = averageVelocity.add(chunkPosition.subtract(lastPosition));
+                    double deltaTime = Math.max(1.0, entry.getKey() - lastTime);
+                    averageX += (entry.getValue().getX() - lastPosition.getX()) / deltaTime;
+                    averageZ += (entry.getValue().getZ() - lastPosition.getZ()) / deltaTime;
                 }
             }
 
-            double averageX = averageVelocity.getX() / Math.max(1.0, previousPositions.size() - 1.0);
-            double averageZ = averageVelocity.getZ() / Math.max(1.0, previousPositions.size() - 1.0);
+            averageX /= Math.max(1.0, previousPositions.size() - 1.0);
+            averageZ /= Math.max(1.0, previousPositions.size() - 1.0);
 
             return Math.sqrt(averageX * averageX + averageZ * averageZ);
         }
@@ -239,6 +246,7 @@ public class TrackedPlayer implements ISerializable {
          * @return The estimated acceleration in chunks(s^(-2)).
          */
         public double getAcceleration(long from, long until) {
+            /*
             List<ChunkPosition> previousPositions = getData(from / 1000L, until / 1000L);
 
             List<ChunkPosition> velocities = new ArrayList<>();
@@ -267,6 +275,8 @@ public class TrackedPlayer implements ISerializable {
             double averageZ = averageAcceleration.getZ() / Math.max(1.0, velocities.size() - 1.0);
 
             return Math.sqrt(averageX * averageX + averageZ * averageZ);
+             */
+            return 0.0;
         }
 
         /**
@@ -276,7 +286,7 @@ public class TrackedPlayer implements ISerializable {
          * @return The estimated heading in degrees (0 to 360).
          */
         public float getHeading(long from, long until) {
-            List<ChunkPosition> previousPositions = getData(from / 1000L, until / 1000L);
+            // List<ChunkPosition> previousPositions = getData(from / 1000L, until / 1000L);
 
             float averageHeading = 0.0f;
             return 0.0f;

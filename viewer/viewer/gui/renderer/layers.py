@@ -193,7 +193,7 @@ class TrackedPlayersLayer(Layer):
 
                 image = cv2.circle(image, center_coords, round(scale[0] * 2), Config.PLAYER_COLOUR, -1, cv2.LINE_AA)
                 image = cv2.putText(image, "ID: %i, name: %r" % (tracked_player.tracked_player_id, username), top_left_coords,
-                                    cv2.FONT_HERSHEY_PLAIN, scale[0] / 3, (255, 255, 255), round(scale[0] / 2),
+                                    cv2.FONT_HERSHEY_PLAIN, scale[0] / 2, (255, 255, 255), round(scale[0] / 2),
                                     cv2.LINE_AA)
 
         return image

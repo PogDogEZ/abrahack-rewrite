@@ -1,7 +1,6 @@
 package ez.pogdog.yescom.tracking.trackers;
 
 import ez.pogdog.yescom.YesCom;
-import ez.pogdog.yescom.data.serializable.RenderDistance;
 import ez.pogdog.yescom.query.IQuery;
 import ez.pogdog.yescom.query.IsLoadedQuery;
 import ez.pogdog.yescom.tracking.ITracker;
@@ -14,6 +13,9 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 public class BasicTracker implements ITracker {
 
     private final YesCom yesCom = YesCom.getInstance();
+
+    private final int[] X_ORDINATE_OFFSETS = new int[] { 1, -1, 0, 0 };
+    private final int[] Z_ORDINATE_OFFSETS = new int[] { 0, 0, 1, -1 };
 
     private final Deque<IsLoadedQuery> currentQueries = new ConcurrentLinkedDeque<>();
 
@@ -71,25 +73,19 @@ public class BasicTracker implements ITracker {
         awaitingMovementCheck = true;
         centerOffset = new ChunkPosition(0, 0);
 
+        int renderDistance = (yesCom.configHandler.RENDER_DISTANCE - 1) / 2;
         int distance = yesCom.configHandler.BASIC_TRACKER_DIST;
 
         for (int index = 0; index < 4; ++index) {
-            ChunkPosition offset = new ChunkPosition(
-                    (int)Math.pow(-1, index + 1) * distance,
-                    (int)Math.pow(-1, Math.ceil((index + 1) / 2.0f)) * distance);
+            ChunkPosition offset = getOffset(index);
 
             IsLoadedQuery isLoadedQuery = new IsLoadedQuery(
-                    trackedPlayer.getRenderDistance().getCenterPosition().add(offset), trackedPlayer.getDimension(),
-                    IQuery.Priority.MEDIUM, yesCom.configHandler.TYPE, (query, result) -> {
+                    trackedPlayer.getRenderDistance().getCenterPosition().add(offset.getX() * distance, offset.getZ() * distance),
+                    trackedPlayer.getDimension(), IQuery.Priority.MEDIUM, yesCom.configHandler.TYPE, (query, result) -> {
                 currentQueries.remove(query);
 
                 if (result != IsLoadedQuery.Result.LOADED) {
-                    ChunkPosition newOffset = new ChunkPosition(
-                            Math.max(-yesCom.configHandler.BASIC_TRACKER_DIST, Math.min(yesCom.configHandler.BASIC_TRACKER_DIST,
-                                    offset.getX())) * 2,
-                            Math.max(-yesCom.configHandler.BASIC_TRACKER_DIST, Math.min(yesCom.configHandler.BASIC_TRACKER_DIST,
-                                    offset.getZ())) * 2);
-
+                    ChunkPosition newOffset = new ChunkPosition(offset.getX() * distance, offset.getZ() * distance);
                     centerOffset = centerOffset.add(newOffset);
                 } else {
                     lastLoadedChunk = System.currentTimeMillis();
@@ -121,7 +117,7 @@ public class BasicTracker implements ITracker {
                             yesCom.configHandler.RENDER_DISTANCE, centerOffset.getX(), centerOffset.getZ()));
 
                     lastCenterOffset = centerOffset;
-                    // trackedPlayer.getTrackingData().addRenderDistance(trackedPlayer.getRenderDistance());
+                    trackedPlayer.getTrackingData().addRenderDistance(trackedPlayer.getRenderDistance());
 
                     if (System.currentTimeMillis() - lastLoadedChunk > yesCom.configHandler.BASIC_TRACKER_ONLINE_CHECK_TIME) {
                         yesCom.logger.info(String.format("Failed online check for %s.", trackedPlayer));
@@ -159,5 +155,9 @@ public class BasicTracker implements ITracker {
 
         currentQueries.add(isLoadedQuery);
         yesCom.queryHandler.addQuery(isLoadedQuery);
+    }
+
+    private ChunkPosition getOffset(int index) {
+        return new ChunkPosition(X_ORDINATE_OFFSETS[index], Z_ORDINATE_OFFSETS[index]);
     }
 }

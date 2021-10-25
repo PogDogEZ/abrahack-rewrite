@@ -41,6 +41,10 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
     private final Deque<Packet> queuedPackets = new ArrayDeque<>();
     private final List<ChunkState> queuedChunkStates = new ArrayList<>();
 
+    private final List<UUID> syncedOnlinePlayers = new ArrayList<>();
+    private final Map<UUID, String> queuedJoins = new HashMap<>();
+    private final List<UUID> queuedLeaves = new ArrayList<>();
+
     private final Map<Integer, byte[]> dataParts = new HashMap<>();
 
     private byte[] handlerHash;
@@ -302,6 +306,12 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
                 if (!queuedChunkStates.isEmpty()) connection.sendPacket(new ChunkStatesPacket(queuedChunkStates));
                 queuedChunkStates.clear();
+
+                if (!queuedJoins.isEmpty()) connection.sendPacket(new OnlinePlayersActionPacket(OnlinePlayersActionPacket.Action.ADD, queuedJoins));
+                queuedJoins.clear();
+
+                if (!queuedLeaves.isEmpty()) connection.sendPacket(new OnlinePlayersActionPacket(queuedLeaves));
+                queuedLeaves.clear();
             }
         }
     }
@@ -595,6 +605,20 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
     public void onInfoUpdate(int waitingQueries, int tickingQueries, float queriesPerSecond) {
         queuedPackets.add(new InfoUpdatePacket(waitingQueries, tickingQueries, queriesPerSecond));
+    }
+
+    public void onPlayerJoin(UUID uuid, String name) {
+        if (!syncedOnlinePlayers.contains(uuid)) {
+            syncedOnlinePlayers.add(uuid);
+            queuedJoins.put(uuid, name);
+        }
+    }
+
+    public void onPlayerLeave(UUID uuid) {
+        if (syncedOnlinePlayers.contains(uuid)) {
+            syncedOnlinePlayers.remove(uuid);
+            if (!queuedLeaves.contains(uuid)) queuedLeaves.add(uuid);
+        }
     }
 
     /* ------------------------ Setters and Getters ------------------------ */

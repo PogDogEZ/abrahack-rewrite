@@ -17,6 +17,8 @@ public class HighwayScanTask implements ILoadedChunkTask {
     private final int[] HIGHWAY_X_ORDINATES = new int[] { 1, 1, 1, 0, 0, -1, -1, -1 };
     private final int[] HIGHWAY_Z_ORDINATES = new int[] { -1, 0, 1, -1, 1, -1, 0, 1 };
 
+    private final List<IsLoadedQuery> currentQueries = new ArrayList<>();
+
     private final int maxDistance;
     private final int minDistance;
     private final int chunkSkip;
@@ -29,7 +31,6 @@ public class HighwayScanTask implements ILoadedChunkTask {
 
     private int taskID;
 
-    private int currentQueries;
     private int currentIndex;
 
     /**
@@ -62,29 +63,33 @@ public class HighwayScanTask implements ILoadedChunkTask {
 
     @Override
     public void onTick() {
-        while (currentQueries < 200 && currentIndex < maxIndex) {
+        while (currentQueries.size() < 20 && currentIndex < maxIndex) {
             ChunkPosition position = getCurrentPosition();
             ++currentIndex;
 
             synchronized (this) {
-                ++currentQueries;
-
-                yesCom.queryHandler.addQuery(new IsLoadedQuery(position, dimension, priority, yesCom.configHandler.TYPE,
+                IsLoadedQuery isLoadedQuery = new IsLoadedQuery(position, dimension, priority, yesCom.configHandler.TYPE,
                         (query, result) -> {
-                            --currentQueries;
+                    currentQueries.remove(query);
+                    if (result == IsLoadedQuery.Result.LOADED) onLoaded(query.getChunkPosition());
+                });
 
-                            if (result == IsLoadedQuery.Result.LOADED) onLoaded(query.getChunkPosition());
-                        }));
+                currentQueries.add(isLoadedQuery);
+                yesCom.queryHandler.addQuery(isLoadedQuery);
             }
         }
 
         yesCom.logger.infoDisappearing(String.format("Scanning: %d, %d / %d, %d, %s, %dms.",
                 yesCom.queryHandler.getWaitingSize(), yesCom.queryHandler.getTickingSize(),
-                currentQueries, currentIndex, getCurrentPosition(), yesCom.connectionHandler.getTimeSinceLastPacket()));
+                currentQueries.size(), currentIndex, getCurrentPosition(), yesCom.connectionHandler.getTimeSinceLastPacket()));
     }
 
     @Override
     public void onFinished() {
+        synchronized (this) {
+            currentQueries.forEach(IsLoadedQuery::cancel);
+            currentQueries.clear();
+        }
     }
 
     @Override
@@ -113,7 +118,7 @@ public class HighwayScanTask implements ILoadedChunkTask {
 
     @Override
     public boolean isFinished() {
-        return currentIndex >= maxIndex && currentQueries <= 0;
+        return currentIndex >= maxIndex && currentQueries.isEmpty();
     }
 
     @Override

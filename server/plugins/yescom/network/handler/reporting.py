@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
-from typing import List
+from typing import List, Dict
+from uuid import UUID
 
 from network.networking.packets import Packet
 from plugins.yescom.network.handler.archiving import Archiver
 from plugins.yescom.network.handler.listening import Listener
 from plugins.yescom.network.packets.reporting import TaskSyncPacket, TaskActionPacket, PlayerActionPacket, \
     AccountActionPacket, AccountActionResponsePacket, TrackerActionPacket, \
-    InfoUpdatePacket, ChunkStatesPacket
+    InfoUpdatePacket, ChunkStatesPacket, OnlinePlayersActionPacket
 from plugins.yescom.util import Player, RegisteredTask, ActiveTask, TrackedPlayer, Tracker
 
 
@@ -51,6 +52,7 @@ class Reporter(Archiver):
         self._active_tasks = []
         self._players = []
         self._trackers = []
+        self._online_players = {}
 
         self._account_action_id = 0
 
@@ -212,6 +214,26 @@ class Reporter(Archiver):
                 listener.on_info_update(packet.waiting_queries, packet.ticking_queries, packet.queries_per_second,
                                         packet.is_connected, packet.tick_rate, packet.time_since_last_packet)
 
+        elif isinstance(packet, OnlinePlayersActionPacket):
+            online_players = packet.get_online_players()
+
+            if packet.action == OnlinePlayersActionPacket.Action.ADD:
+                for uuid in online_players:
+                    self._online_players[uuid] = online_players[uuid]
+
+                for listener in self._listeners:
+                    listener.on_online_players_added(online_players)
+
+            elif packet.action == OnlinePlayersActionPacket.Action.REMOVE:
+                for uuid in online_players:
+                    try:
+                        del self._online_players[uuid]
+                    except KeyError:
+                        ...
+
+                for listener in self._listeners:
+                    listener.on_online_players_removed(online_players)
+
     def on_update(self) -> None:
         ...
 
@@ -298,6 +320,30 @@ class Reporter(Archiver):
                 return tracker
 
         raise LookupError("Couldn't find tracker by ID %i." % tracker_id)
+
+    # -------------------- Online Players -------------------- #
+
+    def put_online_player(self, uuid: UUID, display_name: str) -> None:
+        self._online_players[uuid] = display_name
+
+    def set_online_players(self, online_players: Dict[UUID, str]) -> None:
+        self._online_players.clear()
+        self._online_players.update(online_players)
+
+    def put_online_players(self, online_players: Dict[UUID, str]) -> None:
+        self._online_players.update(online_players)
+
+    def remove_online_player(self, uuid: UUID) -> None:
+        del self._online_players[uuid]
+
+    def get_online_player(self, uuid: UUID) -> str:
+        if not uuid in self._online_players:
+            raise LookupError("Couldn't find online player by uuid %r." % uuid)
+
+        return self._online_players[uuid]
+
+    def get_online_players(self) -> Dict[UUID, str]:
+        return self._online_players.copy()
 
     # -------------------- Other Stuff -------------------- #
 

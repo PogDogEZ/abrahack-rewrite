@@ -26,6 +26,7 @@ listening_packets = [
     listening.ChunkStatesPacket,
     listening.TrackerActionPacket,
     listening.InfoUpdatePacket,
+    listening.OnlinePlayersActionPacket,
 ]
 
 reporting_packets = [
@@ -45,6 +46,7 @@ reporting_packets = [
     reporting.ChunkStatesPacket,
     reporting.TrackerActionPacket,
     reporting.InfoUpdatePacket,
+    reporting.OnlinePlayersActionPacket,
 ]
 
 archiving_packets = [

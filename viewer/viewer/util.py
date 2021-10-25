@@ -485,7 +485,7 @@ class TrackedPlayer:
         if not self._possible_players:
             return None
         else:
-            return sorted(list(self._possible_players.items()), key=operator.itemgetter(1))[0][0]
+            return max(list(self._possible_players.items()), key=operator.itemgetter(1))[0]
 
     def get_possible_player(self, uuid: UUID) -> int:
         return self._possible_players.get(uuid, 0)
@@ -526,7 +526,7 @@ class Tracker:
         self._tracked_player = tracked_player
 
     def __repr__(self) -> str:
-        return "Tracked(ID=%i, player=%r)" % (self._tracker_id, self._tracked_player)
+        return "Tracker(ID=%i, player=%r)" % (self._tracker_id, self._tracked_player)
 
 
 class Reporter:  # FIXME: Move this out of here
@@ -743,3 +743,6 @@ class Reporter:  # FIXME: Move this out of here
             raise LookupError("Couldn't find online player by uuid %r." % uuid)
 
         return self._online_players[uuid]
+
+    def get_online_players(self) -> Dict[UUID, str]:
+        return self._online_players.copy()

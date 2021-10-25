@@ -492,4 +492,4 @@ class Tracker:
         self._tracked_player = tracked_player
 
     def __repr__(self) -> str:
-        return "Tracked(ID=%i, player=%r)" % (self._tracker_id, self._tracked_player)
+        return "Tracker(ID=%i, player=%r)" % (self._tracker_id, self._tracked_player)

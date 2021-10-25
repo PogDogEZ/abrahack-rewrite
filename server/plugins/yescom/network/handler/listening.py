@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-from typing import List
+from typing import List, Dict
+from uuid import UUID
 
 from network.networking.handlers import Handler
 from network.networking.packets import Packet
 from plugins.yescom.network.packets import DataRequestPacket
 from plugins.yescom.network.packets.listening import SelectReporterPacket, SyncReporterPacket, PlayerActionPacket, \
     ReporterActionPacket, AccountActionPacket, AccountActionResponsePacket, TaskActionPacket, ChunkStatesPacket, \
-    TrackerActionPacket, InfoUpdatePacket
+    TrackerActionPacket, InfoUpdatePacket, OnlinePlayersActionPacket
 from plugins.yescom.util import ActiveTask, Player, ChunkState, TrackedPlayer, Tracker
 
 
@@ -58,6 +59,7 @@ class Listener(Handler):
 
         elif isinstance(packet, SelectReporterPacket):
             sync_reporter = SyncReporterPacket()
+            online_players_action = None
 
             if packet.selected_reporter == -1:
                 if self._reporter is not None:
@@ -74,6 +76,10 @@ class Listener(Handler):
                     self._reporter = reporter
                     self._reporter.register_listener(self)
 
+                online_players_action = OnlinePlayersActionPacket()
+                online_players_action.action = OnlinePlayersActionPacket.Action.ADD
+                online_players_action.set_online_players(reporter.get_online_players())
+
                 sync_reporter.has_reporter = True
                 sync_reporter.reporter_id = reporter.handler_id
                 sync_reporter.reporter_name = reporter.handler_name
@@ -83,6 +89,8 @@ class Listener(Handler):
                 sync_reporter.set_trackers(reporter.trackers)
 
             self.connection.send_packet(sync_reporter)
+            if online_players_action is not None:
+                self.connection.send_packet(online_players_action)
 
         elif isinstance(packet, TaskActionPacket):
             if self._reporter is None:
@@ -236,6 +244,20 @@ class Listener(Handler):
         info_update.time_since_last_packet = time_since_last_packet
 
         self.connection.send_packet(info_update)
+
+    def on_online_players_added(self, online_players: Dict[UUID, str]) -> None:
+        online_players_action = OnlinePlayersActionPacket()
+        online_players_action.action = OnlinePlayersActionPacket.Action.ADD
+        online_players_action.set_online_players(online_players)
+
+        self.connection.send_packet(online_players_action)
+
+    def on_online_players_removed(self, online_players: Dict[UUID, str]) -> None:
+        online_players_action = OnlinePlayersActionPacket()
+        online_players_action.action = OnlinePlayersActionPacket.Action.REMOVE
+        online_players_action.set_online_players(online_players)
+
+        self.connection.send_packet(online_players_action)
 
     def sync_reporter(self, reporter) -> None:
         reporter_action = ReporterActionPacket()

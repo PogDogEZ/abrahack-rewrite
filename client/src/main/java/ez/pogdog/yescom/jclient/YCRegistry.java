@@ -46,6 +46,7 @@ public class YCRegistry {
         Registry.knownPackets.add(ChunkStatesPacket.class);
         Registry.knownPackets.add(TrackerActionPacket.class);
         Registry.knownPackets.add(InfoUpdatePacket.class);
+        Registry.knownPackets.add(OnlinePlayersActionPacket.class);
 
         Registry.knownTypes.put(Dimension.class, DimensionType.class);
         Registry.knownTypes.put(ChunkPosition.class, ChunkPositionType.class);

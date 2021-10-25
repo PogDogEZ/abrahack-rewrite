@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-from typing import IO, List
+from typing import IO, List, Dict
+from uuid import UUID
 
 from network.networking.packets import Packet, Side, String
 from network.networking.types import Enum
-from network.networking.types.basic import Boolean, UnsignedInteger, Float, UnsignedShort, Short, Integer, Long
+from network.networking.types.basic import Boolean, UnsignedInteger, Float, UnsignedShort, Short, Integer, Long, Bytes
 from plugins.yescom.network.types import PlayerSpec, PositionSpec, AngleSpec, ParamDescriptionSpec, ChunkPositionSpec, \
     ParameterSpec, TrackedPlayerSpec, ChunkStateSpec, TrackerSpec
 from plugins.yescom.util import Position, Angle, RegisteredTask, ChunkPosition, ChunkState, ActiveTask
@@ -456,3 +457,62 @@ class InfoUpdatePacket(Packet):
         if self.is_connected:
             Float.write(self.tick_rate, fileobj)
             UnsignedShort.write(self.time_since_last_packet, fileobj)
+
+
+class OnlinePlayersActionPacket(Packet):
+
+    ID = ID_OFFSET + 16
+    NAME = "online_players_action"
+    SIDE = Side.CLIENT
+
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.action = OnlinePlayersActionPacket.Action.ADD
+        self._online_players = {}
+
+    def read(self, fileobj: IO) -> None:
+        self._online_players.clear()
+
+        self.action = OnlinePlayersActionPacket.Action.read(fileobj)
+
+        online_players_to_read = UnsignedShort.read(fileobj)
+        for index in range(online_players_to_read):
+            uuid = UUID(bytes=Bytes.read(fileobj))
+            if self.action == OnlinePlayersActionPacket.Action.ADD:
+                name = String.read(fileobj)
+            else:
+                name = ""
+            self._online_players[uuid] = name
+
+    def write(self, fileobj: IO) -> None:
+        OnlinePlayersActionPacket.Action.write(self.action, fileobj)
+
+        UnsignedShort.write(len(self._online_players), fileobj)
+        for uuid in self._online_players:
+            Bytes.write(uuid.bytes, fileobj)
+            if self.action == OnlinePlayersActionPacket.Action.ADD:
+                String.write(self._online_players[uuid], fileobj)
+
+    def get_online_players(self) -> Dict[UUID, str]:
+        return self._online_players.copy()
+
+    def get_online_player(self, uuid: UUID) -> str:
+        return self._online_players[uuid]
+
+    def put_online_player(self, uuid: UUID, display_name: str) -> None:
+        self._online_players[uuid] = display_name
+
+    def set_online_players(self, online_players: Dict[UUID, str]) -> None:
+        self._online_players.clear()
+        self._online_players.update(online_players)
+
+    def put_online_players(self, online_players: Dict[UUID, str]) -> None:
+        self._online_players.update(online_players)
+
+    def remove_online_player(self, uuid: UUID) -> None:
+        del self._online_players[uuid]
+
+    class Action(Enum):
+        ADD = 0
+        REMOVE = 1

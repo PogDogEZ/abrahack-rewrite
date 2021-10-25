@@ -23,12 +23,15 @@ public class IsLoadedQuery implements IQuery {
     private final Type type;
     private final BiConsumer<IsLoadedQuery, Result> callBack;
 
+    private final float ticksPerQuery; // Optimisation
+
     private Player player;
     private int listenerID;
 
     private long startTime;
     private boolean finished;
 
+    private boolean rescheduled;
     private boolean cancelled;
     private Result result;
 
@@ -40,9 +43,12 @@ public class IsLoadedQuery implements IQuery {
         this.type = type;
         this.callBack = callBack;
 
+        ticksPerQuery = 1.0f / (float)yesCom.configHandler.QUERIES_PER_TICK;
+
         startTime = System.currentTimeMillis();
         finished = false;
 
+        rescheduled = false;
         cancelled = false;
         result = null;
     }
@@ -69,6 +75,8 @@ public class IsLoadedQuery implements IQuery {
 
         finished = false;
         result = null;
+
+        if (cancelled) return HandleAction.REMOVE;
 
         switch (type) {
             case DIGGING: {
@@ -116,12 +124,14 @@ public class IsLoadedQuery implements IQuery {
             }
         }
 
-        if (cancelled) {
+        if (rescheduled || cancelled) {
             startTime = System.currentTimeMillis();
+
+            if (!cancelled) yesCom.queryHandler.addQuery(this);
+
+            rescheduled = false;
             cancelled = false;
             finished = false;
-
-            yesCom.queryHandler.addQuery(this);
 
             return TickAction.REMOVE;
 
@@ -149,7 +159,7 @@ public class IsLoadedQuery implements IQuery {
 
     @Override
     public float getWeight() {
-        return 1.0f / (float)yesCom.configHandler.QUERIES_PER_TICK / yesCom.invalidMoveHandler.getAvailableAccounts(dimension);
+        return ticksPerQuery / Math.max(1.0f, yesCom.invalidMoveHandler.getAvailableAccounts(dimension));
     }
 
     /* ------------------------ Private Methods ------------------------ */
@@ -182,8 +192,13 @@ public class IsLoadedQuery implements IQuery {
 
     /* ------------------------ Public Methods ------------------------ */
 
+    public void reschedule() {
+        yesCom.logger.debug(String.format("Rescheduling query %s.", this));
+        rescheduled = true;
+    }
+
     public void cancel() {
-        yesCom.logger.debug(String.format("Cancelled query %s.", this));
+        yesCom.logger.debug(String.format("Cancelling query %s.", this));
         cancelled = true;
     }
 

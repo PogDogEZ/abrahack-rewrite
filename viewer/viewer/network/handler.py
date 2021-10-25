@@ -4,7 +4,7 @@ from typing import List
 
 from viewer.network.packets import YCInitRequestPacket, YCInitResponsePacket, ReporterActionPacket, SyncReporterPacket, \
     TaskActionPacket, PlayerActionPacket, AccountActionPacket, AccountActionResponsePacket, TrackerActionPacket, \
-    InfoUpdatePacket, ChunkStatesPacket
+    InfoUpdatePacket, ChunkStatesPacket, OnlinePlayersActionPacket
 from viewer.util import Reporter, RegisteredTask, ActiveTask
 from pclient.networking.handlers import Handler
 from pclient.networking.packets.packet import Packet
@@ -213,6 +213,25 @@ class YCHandler(Handler):
 
             reporter.update_info(packet.waiting_queries, packet.ticking_queries, packet.queries_per_second,
                                  packet.is_connected, packet.tick_rate, packet.time_since_last_packet)
+
+        elif isinstance(packet, OnlinePlayersActionPacket):
+            try:
+                reporter = self.viewer.get_reporter(handler_id=self.viewer.current_reporter)
+            except LookupError as error:
+                self.viewer.logger.warn("Error while fetching current reporter:")
+                self.viewer.logger.error(repr(error))
+                return
+
+            online_players = packet.get_online_players()
+
+            if packet.action == OnlinePlayersActionPacket.Action.ADD:
+                for uuid in online_players:
+                    reporter.put_online_player(uuid, online_players[uuid])
+                    self.viewer.set_name_for_uuid(uuid, online_players[uuid])
+
+            elif packet.action == OnlinePlayersActionPacket.Action.REMOVE:
+                for uuid in online_players:
+                    reporter.remove_online_player(uuid)
 
     def init(self) -> None:
         if self._initialized:

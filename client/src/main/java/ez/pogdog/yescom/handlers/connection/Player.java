@@ -189,6 +189,8 @@ public class Player {
                     tickValues.add((updateTime.getWorldAge() - lastWorldTicks) / ((System.currentTimeMillis() - lastTimeUpdate) / 1000.0f));
                     while (tickValues.size() > 20) tickValues.remove(0);
                 }
+                lastTimeUpdate = System.currentTimeMillis();
+                lastWorldTicks = updateTime.getWorldAge();
             }
         }
 

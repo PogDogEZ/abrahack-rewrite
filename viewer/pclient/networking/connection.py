@@ -149,7 +149,6 @@ class Connection(threading.Thread):
 
     # -------------------- Packet read -------------------- #
 
-
     def _attempt_read_packet(self, read_timeout: float) -> Packet:
         with self._write_lock:
             try:

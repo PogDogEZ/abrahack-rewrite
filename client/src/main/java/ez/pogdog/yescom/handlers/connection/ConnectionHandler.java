@@ -97,6 +97,7 @@ public class ConnectionHandler implements IHandler {
     private void onJoinLeave(Player.PlayerAction action, UUID uuid) {
         switch (action) {
             case ADD: {
+                if (yesCom.handler != null) yesCom.handler.onPlayerJoin(uuid, UUIDtoNameCache.get(uuid));
                 yesCom.trackingHandler.onPlayerJoin(uuid);
                 if (recentLeaves.containsKey(uuid) && System.currentTimeMillis() - recentLeaves.get(uuid) < 2000) {
                     recentLeaves.remove(uuid);
@@ -106,6 +107,7 @@ public class ConnectionHandler implements IHandler {
                 break;
             }
             case REMOVE: {
+                if (yesCom.handler != null) yesCom.handler.onPlayerLeave(uuid);
                 if (recentJoins.containsKey(uuid) && System.currentTimeMillis() - recentJoins.get(uuid) < 2000) {
                     recentJoins.remove(uuid);
                     return;
