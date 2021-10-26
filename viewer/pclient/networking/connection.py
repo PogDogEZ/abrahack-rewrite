@@ -223,6 +223,7 @@ class Connection(threading.Thread):
                     handler.on_packet(packet)
             except Exception as error:
                 self.exit("Exception in connection: '%r' while handling packet: %r" % (self, error))
+                raise error
 
             self._latest_packets.append(packet)
 

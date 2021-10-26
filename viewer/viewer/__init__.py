@@ -151,9 +151,9 @@ class Viewer:
             self.logger.debug("Stopping task with id %i." % task_id)
             self._handler.stop_task(task_id)
 
-    def add_account(self, username: str, password: str, callback) -> None:
+    def add_legacy_account(self, username: str, password: str, callback) -> None:
         if self._current_reporter != -1:
-            self._handler.add_account(username, password, callback)
+            self._handler.add_legacy_account(username, password, callback)
 
     def remove_account(self, username: str) -> None:
         if self._current_reporter != -1:

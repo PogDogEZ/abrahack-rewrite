@@ -68,7 +68,7 @@ public class Logger {
         for (Object messagePart : message) stringBuilder.append(messagePart).append(" ");
         stringBuilder.append(newLine ? "\n" : "\r");
 
-        messages.add(new Message(level, foundClassName, stringBuilder.toString()));
+        // messages.add(new Message(level, foundClassName, stringBuilder.toString()));
 
         if (level.ordinal() >= logLevel.ordinal()) {
             if (showColour) System.out.print("\u001b[2K" + level.getAnsiColour());

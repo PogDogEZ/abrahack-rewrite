@@ -5,6 +5,7 @@ from tkinter import *
 from viewer.config import Config
 from viewer.gui.popups.accounts_popup import AccountsPopup
 from viewer.gui.popups.goto_popup import GotoPopup
+from viewer.gui.popups.trackers_popup import TrackersPopup
 from viewer.gui.widgets import ConfigLabel, ConfigButton
 
 
@@ -50,9 +51,9 @@ class MainMenu(Menu):
 
         self.add_cascade(label="Selection", menu=selection_menu)
 
-        self.add_command(label="Accounts", command=lambda: AccountsPopup(self.viewer))
+        self.add_command(label="Accounts", command=lambda: AccountsPopup(self.viewer, self.main_frame))
 
-        self.add_command(label="Trackers")
+        self.add_command(label="Trackers", command=lambda: TrackersPopup(self.viewer, self.main_frame))
 
         self._layers_menu = Menu(self, tearoff=0, bg="#%02x%02x%02x" % Config.WINDOW_COLOUR,
                                  activebackground="#%02x%02x%02x" % Config.WIDGET_COLOUR, font=Config.FONT,

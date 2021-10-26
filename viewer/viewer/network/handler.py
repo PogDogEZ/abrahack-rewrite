@@ -266,15 +266,16 @@ class YCHandler(Handler):
 
         self.connection.send_packet(task_action)
 
-    def add_account(self, username: str, password: str, callback) -> None:
+    def add_legacy_account(self, username: str, password: str, callback) -> None:
         if self._account_action_callback is None:
             self._account_action_callback = callback
 
-            self.viewer.logger.debug("Authenticating account: %r." % username)
+            self.viewer.logger.debug("Authenticating legacy account: %r." % username)
 
             account_action = AccountActionPacket()
             account_action.action = AccountActionPacket.Action.ADD
             account_action.username = username
+            account_action.legacy = True
             account_action.password = password
 
             self.connection.send_packet(account_action)

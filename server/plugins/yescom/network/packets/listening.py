@@ -449,6 +449,11 @@ class AccountActionPacket(Packet):
 
         self.action = AccountActionPacket.Action.ADD
         self.username = ""
+
+        self.legacy = True
+
+        self.password = ""
+
         self.access_token = ""
         self.client_token = ""
 
@@ -458,8 +463,13 @@ class AccountActionPacket(Packet):
         self.username = String.read(fileobj)
 
         if self.action == AccountActionPacket.Action.ADD:
-            self.access_token = String.read(fileobj)
-            self.client_token = String.read(fileobj)
+            self.legacy = Boolean.read(fileobj)
+
+            if self.legacy:
+                self.password = String.read(fileobj)
+            else:
+                self.access_token = String.read(fileobj)
+                self.client_token = String.read(fileobj)
 
     def write(self, fileobj: IO) -> None:
         AccountActionPacket.Action.write(self.action, fileobj)
@@ -467,8 +477,13 @@ class AccountActionPacket(Packet):
         String.write(self.username, fileobj)
 
         if self.action == AccountActionPacket.Action.ADD:
-            String.write(self.access_token, fileobj)
-            String.write(self.client_token, fileobj)
+            Boolean.write(self.legacy, fileobj)
+
+            if self.legacy:
+                String.write(self.password, fileobj)
+            else:
+                String.write(self.access_token, fileobj)
+                String.write(self.client_token, fileobj)
 
     class Action(Enum):
         ADD = 0

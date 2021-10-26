@@ -4,13 +4,14 @@ from tkinter import *
 
 from viewer.config import Config
 from viewer.gui.widgets import ConfigLabel, ConfigButton
+from viewer.util import Dimension
 
 
 class AccountsPopup(Tk):
 
     INSTANCE = None
 
-    def __init__(self, viewer) -> None:
+    def __init__(self, viewer, main_frame) -> None:
         if AccountsPopup.INSTANCE is not None:
             AccountsPopup.INSTANCE.lift()
             AccountsPopup.INSTANCE.focus_force()
@@ -21,6 +22,7 @@ class AccountsPopup(Tk):
         AccountsPopup.INSTANCE = self
 
         self.viewer = viewer
+        self.main_frame = main_frame
 
         self._username_var = StringVar(self)
         self._password_var = StringVar(self)
@@ -55,14 +57,14 @@ class AccountsPopup(Tk):
         password_entry.grid(row=1, column=1, sticky=NW)
 
         username_entry.focus_force()
-        ConfigButton(add_account_frame, text="Login Mojang Account").grid(row=2, column=0, columnspan=2, pady=(3, 0),
-                                                                          sticky=NW)
+        ConfigButton(add_account_frame, text="Login Mojang Account",
+                     command=self._add_legacy_account).grid(row=2, column=0,  columnspan=2, pady=(3, 0), sticky=NW)
         ConfigButton(add_account_frame, text="Login MS Account").grid(row=3, column=0, columnspan=2, sticky=NW)
 
         buttons_frame = Frame(self, bg="#%02x%02x%02x" % Config.WINDOW_COLOUR)
         buttons_frame.grid(row=4, column=0, columnspan=2, padx=3, pady=(0, 3), sticky=W)
 
-        self._goto = ConfigButton(buttons_frame, text="Goto Player", command=self._goto_account)
+        self._goto = ConfigButton(buttons_frame, text="Goto Account", command=self._goto_account)
         self._goto.grid(row=0, column=0, padx=(0, 2), sticky=W)
         self._remove = ConfigButton(buttons_frame, text="Remove Account", command=self._remove_account)
         self._remove.grid(row=0, column=1, padx=(0, 2), sticky=W)
@@ -74,6 +76,9 @@ class AccountsPopup(Tk):
     def destroy(self) -> None:
         AccountsPopup.INSTANCE = None
         super().destroy()
+
+    def _add_legacy_account(self) -> None:
+        self.viewer.add_legacy_account(self._username_var.get(), self._password_var.get(), self._on_response)
 
     def _goto_account(self) -> None:
         if self.viewer.current_reporter == -1:
@@ -87,7 +92,7 @@ class AccountsPopup(Tk):
             display_name = self._listbox.get(entry)
             player = reporter.get_player(display_name)
 
-            self.main_frame.current_dimension = player.dimension + 1
+            self.main_frame.current_dimension = Dimension.mc_to_value(player.dimension)
             self.main_frame.goto(player.position.x / 16, player.position.z / 16)
             self.main_frame.scale_and_pan(self.main_frame.size[0] / 2, self.main_frame.size[1] / 2, 3, 3)
 
@@ -106,14 +111,23 @@ class AccountsPopup(Tk):
             self.viewer.remove_account(player.username)
             self._listbox.delete(entry)
 
+    def _on_response(self, successful: bool, message: str) -> None:
+        self._close_account_popup = True
+
+        if not successful:
+            self.main_frame.do_error_popup("An error occurred while attempting to log in an account:", message)
+        else:
+            self._username_var.set("")
+            self._password_var.set("")
+
     def on_update(self) -> None:
         players = []
         current_player = None
 
         if self.viewer.current_reporter != -1:
             reporter = self.viewer.get_reporter(handler_id=self.viewer.current_reporter)
-            for display_name in reporter.players:
-                players.append(display_name.display_name)
+            for player in reporter.players:
+                players.append(player.display_name)
 
             for entry in self._listbox.curselection():
                 display_name = self._listbox.get(entry)

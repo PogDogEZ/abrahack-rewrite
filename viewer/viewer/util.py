@@ -742,7 +742,8 @@ class Reporter:  # FIXME: Move this out of here
         self._online_players.update(online_players)
 
     def remove_online_player(self, uuid: UUID) -> None:
-        del self._online_players[uuid]
+        if uuid in self._online_players:
+            del self._online_players[uuid]
 
     def get_online_player(self, uuid: UUID) -> str:
         if not uuid in self._online_players:
