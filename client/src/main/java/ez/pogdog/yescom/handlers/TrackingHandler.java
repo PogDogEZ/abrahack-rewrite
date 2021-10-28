@@ -9,7 +9,7 @@ import ez.pogdog.yescom.data.serializable.TrackedPlayer;
 import ez.pogdog.yescom.tracking.ITracker;
 import ez.pogdog.yescom.tracking.resolvers.MultiResolver;
 import ez.pogdog.yescom.tracking.resolvers.QuickResolver;
-import ez.pogdog.yescom.tracking.trackers.BasicTracker;
+import ez.pogdog.yescom.tracking.trackers.adaptive.AdaptiveTracker;
 import ez.pogdog.yescom.tracking.trackers.PanicTracker;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
@@ -23,10 +23,15 @@ public class TrackingHandler implements IHandler {
 
     private final YesCom yesCom = YesCom.getInstance();
 
+    public final Random random = new Random();
+
     private final List<TrackedPlayer> onlinePlayers = new ArrayList<>();
     private final List<TrackedPlayer> loggedPlayers = new ArrayList<>();
     private final Map<Long, ITracker> trackers = new HashMap<>();
     private final List<IResolver> resolvers = new ArrayList<>();
+
+    private final Map<TrackedPlayer, Long> recentLogouts = new HashMap<>();
+    private final List<TrackedPlayer> restartAffected = new ArrayList<>();
 
     private final List<UUID> handlingLogins = new ArrayList<>();
 
@@ -53,7 +58,7 @@ public class TrackingHandler implements IHandler {
             if (overLapping.isPresent()) {
                 yesCom.logger.debug(String.format("%s and %s are overlapping, removing one.", trackedPlayer, overLapping.get()));
 
-                if (trackedPlayer.getTrackingSince() > overLapping.get().getTrackingSince()) { // Keep the older one
+                if (trackedPlayer.getTrackingSince() < overLapping.get().getTrackingSince()) { // Keep the older one
                     removeTrackedPlayer(overLapping.get());
                     new HashMap<>(trackers).forEach((trackerID, tracker) -> {
                         if (tracker.getTrackedPlayer().equals(overLapping.get())) removeTracker(tracker);
@@ -75,10 +80,33 @@ public class TrackingHandler implements IHandler {
         });
         new ArrayList<>(trackers.values()).forEach(tracker ->{
             tracker.onTick();
-            if(yesCom.handler != null) {
-                yesCom.handler.onTrackerUpdate(tracker);
+            if (yesCom.handler != null) yesCom.handler.onTrackerUpdate(tracker);
+        });
+
+        boolean serverDown = !yesCom.connectionHandler.isConnected();
+
+        new HashMap<>(recentLogouts).forEach((trackedPlayer, logoutTime) -> {
+            if (!serverDown && System.currentTimeMillis() - logoutTime > yesCom.configHandler.MAX_RESTART_CHECK_TIME) {
+                recentLogouts.remove(trackedPlayer);
+            } else if (serverDown) {
+                restartAffected.add(trackedPlayer);
             }
         });
+
+        if (serverDown) {
+            recentLogouts.clear();
+        } else if (!restartAffected.isEmpty()) {
+            restartAffected.forEach(trackedPlayer -> {
+                yesCom.logger.info(String.format("Reassigning %s due to restart.", trackedPlayer));
+
+                trackedPlayer.setLoggedOut(false);
+                removeLoggedPlayer(trackedPlayer);
+                addTrackedPlayer(trackedPlayer);
+
+                quickResolve(trackedPlayer.getRenderDistance().getCenterPosition(), trackedPlayer.getDimension(), 4);
+            });
+            restartAffected.clear();
+        }
     }
 
     @Override
@@ -123,10 +151,11 @@ public class TrackingHandler implements IHandler {
                         loggedPlayer.putPossiblePlayer(uuid, loggedPlayer.getPossiblePlayer(uuid) + 3);
                         loggedPlayer.setLoggedOut(false);
 
+                        recentLogouts.remove(loggedPlayer);
+
                         yesCom.logger.info(String.format("Reassigning %s due to potential login for player %s.", loggedPlayer,
                                 yesCom.connectionHandler.getNameForUUID(uuid)));
 
-                        loggedPlayer.setLoggedOut(false);
                         removeLoggedPlayer(loggedPlayer);
                         addTrackedPlayer(loggedPlayer);
 
@@ -149,7 +178,15 @@ public class TrackingHandler implements IHandler {
         boolean isResolving = resolvers.stream()
                 .anyMatch(resolver -> resolver.getDimension() == dimension && resolver.getRenderDistance() != null &&
                         resolver.getRenderDistance().contains(loadedChunk));
-        if (!inPlayerRender && !isResolving) quickResolve(loadedChunk, dimension, 4);
+
+        if (!inPlayerRender && !isResolving) {
+            // quickResolve(loadedChunk, dimension, 4);
+            TrackedPlayer player = yesCom.dataHandler.newTrackedPlayer(new TrackedPlayer.TrackingData(yesCom.dataHandler),
+                    yesCom.dataHandler.newRenderDistance(loadedChunk, yesCom.configHandler.RENDER_DISTANCE, 0.0f, 0.0f),
+                    dimension, false, System.currentTimeMillis());
+            addTrackedPlayer(player);
+            trackBasic(player);
+        }
     }
 
     /**
@@ -175,7 +212,7 @@ public class TrackingHandler implements IHandler {
         new HashMap<>(trackers).forEach((trackerID, tracker) -> {
             if (tracker.getTrackedPlayer().equals(trackedPlayer)) removeTracker(tracker);
         });
-        addTracker(new BasicTracker(trackerID++, trackedPlayer));
+        addTracker(new AdaptiveTracker(trackerID++, trackedPlayer));
     }
 
     public synchronized void trackPanic(TrackedPlayer trackedPlayer) {
@@ -246,6 +283,8 @@ public class TrackingHandler implements IHandler {
             } else {
                 yesCom.logger.warn(String.format("Lost tracked player %s, no probable logouts.", trackedPlayer));
             }
+
+            recentLogouts.put(trackedPlayer, System.currentTimeMillis());
         }
     }
 

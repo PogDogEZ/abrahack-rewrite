@@ -3,9 +3,7 @@ package ez.pogdog.yescom.handlers;
 import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.query.IQuery;
 
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
 public class QueryHandler implements IHandler {
@@ -18,21 +16,19 @@ public class QueryHandler implements IHandler {
 
     private final List<Float> queryRateSamples = new ArrayList<>();
 
-    private float queryTicks;
+    private final Map<Integer, Float> queryTicks = new HashMap<>();
 
     private int currentQueries;
     private long lastQueryUpdate;
 
     public QueryHandler() {
-        queryTicks = 0.0f;
-
         currentQueries = 0;
         lastQueryUpdate = System.currentTimeMillis();
     }
 
     @Override
     public void onTick() {
-        queryTicks = Math.max(0.0f, queryTicks - 1.0f);
+        queryTicks.forEach((channel, ticks) -> queryTicks.put(channel, ticks - 1.0f));
 
         if (System.currentTimeMillis() - lastQueryUpdate > 250) {
             queryRateSamples.add(currentQueries / 0.25f);
@@ -42,7 +38,7 @@ public class QueryHandler implements IHandler {
         }
 
         int index = 0;
-        while (queryTicks <= 1.0f && index < waiting.size()) {
+        while (index < waiting.size()) {
             IQuery query;
             synchronized (this) {
                 query = waiting.get(index);
@@ -54,10 +50,20 @@ public class QueryHandler implements IHandler {
                     break;
                 }
                 case START: {
+                    int channel = query.getChannel();
+                    float currentWeight = queryTicks.getOrDefault(channel, 0.0f);
+
+                    if (currentWeight > 1.0f) {
+                        ++index;
+                        continue;
+                    }
+
                     ++currentQueries;
+
                     float queryWeight = query.getWeight();
+
                     // Safeguard against this
-                    if (Float.isFinite(queryWeight)) queryTicks += queryWeight;
+                    if (Float.isFinite(queryWeight)) queryTicks.put(channel, currentWeight + queryWeight);
 
                     synchronized (this) {
                         waiting.remove(query);

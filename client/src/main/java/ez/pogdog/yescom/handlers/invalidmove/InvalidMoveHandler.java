@@ -23,14 +23,14 @@ public class InvalidMoveHandler implements IHandler {
      */
     public final List<Integer> VALID_STORAGES = Arrays.asList(23, 54, 130, 154, 158);
 
-    private final Deque<PlayerHandler> handles = new ConcurrentLinkedDeque<>();
+    private final Deque<PlayerHandle> handles = new ConcurrentLinkedDeque<>();
     private final Map<Dimension, Integer> availableAccounts = new HashMap<>();
 
     @Override
     public void onTick() {
         if (yesCom.configHandler.TYPE != IsLoadedQuery.Type.INVALID_MOVE) return;
 
-        handles.forEach(PlayerHandler::onTick);
+        handles.forEach(PlayerHandle::onTick);
         for (Dimension dimension : Dimension.values()) {
             availableAccounts.put(dimension, (int)handles.stream()
                     .filter(handle -> handle.getPlayer().isConnected() &&
@@ -43,19 +43,19 @@ public class InvalidMoveHandler implements IHandler {
 
     @Override
     public void onExit() {
-        handles.forEach(PlayerHandler::onExit);
+        handles.forEach(PlayerHandle::onExit);
     }
 
     public void addHandle(Player player) {
-        if (handles.stream().noneMatch(handle -> handle.getPlayer().equals(player))) handles.add(new PlayerHandler(player));
+        if (handles.stream().noneMatch(handle -> handle.getPlayer().equals(player))) handles.add(new PlayerHandle(player));
     }
 
-    public PlayerHandler getHandle(Player player) {
+    public PlayerHandle getHandle(Player player) {
         return handles.stream().filter(handle -> handle.getPlayer().equals(player)).findFirst().orElse(null);
     }
 
     public void removeHandle(Player player) {
-        PlayerHandler handle = getHandle(player);
+        PlayerHandle handle = getHandle(player);
         if (handle != null) {
             handle.onExit();
             handles.remove(handle);
@@ -63,12 +63,12 @@ public class InvalidMoveHandler implements IHandler {
     }
 
     public Player startQuery(IsLoadedQuery query) {
-        Optional<PlayerHandler> bestHandle = handles.stream()
+        Optional<PlayerHandle> bestHandle = handles.stream()
                 .filter(handle -> handle.getPlayer().isConnected() &&
                         handle.getPlayer().getTimeLoggedIn() > yesCom.configHandler.MIN_TIME_CONNECTED &&
                         handle.getPlayer().getDimension() == query.getDimension() &&
                         handle.isStorageOpen())
-                .min(Comparator.comparingInt(PlayerHandler::getCurrentQueries));
+                .min(Comparator.comparingInt(PlayerHandle::getCurrentQueries));
 
         if (bestHandle.isPresent()) {
             if (!bestHandle.get().addQuery(query)) return null;

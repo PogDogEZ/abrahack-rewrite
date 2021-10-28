@@ -80,6 +80,11 @@ public class PanicTracker implements ITracker {
         return trackedPlayer;
     }
 
+    @Override
+    public Health getHealth() {
+        return Health.GOOD;
+    }
+
     private void doLogout() {
         yesCom.trackingHandler.handleLogout(trackedPlayer);
         yesCom.trackingHandler.removeTracker(this);

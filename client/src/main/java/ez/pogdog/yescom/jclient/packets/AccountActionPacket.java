@@ -15,17 +15,39 @@ public class AccountActionPacket extends Packet {
     private Action action;
     private long actionID;
     private String username;
+
+    private boolean legacy;
+
     private String password;
 
-    public AccountActionPacket(Action action, int actionID, String username, String password) {
+    private String accessToken;
+    private String clientToken;
+
+    public AccountActionPacket(Action action, int actionID, String username, boolean legacy, String password, String accessToken,
+                               String clientToken) {
         this.action = action;
         this.actionID = actionID;
         this.username = username;
+        this.legacy = legacy;
         this.password = password;
+        this.accessToken = accessToken;
+        this.clientToken = clientToken;
+    }
+
+    public AccountActionPacket(int actionID, String username, String password) {
+        this(Action.ADD, actionID, username, true, password, "", "");
+    }
+
+    public AccountActionPacket(int actionID, String username, String accessToken, String clientToken) {
+        this(Action.ADD, actionID, username, false, "", accessToken, clientToken);
+    }
+
+    public AccountActionPacket(int actionID, String username) {
+        this(Action.REMOVE, actionID, username, false, "", "", "");
     }
 
     public AccountActionPacket() {
-        this(Action.ADD, 0, "", "");
+        this(Action.ADD, 0, "", false, "", "", "");
     }
 
     @Override
@@ -34,7 +56,16 @@ public class AccountActionPacket extends Packet {
         actionID = Registry.UNSIGNED_INT.read(inputStream);
         username = Registry.STRING.read(inputStream);
 
-        if (action == Action.ADD) password = Registry.STRING.read(inputStream);
+        if (action == Action.ADD) {
+            legacy = Registry.BOOLEAN.read(inputStream);
+
+            if (legacy) {
+                password = Registry.STRING.read(inputStream);
+            } else {
+                accessToken = Registry.STRING.read(inputStream);
+                clientToken = Registry.STRING.read(inputStream);
+            }
+        }
     }
 
     @Override
@@ -43,7 +74,16 @@ public class AccountActionPacket extends Packet {
         Registry.UNSIGNED_INT.write(actionID, outputStream);
         Registry.STRING.write(username, outputStream);
 
-        if (action == Action.ADD) Registry.STRING.write(password, outputStream);
+        if (action == Action.ADD) {
+            Registry.BOOLEAN.write(legacy, outputStream);
+
+            if (legacy) {
+                Registry.STRING.write(password, outputStream);
+            } else {
+                Registry.STRING.write(accessToken, outputStream);
+                Registry.STRING.write(clientToken, outputStream);
+            }
+        }
     }
 
     public Action getAction() {
@@ -70,12 +110,36 @@ public class AccountActionPacket extends Packet {
         this.username = username;
     }
 
+    public boolean isLegacy() {
+        return legacy;
+    }
+
+    public void setLegacy(boolean legacy) {
+        this.legacy = legacy;
+    }
+
     public String getPassword() {
         return password;
     }
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getAccessToken() {
+        return accessToken;
+    }
+
+    public void setAccessToken(String accessToken) {
+        this.accessToken = accessToken;
+    }
+
+    public String getClientToken() {
+        return clientToken;
+    }
+
+    public void setClientToken(String clientToken) {
+        this.clientToken = clientToken;
     }
 
     public enum Action {

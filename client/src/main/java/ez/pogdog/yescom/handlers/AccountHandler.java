@@ -98,7 +98,7 @@ public class AccountHandler implements IHandler {
 
         userMap.forEach((username, password) -> {
             try {
-                login(username, password);
+                legacyLogin(username, password);
             } catch (RequestException error) {
                 yesCom.logger.warn(String.format("Error while logging in account: %s.",
                         yesCom.configHandler.DONT_SHOW_EMAILS ? "[EMAIL REDACTED]" : username));
@@ -121,7 +121,7 @@ public class AccountHandler implements IHandler {
      * @param password The password for the account.
      * @throws RequestException If you fail to login, this is thrown.
      */
-    public synchronized void login(String username, String password) throws RequestException {
+    public synchronized void legacyLogin(String username, String password) throws RequestException {
         if (accountCache.stream().anyMatch(authService -> authService.getUsername().equalsIgnoreCase(username)))
             return;
 
@@ -137,6 +137,10 @@ public class AccountHandler implements IHandler {
             userMap.put(username, password);
             accountCache.add(authService);
         }
+    }
+
+    public synchronized void newLogin(String username, String accessToken, String clientToken) throws RequestException {
+
     }
 
     /**

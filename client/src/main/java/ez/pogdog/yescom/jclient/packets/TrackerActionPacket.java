@@ -45,11 +45,13 @@ public class TrackerActionPacket extends Packet {
                 tracker = YCRegistry.TRACKER.read(inputStream);
                 break;
             }
-            case REMOVE: {
+            case REMOVE:
+            case UNTRACK: {
                 trackerID = Registry.LONG.read(inputStream);
                 break;
             }
-            case UPDATE: {
+            case UPDATE:
+            case SET_PLAYER: {
                 trackerID = Registry.LONG.read(inputStream);
                 trackedPlayer = YCRegistry.TRACKED_PLAYER.read(inputStream);
                 break;
@@ -66,11 +68,13 @@ public class TrackerActionPacket extends Packet {
                 YCRegistry.TRACKER.write(tracker, outputStream);
                 break;
             }
-            case REMOVE: {
+            case REMOVE:
+            case UNTRACK: {
                 Registry.LONG.write(trackerID, outputStream);
                 break;
             }
-            case UPDATE: {
+            case UPDATE:
+            case SET_PLAYER: {
                 Registry.LONG.write(trackerID, outputStream);
                 YCRegistry.TRACKED_PLAYER.write(trackedPlayer, outputStream);
                 break;
@@ -111,6 +115,7 @@ public class TrackerActionPacket extends Packet {
     }
 
     public enum Action {
-        ADD, REMOVE, UPDATE;
+        ADD, REMOVE, UPDATE,
+        UNTRACK, SET_PLAYER;
     }
 }

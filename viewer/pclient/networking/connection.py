@@ -225,7 +225,7 @@ class Connection(threading.Thread):
                 self.exit("Exception in connection: '%r' while handling packet: %r" % (self, error))
                 raise error
 
-            self._latest_packets.append(packet)
+            # self._latest_packets.append(packet)
 
     def get_latest_packet(self, timeout: float = 30) -> Packet:
         start = time.time()

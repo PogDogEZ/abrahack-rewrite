@@ -14,6 +14,13 @@ public interface IQuery {
     boolean isFinished();
 
     /**
+     * Basically for different dimensional queries as a quick and easy fix, so that queries in other dimensions don't
+     * slow down each other.
+     * @return The "channel", an integer specifying which query weight to add to when this is handled.
+     */
+    int getChannel();
+
+    /**
      * The priority of handling queries. Higher priority queries will be handled first.
      * @return The priority of this query.
      */

@@ -51,7 +51,7 @@ public class ConfigHandler implements IHandler {
      */
     public int MAX_PACKET_TIME = 1000;
 
-    public double QUERIES_PER_TICK = 2.2f;
+    public double QUERIES_PER_TICK = 1.0f;
     public int MAX_FINISHED_CACHE = 50;
 
     public int LOGIN_CACHE_TIME = 5000;
@@ -69,6 +69,7 @@ public class ConfigHandler implements IHandler {
      * Invalid move query options.
      */
     public boolean ARZI_MODE = false;
+    public boolean ARZI_MODE_NO_WID_RESYNC = true; // WID resync is brokey :( <- wrong it's worky now just keep QPT <= 1
     public int REOPEN_TIME = 2000;
     public int MAX_OPEN_ATTEMPTS = 5;
     public int INVALID_MOVE_TIMEOUT = 2000;
@@ -83,6 +84,8 @@ public class ConfigHandler implements IHandler {
      */
     public int RENDER_DISTANCE = 13;
 
+    public int MAX_RESTART_CHECK_TIME = 5000;
+
     /**
      * How long to wait since the last loaded chunk before checking if the player is online. Recommended lower if
      * inverted is on.
@@ -91,13 +94,17 @@ public class ConfigHandler implements IHandler {
     /**
      * How far to check from known chunks.
      */
-    public int BASIC_TRACKER_DIST = 3;
+    public int BASIC_TRACKER_DIST = 5;
 
-    public int TRACKING_RESOLVE_SAMPLES = 10;
-    public int TRACKING_SPEED_SAMPLES = 10;
-    public int TRACKING_MAX_REQUERY_TIME = 10000;
-    public int TRACKING_QUICK_MIN_PHASE = 4;
-    public int TRACKING_QUICK_MAX_PHASE = 11;
+    public double ADAPTIVE_TRACKER_PHASE_CHANGE_NORMAL = -0.01;
+    public double ADAPTIVE_TRACKER_PHASE_CHANGE_GROW = 0.5;
+    public double ADAPTIVE_TRACKER_PHASE_CHANGE_SHRINK = -0.1;
+
+    public double ADAPTIVE_TRACKER_MIN_EXPECTED = 0.6;
+    public double ADAPTIVE_TRACKER_MAX_EXPECTED = 0.95;
+
+    public int ADAPTIVE_TRACKER_EARLY_SAMPLES = 1;
+    public int ADAPTIVE_TRACKER_LATE_SAMPLES = 12;
 
     /**
      * The data directories for saving things like raw chunk records + player records.

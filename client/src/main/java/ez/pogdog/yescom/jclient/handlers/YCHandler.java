@@ -293,7 +293,12 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
                     String message;
 
                     try {
-                        yesCom.accountHandler.login(accountAction.getUsername(), accountAction.getPassword());
+                        if (accountAction.isLegacy()) {
+                            yesCom.accountHandler.legacyLogin(accountAction.getUsername(), accountAction.getPassword());
+                        } else {
+                            yesCom.accountHandler.newLogin(accountAction.getUsername(), accountAction.getAccessToken(), accountAction.getClientToken());
+                        }
+
                         success = true;
                         message = "Successfully logged in.";
                     } catch (RequestException error) {

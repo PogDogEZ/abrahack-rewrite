@@ -104,6 +104,11 @@ public class GetBlockStateQuery implements IQuery {
     }
 
     @Override
+    public int getChannel() {
+        return dimension.getMCDim();
+    }
+
+    @Override
     public Priority getPriority() {
         return priority;
     }

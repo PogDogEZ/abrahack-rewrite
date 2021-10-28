@@ -9,4 +9,10 @@ public interface ITracker {
 
     long getTrackerID();
     TrackedPlayer getTrackedPlayer();
+
+    Health getHealth();
+
+    enum Health {
+        GOOD, ILL, DEAD;
+    }
 }
