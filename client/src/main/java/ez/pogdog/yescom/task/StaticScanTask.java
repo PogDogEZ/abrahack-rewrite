@@ -60,6 +60,7 @@ public class StaticScanTask implements ILoadedChunkTask {
     private final YesCom yesCom = YesCom.getInstance();
 
     private final List<ChunkPosition> positions = new ArrayList<>();
+    private final List<IsLoadedQuery> currentQueries = new ArrayList<>();
 
     private final Dimension dimension;
     private final IQuery.Priority priority;
@@ -68,7 +69,6 @@ public class StaticScanTask implements ILoadedChunkTask {
 
     private int taskID;
 
-    private int currentQueries;
     private int currentIndex;
 
     /**
@@ -87,7 +87,6 @@ public class StaticScanTask implements ILoadedChunkTask {
         yesCom.logger.debug(String.format("Starting static scan task with %d positions to check.", this.positions.size()));
         yesCom.logger.debug(String.format("Dimension: %s.", dimension.name()));
 
-        currentQueries = 0;
         currentIndex = 0;
     }
 
@@ -99,32 +98,37 @@ public class StaticScanTask implements ILoadedChunkTask {
 
     @Override
     public void onTick() {
-        while (!positions.isEmpty() && currentIndex < positions.size() && currentQueries < 200) {
+        while (!positions.isEmpty() && currentIndex < positions.size() && currentQueries.size() < 20) {
             ChunkPosition currentPosition = getCurrentPosition();
             ++currentIndex;
 
             synchronized (this) {
-                ++currentQueries;
-
-                yesCom.queryHandler.addQuery(new IsLoadedQuery(currentPosition, dimension, IQuery.Priority.MEDIUM, yesCom.configHandler.TYPE,
+                IsLoadedQuery isLoadedQuery = new IsLoadedQuery(currentPosition, dimension, IQuery.Priority.MEDIUM, yesCom.configHandler.TYPE,
                         (query, result) -> {
-                            synchronized (this) {
-                                --currentQueries;
+                    synchronized (this) {
+                        currentQueries.remove(query);
 
-                                if (result == IsLoadedQuery.Result.LOADED)
-                                    onLoaded(new ChunkPosition(query.getPosition().getX() / 16, query.getPosition().getZ() / 16));
-                            }
-                        }));
+                        if (result == IsLoadedQuery.Result.LOADED)
+                            onLoaded(new ChunkPosition(query.getPosition().getX() / 16, query.getPosition().getZ() / 16));
+                    }
+                });
+
+                currentQueries.add(isLoadedQuery);
+                yesCom.queryHandler.addQuery(isLoadedQuery);
             }
         }
 
         yesCom.logger.infoDisappearing(String.format("Scanning: %d, %d / %d, %d, %s, %dms.",
                 yesCom.queryHandler.getWaitingSize(), yesCom.queryHandler.getTickingSize(),
-                currentQueries, currentIndex, getCurrentPosition(), yesCom.connectionHandler.getTimeSinceLastPacket()));
+                currentQueries.size(), currentIndex, getCurrentPosition(), yesCom.connectionHandler.getTimeSinceLastPacket()));
     }
 
     @Override
     public void onFinished() {
+        synchronized (this) {
+            currentQueries.forEach(IsLoadedQuery::cancel);
+            currentQueries.clear();
+        }
     }
 
     @Override
@@ -151,7 +155,7 @@ public class StaticScanTask implements ILoadedChunkTask {
 
     @Override
     public boolean isFinished() {
-        return (positions.isEmpty() || currentIndex >= positions.size()) && currentQueries <= 0;
+        return (positions.isEmpty() || currentIndex >= positions.size()) && currentQueries.isEmpty();
     }
 
     @Override
@@ -161,7 +165,7 @@ public class StaticScanTask implements ILoadedChunkTask {
 
     @Override
     public float getProgress() {
-        return 0.0f;
+        return currentIndex / (float)positions.size();
     }
 
     @Override

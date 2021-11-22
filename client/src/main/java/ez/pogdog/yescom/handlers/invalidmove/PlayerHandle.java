@@ -310,7 +310,7 @@ public class PlayerHandle {
                 player.setEstimatedWindowID(player.getEstimatedWindowID() + 1);
 
                 openStorage();
-                storageOpen = true; // Assume this is true cos uh idk why would it not be?
+                storageOpen = true; // Assume this is true cos we're in ARZI mode
             }
 
             synchronized (this) {
@@ -347,7 +347,6 @@ public class PlayerHandle {
 
         if (yesCom.configHandler.ARZI_MODE && !yesCom.configHandler.ARZI_MODE_NO_WID_RESYNC)
             windowToTPIDMap.put(player.getEstimatedWindowID(), player.getEstimatedTP());
-
 
         return true;
     }

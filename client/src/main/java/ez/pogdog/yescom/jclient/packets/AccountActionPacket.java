@@ -12,6 +12,8 @@ import java.io.OutputStream;
 @Packet.Info(name="account_action", id=YCRegistry.ID_OFFSET + 10, side=Packet.Side.SERVER)
 public class AccountActionPacket extends Packet {
 
+    private final EnumType<Action> ACTION = new EnumType<>(Action.class);
+
     private Action action;
     private long actionID;
     private String username;
@@ -52,7 +54,7 @@ public class AccountActionPacket extends Packet {
 
     @Override
     public void read(InputStream inputStream) throws IOException {
-        action = new EnumType<>(Action.class).read(inputStream);
+        action = ACTION.read(inputStream);
         actionID = Registry.UNSIGNED_INT.read(inputStream);
         username = Registry.STRING.read(inputStream);
 
@@ -70,7 +72,7 @@ public class AccountActionPacket extends Packet {
 
     @Override
     public void write(OutputStream outputStream) throws IOException {
-        new EnumType<>(Action.class).write(action, outputStream);
+        ACTION.write(action, outputStream);
         Registry.UNSIGNED_INT.write(actionID, outputStream);
         Registry.STRING.write(username, outputStream);
 

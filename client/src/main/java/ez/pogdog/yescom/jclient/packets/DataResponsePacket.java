@@ -14,30 +14,23 @@ import java.util.List;
 @Packet.Info(name="data_response", id=YCRegistry.ID_OFFSET + 5, side=Packet.Side.BOTH)
 public class DataResponsePacket extends Packet {
 
+    private final List<Object> data = new ArrayList<>();
     private final List<BigInteger> invalidDataIDs = new ArrayList<>();
 
     private boolean valid;
-    private int chunkSize;
-    private int expectedParts;
 
-    public DataResponsePacket(boolean valid, int chunkSize, int expectedParts, List<BigInteger> invalidDataIDs) {
+    public DataResponsePacket(boolean valid, List<Object> data, List<BigInteger> invalidDataIDs) {
         this.valid = valid;
-        this.chunkSize = chunkSize;
-        this.expectedParts = expectedParts;
-
+        this.data.addAll(data);
         this.invalidDataIDs.addAll(invalidDataIDs);
     }
 
-    public DataResponsePacket(int chunkSize, int expectedParts) {
-        this(true, chunkSize, expectedParts, new ArrayList<>());
-    }
-
-    public DataResponsePacket(List<BigInteger> invalidDataIDs) {
-        this(false, 65536, 0, invalidDataIDs);
+    public DataResponsePacket(List<Object> data, List<BigInteger> invalidDataIDs) {
+        this(false, data, invalidDataIDs);
     }
 
     public DataResponsePacket() {
-        this(false, 65536, 0, new ArrayList<>());
+        this(false, new ArrayList<>(), new ArrayList<>());
     }
 
     @Override
@@ -45,8 +38,10 @@ public class DataResponsePacket extends Packet {
         valid = Registry.BOOLEAN.read(inputStream);
 
         if (valid) {
-            chunkSize = Registry.INT.read(inputStream);
-            expectedParts = Registry.UNSIGNED_SHORT.read(inputStream);
+            data.clear();
+
+            int dataToRead = Registry.UNSIGNED_SHORT.read(inputStream);
+            for (int index = 0; index < dataToRead; ++index); // data.add()
         } else {
             invalidDataIDs.clear();
 
@@ -60,12 +55,33 @@ public class DataResponsePacket extends Packet {
         Registry.BOOLEAN.write(valid, outputStream);
 
         if (valid) {
-            Registry.INT.write(chunkSize, outputStream);
-            Registry.UNSIGNED_SHORT.write(chunkSize, outputStream);
+            Registry.UNSIGNED_SHORT.write(data.size(), outputStream);
+            for (Object object : data); // Registry.OBJECT.write(object, outputStream);
         } else {
             Registry.UNSIGNED_SHORT.write(invalidDataIDs.size(), outputStream);
             for (BigInteger invalidDataID : invalidDataIDs) Registry.VARINT.write(invalidDataID, outputStream);
         }
+    }
+
+    public List<Object> getData() {
+        return new ArrayList<>(data);
+    }
+
+    public void addData(Object object) {
+        data.add(object);
+    }
+
+    public void setData(List<Object> data) {
+        this.data.clear();
+        this.data.addAll(data);
+    }
+
+    public void addData(List<Object> data) {
+        this.data.addAll(data);
+    }
+
+    public void removeData(Object object) {
+        data.remove(object);
     }
 
     public List<BigInteger> getInvalidDataIDs() {
@@ -95,21 +111,5 @@ public class DataResponsePacket extends Packet {
 
     public void setValid(boolean valid) {
         this.valid = valid;
-    }
-
-    public int getChunkSize() {
-        return chunkSize;
-    }
-
-    public void setChunkSize(int chunkSize) {
-        this.chunkSize = chunkSize;
-    }
-
-    public int getExpectedParts() {
-        return expectedParts;
-    }
-
-    public void setExpectedParts(int expectedParts) {
-        this.expectedParts = expectedParts;
     }
 }

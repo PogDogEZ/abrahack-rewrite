@@ -7,15 +7,12 @@ import java.util.List;
 
 public class WalkingPhase extends BasicPhase {
 
-    public WalkingPhase(int updateTime, List<Offset> offsets) {
-        super(1000, Arrays.asList(
+    public WalkingPhase() {
+        super(2000, 1.0f, 1.0f, Arrays.asList(
                 new BasicPhase.Offset(1.0f, 0.0f, IsLoadedQuery.Result.LOADED),
                 new BasicPhase.Offset(-1.0f, 0.0f, IsLoadedQuery.Result.LOADED),
                 new BasicPhase.Offset(0.0f, 1.0f, IsLoadedQuery.Result.LOADED),
                 new BasicPhase.Offset(0.0f, -1.0f, IsLoadedQuery.Result.LOADED)
         ));
     }
-
-    @Override
-    public
 }

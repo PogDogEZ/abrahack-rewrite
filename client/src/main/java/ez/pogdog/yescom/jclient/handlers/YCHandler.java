@@ -170,7 +170,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
                     if (currentUploadData != null) {
                         yesCom.logger.warn("Concurrent data request!");
-                        dataResponse = new DataResponsePacket(new ArrayList<>());
+                        dataResponse = new DataResponsePacket();
 
                     } else {
                         List<BigInteger> invalidIDs = new ArrayList<>();
@@ -222,7 +222,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
                         }
 
                         if (!invalidIDs.isEmpty()) {
-                            dataResponse = new DataResponsePacket(invalidIDs);
+                            dataResponse = new DataResponsePacket(new ArrayList<>(), invalidIDs);
                         } else {
                             currentUploadData = new ByteArrayOutputStream(); // TODO: Write data
                             dataResponse = new DataResponsePacket();
@@ -234,7 +234,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
                 }
                 case UPLOAD: {
                     yesCom.logger.warn("Server requested to upload data!");
-                    connection.sendPacket(new DataResponsePacket(new ArrayList<>()));
+                    connection.sendPacket(new DataResponsePacket());
                     break;
                 }
                 case CANCEL: {
@@ -248,8 +248,8 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
             DataResponsePacket dataResponse = (DataResponsePacket)packet;
 
             if (dataResponse.isValid()) {
-                chunkSize = dataResponse.getChunkSize();
-                expectedParts = dataResponse.getExpectedParts();
+                chunkSize = 0;
+                expectedParts = 0;
 
             } else {
                 if (downloadCallBack != null) downloadCallBack.accept(false, new HashMap<>());
@@ -321,7 +321,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
     }
 
     @Override
-    public void onTick() {
+    public synchronized void onTick() {
         if (connection.isConnected() && initialized) {
             while (!queuedPackets.isEmpty()) connection.sendPacket(queuedPackets.pop());
 
@@ -558,15 +558,15 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
     /* ------------------------ Task Events ------------------------ */
 
-    public void onTaskAdded(ITask task) {
+    public synchronized void onTaskAdded(ITask task) {
         queuedPackets.add(new TaskActionPacket(task));
     }
 
-    public void onTaskRemoved(ITask task) {
+    public synchronized void onTaskRemoved(ITask task) {
         queuedPackets.add(new TaskActionPacket(task.getID()));
     }
 
-    public void onTaskUpdate(ITask task) {
+    public synchronized void onTaskUpdate(ITask task) {
         if (task instanceof ILoadedChunkTask) {
             queuedPackets.add(new TaskActionPacket(task, task.getProgress(), task.getTimeElapsed(),
                     ((ILoadedChunkTask)task).getCurrentPosition()));
@@ -575,70 +575,70 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
         }
     }
 
-    public void onTaskResult(ITask task, String result) {
+    public synchronized void onTaskResult(ITask task, String result) {
         queuedPackets.add(new TaskActionPacket(task, result));
     }
 
     /* ------------------------ Player Events ------------------------ */
 
-    public void onPlayerAdded(Player player) {
+    public synchronized void onPlayerAdded(Player player) {
         queuedPackets.add(new PlayerActionPacket(PlayerActionPacket.Action.ADD, player));
     }
 
-    public void onPlayerRemoved(Player player, String reason) {
+    public synchronized void onPlayerRemoved(Player player, String reason) {
         queuedPackets.add(new PlayerActionPacket(PlayerActionPacket.Action.REMOVE, player));
     }
 
-    public void onPositionChanged(Player player) {
+    public synchronized void onPositionChanged(Player player) {
         queuedPackets.add(new PlayerActionPacket(player.getAuthService().getUsername(), player.getPosition(), player.getAngle()));
     }
 
-    public void onDimensionChanged(Player player) {
+    public synchronized void onDimensionChanged(Player player) {
         queuedPackets.add(new PlayerActionPacket(player.getAuthService().getUsername(), player.getDimension()));
     }
 
-    public void onHealthChanged(Player player) {
+    public synchronized void onHealthChanged(Player player) {
         queuedPackets.add(new PlayerActionPacket(player.getAuthService().getUsername(), player.getFoodStats()));
     }
 
     /* ------------------------ Chunk Events ------------------------ */
 
-    public void onChunkState(ChunkState chunkState) {
+    public synchronized void onChunkState(ChunkState chunkState) {
         queuedChunkStates.add(chunkState);
     }
 
     /* ------------------------ Tracker Events ------------------------ */
 
-    public void onTrackerAdded(ITracker tracker) {
+    public synchronized void onTrackerAdded(ITracker tracker) {
         queuedPackets.add(new TrackerActionPacket(TrackerActionPacket.Action.ADD, tracker));
     }
 
-    public void onTrackerRemoved(ITracker tracker) {
+    public synchronized void onTrackerRemoved(ITracker tracker) {
         queuedPackets.add(new TrackerActionPacket(TrackerActionPacket.Action.REMOVE, tracker));
     }
 
-    public void onTrackerUpdate(ITracker tracker) {
+    public synchronized void onTrackerUpdate(ITracker tracker) {
         queuedPackets.add(new TrackerActionPacket(TrackerActionPacket.Action.UPDATE, tracker));
     }
 
     /* ------------------------ Info Events ------------------------ */
 
-    public void onInfoUpdate(int waitingQueries, int tickingQueries, float queriesPerSecond, float tickRate, int timeSinceLastPacket) {
+    public synchronized void onInfoUpdate(int waitingQueries, int tickingQueries, float queriesPerSecond, float tickRate, int timeSinceLastPacket) {
         queuedPackets.add(new InfoUpdatePacket(waitingQueries, tickingQueries, queriesPerSecond, tickRate, timeSinceLastPacket));
     }
 
-    public void onInfoUpdate(int waitingQueries, int tickingQueries, float queriesPerSecond) {
+    public synchronized void onInfoUpdate(int waitingQueries, int tickingQueries, float queriesPerSecond) {
         queuedPackets.add(new InfoUpdatePacket(waitingQueries, tickingQueries, queriesPerSecond));
     }
 
-    public void onPlayerJoin(UUID uuid, String name) {
+    public synchronized void onPlayerJoin(UUID uuid, String name) {
         if (!syncedOnlinePlayers.contains(uuid)) {
             syncedOnlinePlayers.add(uuid);
             queuedJoins.put(uuid, name);
         }
     }
 
-    public void onPlayerLeave(UUID uuid) {
+    public synchronized void onPlayerLeave(UUID uuid) {
         if (syncedOnlinePlayers.contains(uuid)) {
             syncedOnlinePlayers.remove(uuid);
             if (!queuedLeaves.contains(uuid)) queuedLeaves.add(uuid);

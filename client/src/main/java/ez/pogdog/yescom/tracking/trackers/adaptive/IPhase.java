@@ -16,6 +16,9 @@ public interface IPhase {
      */
     int getMaxOffsets();
 
+    float getErrorX();
+    float getErrorZ();
+
     /**
      * Returns an offset given an index.
      * @param index The index.

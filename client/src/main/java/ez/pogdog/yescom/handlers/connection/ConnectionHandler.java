@@ -73,12 +73,15 @@ public class ConnectionHandler implements IHandler {
             if (System.currentTimeMillis() - lastLoginTime > yesCom.configHandler.LOGIN_TIME) login(authService);
         });
 
-        new HashMap<>(recentJoins).forEach((uuid, time) -> {
-            if (System.currentTimeMillis() - time > yesCom.configHandler.LOGIN_CACHE_TIME) recentJoins.remove(uuid);
-        });
-        new HashMap<>(recentLeaves).forEach((uuid, time) -> {
-            if (System.currentTimeMillis() - time > yesCom.configHandler.LOGOUT_CACHE_TIME) recentLeaves.remove(uuid);
-        });
+        synchronized (this) {
+            new HashMap<>(recentJoins).forEach((uuid, time) -> {
+                if (System.currentTimeMillis() - time > yesCom.configHandler.LOGIN_CACHE_TIME) recentJoins.remove(uuid);
+            });
+            new HashMap<>(recentLeaves).forEach((uuid, time) -> {
+                if (System.currentTimeMillis() - time > yesCom.configHandler.LOGOUT_CACHE_TIME)
+                    recentLeaves.remove(uuid);
+            });
+        }
     }
 
     @Override
@@ -94,7 +97,7 @@ public class ConnectionHandler implements IHandler {
                 System.currentTimeMillis() - healthLogout.get(authService.getSelectedProfile().getId()) > yesCom.configHandler.HEALTH_RELOG_TIME;
     }
 
-    private void onJoinLeave(Player.PlayerAction action, UUID uuid) {
+    private synchronized void onJoinLeave(Player.PlayerAction action, UUID uuid) {
         switch (action) {
             case ADD: {
                 if (yesCom.handler != null) yesCom.handler.onPlayerJoin(uuid, UUIDtoNameCache.get(uuid));

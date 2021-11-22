@@ -15,11 +15,9 @@ public class ConfigActionPacket extends Packet {
 
     @Override
     public void read(InputStream inputStream) throws IOException {
-
     }
 
     @Override
     public void write(OutputStream outputStream) throws IOException {
-
     }
 }

@@ -15,34 +15,6 @@ public class AdaptiveTracker implements ITracker {
 
     private final YesCom yesCom = YesCom.getInstance();
 
-    private final IPhase WALKING_PHASE = new BasicPhase(1000, Arrays.asList(
-            new BasicPhase.Offset(1.0f, 0.0f, IsLoadedQuery.Result.LOADED),
-            new BasicPhase.Offset(-1.0f, 0.0f, IsLoadedQuery.Result.LOADED),
-            new BasicPhase.Offset(0.0f, 1.0f, IsLoadedQuery.Result.LOADED),
-            new BasicPhase.Offset(0.0f, -1.0f, IsLoadedQuery.Result.LOADED)));
-    private final IPhase GEZA_PHASE = new BasicPhase(1250, Arrays.asList(
-            new BasicPhase.Offset(1.0f, 0.0f, IsLoadedQuery.Result.LOADED),
-            new BasicPhase.Offset(-1.0f, 0.0f, IsLoadedQuery.Result.LOADED),
-            new BasicPhase.Offset(0.0f, 1.0f, IsLoadedQuery.Result.LOADED),
-            new BasicPhase.Offset(0.0f, -1.0f, IsLoadedQuery.Result.LOADED),
-            new BasicPhase.Offset(2.75f, 0.0f, IsLoadedQuery.Result.UNLOADED),
-            new BasicPhase.Offset(-2.75f, 0.0f, IsLoadedQuery.Result.UNLOADED),
-            new BasicPhase.Offset(0.0f, 2.75f, IsLoadedQuery.Result.UNLOADED),
-            new BasicPhase.Offset(0.0f, -2.75f, IsLoadedQuery.Result.UNLOADED)));
-    private final IPhase FATALE_PHASE = new BasicPhase(1000, Arrays.asList(
-            new BasicPhase.Offset(1.0f, 0.0f, IsLoadedQuery.Result.LOADED),
-            new BasicPhase.Offset(-1.0f, 0.0f, IsLoadedQuery.Result.LOADED),
-            new BasicPhase.Offset(0.0f, 1.0f, IsLoadedQuery.Result.LOADED),
-            new BasicPhase.Offset(0.0f, -1.0f, IsLoadedQuery.Result.LOADED),
-            new BasicPhase.Offset(2.75f, 0.0f, IsLoadedQuery.Result.UNLOADED),
-            new BasicPhase.Offset(-2.75f, 0.0f, IsLoadedQuery.Result.UNLOADED),
-            new BasicPhase.Offset(0.0f, 2.75f, IsLoadedQuery.Result.UNLOADED),
-            new BasicPhase.Offset(0.0f, -2.75f, IsLoadedQuery.Result.UNLOADED),
-            new BasicPhase.Offset(2.75f, 2.75f, IsLoadedQuery.Result.UNLOADED),
-            new BasicPhase.Offset(-2.75f, -2.75f, IsLoadedQuery.Result.UNLOADED),
-            new BasicPhase.Offset(2.75f, -2.75f, IsLoadedQuery.Result.UNLOADED),
-            new BasicPhase.Offset(-2.75f, 2.75f, IsLoadedQuery.Result.UNLOADED)));
-
     private final Deque<IsLoadedQuery> currentQueries = new ConcurrentLinkedDeque<>();
 
     private final List<Float> loadedSamples = new ArrayList<>();
@@ -64,7 +36,7 @@ public class AdaptiveTracker implements ITracker {
         this.trackerID = trackerID;
         this.trackedPlayer = trackedPlayer;
 
-        currentPhase = GEZA_PHASE;
+        currentPhase = new GezaPhase();
         currentHealth = 3.8f;
 
         lastUpdate = System.currentTimeMillis() - currentPhase.getUpdateTime();
@@ -84,11 +56,11 @@ public class AdaptiveTracker implements ITracker {
             currentHealth = Math.max(0.0f, Math.min(5.0f, currentHealth + (float)yesCom.configHandler.ADAPTIVE_TRACKER_PHASE_CHANGE_NORMAL));
 
             if (currentHealth <= 2.0f) { // TODO: Streamline?
-                currentPhase = WALKING_PHASE;
+                currentPhase = new WalkingPhase();
             } else if (currentHealth <= 3.5f) {
-                currentPhase = GEZA_PHASE;
+                currentPhase = new GezaPhase();
             } else if (currentHealth <= 5.0f) {
-                currentPhase = FATALE_PHASE;
+                currentPhase = new FatalePhase();
             }
 
             float distance = (yesCom.configHandler.RENDER_DISTANCE - 1) / 2.4f;
@@ -114,7 +86,11 @@ public class AdaptiveTracker implements ITracker {
                         float lateAverage = getAverage(yesCom.configHandler.ADAPTIVE_TRACKER_LATE_SAMPLES);
 
                         if (loadedOffsets.isEmpty()) { // None loaded?
+                            currentPhase = new FatalePhase();
                             currentHealth = 5.0f;
+
+                            // Update immediately
+                            lastUpdate = System.currentTimeMillis() - currentPhase.getUpdateTime();
 
                         } else {
                             // Are we above the maximum number of expected loaded offsets? -> decrease the number of offsets we are taking
@@ -149,7 +125,7 @@ public class AdaptiveTracker implements ITracker {
 
                             trackedPlayer.setRenderDistance(yesCom.dataHandler.newRenderDistance(
                                     trackedPlayer.getRenderDistance().getCenterPosition().add(centerOffset),
-                                    yesCom.configHandler.RENDER_DISTANCE, 0.0f, 0.0f)); // TODO: Work out the error
+                                    yesCom.configHandler.RENDER_DISTANCE, currentPhase.getErrorX(), currentPhase.getErrorZ()));
 
                             lastOffsetX = averageX;
                             lastOffsetZ = averageZ;

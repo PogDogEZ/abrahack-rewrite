@@ -140,7 +140,21 @@ public class AccountHandler implements IHandler {
     }
 
     public synchronized void newLogin(String username, String accessToken, String clientToken) throws RequestException {
+        if (accountCache.stream().anyMatch(authService -> authService.getUsername().equalsIgnoreCase(username)))
+            return;
 
+        AuthenticationService authService = new AuthenticationService(clientToken);
+        authService.setUsername(username);
+        authService.setAccessToken(accessToken);
+
+        authService.login();
+
+        if (authService.isLoggedIn()) {
+            yesCom.logger.debug(String.format("Successfully authenticated account with username: %s.",
+                    authService.getSelectedProfile().getName()));
+            userMap.put(username, accessToken);
+            accountCache.add(authService);
+        }
     }
 
     /**

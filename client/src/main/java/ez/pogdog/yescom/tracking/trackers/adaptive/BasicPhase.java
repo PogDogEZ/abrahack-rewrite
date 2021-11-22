@@ -13,9 +13,13 @@ public class BasicPhase implements IPhase {
     protected final List<Offset> offsets = new ArrayList<>();
 
     protected final int updateTime;
+    protected final float errorX;
+    protected final float errorZ;
 
-    public BasicPhase(int updateTime, List<Offset> offsets) {
+    public BasicPhase(int updateTime, float errorX, float errorZ, List<Offset> offsets) {
         this.updateTime = updateTime;
+        this.errorX = errorX;
+        this.errorZ = errorZ;
         this.offsets.addAll(offsets);
     }
 
@@ -27,6 +31,16 @@ public class BasicPhase implements IPhase {
     @Override
     public int getMaxOffsets() {
         return offsets.size();
+    }
+
+    @Override
+    public float getErrorX() {
+        return errorX;
+    }
+
+    @Override
+    public float getErrorZ() {
+        return errorZ;
     }
 
     @Override
