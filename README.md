@@ -29,4 +29,4 @@ This is a very good way of doing it, as anyone with a registered account can ope
 
 # Was My Base Found?
 
-Even though at the time of writing this I have basically 0 bases, I can already tell you that if you spend time travelling on the nether highways to get to a base/stash, you are fucked. This program will pick you up, track you interdimentionally, and archive whatever you go to. Obviously not everyone will be affected by it, but if you do anything except sit at your base there is a very likely chance we've tracked you to some degree.
+In short yes, you are in our database, you are compromised, you are absolutely fucked. With a dedicated server and 3 backup virtual ones we have taken no shortcuts to ensure our data collection spans 24 hours 7 days a week. Every newfag, spawnfag, and even millionfags can't hide from the reach of YesCom. Using an alt archive provided by Dom_mld we have traced every individual and their alts to the furthest corners of Constantiam. Fuck you.
