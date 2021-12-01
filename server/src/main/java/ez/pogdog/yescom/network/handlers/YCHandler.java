@@ -32,6 +32,9 @@ public class YCHandler implements IHandler {
     private final int handlerID;
 
     private String handlerName; // Used for extended init
+    private String minecraftHost;
+    private int minecraftPort;
+
     private byte[] nonce;
 
     public YCHandler(Connection connection, int handlerID) {
@@ -81,6 +84,9 @@ public class YCHandler implements IHandler {
                         logger.finer(String.format("Creating extended init for handler %s.", connection));
 
                         handlerName = initRequest.getHandlerName();
+                        minecraftHost = initRequest.getHostName();
+                        minecraftPort = initRequest.getHostPort();
+
                         nonce = new byte[32];
                         new Random().nextBytes(nonce);
 
@@ -131,7 +137,8 @@ public class YCHandler implements IHandler {
             String message = "";
 
             if (Arrays.equals(nonce, extendedResponse.getIdentityProofNonce())) {
-                newHandler = new YCReporter(connection, yesCom.handlersManager.getCurrentHandlerID(), handlerName);
+                newHandler = new YCReporter(connection, yesCom.handlersManager.getCurrentHandlerID(), handlerName,
+                        minecraftHost, minecraftPort);
                 message = "Oooooh a hidden message that you're not supposed to see :o.";
             } else {
                 message = "Invalid nonce.";

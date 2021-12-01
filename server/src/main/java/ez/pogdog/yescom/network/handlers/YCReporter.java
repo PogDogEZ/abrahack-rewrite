@@ -43,13 +43,18 @@ public class YCReporter extends YCHandler {
 
     private final String handlerName;
 
+    private final String minecraftHost;
+    private final int minecraftPort;
+
     private int requestID;
     private long actionID;
 
-    public YCReporter(Connection connection, int handlerID, String handlerName) {
+    public YCReporter(Connection connection, int handlerID, String handlerName, String minecraftHost, int minecraftPort) {
         super(connection, handlerID);
 
         this.handlerName = handlerName;
+        this.minecraftHost = minecraftHost;
+        this.minecraftPort = minecraftPort;
 
         requestID = 0;
         actionID = 0;
@@ -553,6 +558,14 @@ public class YCReporter extends YCHandler {
 
     public String getName() {
         return handlerName;
+    }
+
+    public String getMinecraftHost() {
+        return minecraftHost;
+    }
+
+    public int getMinecraftPort() {
+        return minecraftPort;
     }
 
     /**

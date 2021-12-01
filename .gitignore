@@ -20,3 +20,4 @@
 /server/build/
 /server/jserver/build
 /server/plugins/
+/server/trusted.txt

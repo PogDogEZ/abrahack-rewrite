@@ -4,17 +4,18 @@ import me.iska.jserver.IManager;
 import me.iska.jserver.JServer;
 import me.iska.jserver.exception.PluginException;
 import me.iska.jserver.plugin.IPlugin;
+import me.iska.jserver.plugin.PluginClassLoader;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 public class PluginManager implements IManager {
 
@@ -23,7 +24,7 @@ public class PluginManager implements IManager {
     private final JServer jServer = JServer.getInstance();
     private final Logger logger = JServer.getLogger();
 
-    private final List<IPlugin> plugins = new ArrayList<>();
+    private final Map<IPlugin, PluginClassLoader> plugins = new HashMap<>();
 
     public PluginManager() {
         if (!PLUGINS_DIR.exists()) {
@@ -38,7 +39,7 @@ public class PluginManager implements IManager {
 
     @Override
     public void exit() {
-        plugins.forEach(plugin -> {
+        plugins.forEach((plugin, classLoader) -> {
             try {
                 plugin.unload();
             } catch (PluginException error) {
@@ -56,7 +57,7 @@ public class PluginManager implements IManager {
         logger.fine(String.format("Loading plugin %s...", jarFile.getName()));
         logger.finer(String.format("Main class: %s", mainClass));
 
-        URLClassLoader classLoader = new URLClassLoader(new URL[] { file.toPath().toUri().toURL() }, getClass().getClassLoader());
+        PluginClassLoader classLoader = new PluginClassLoader(file.toPath().toUri().toURL(), getClass().getClassLoader());
 
         logger.finer("Loading main class...");
         Class<?> pluginClass;
@@ -79,7 +80,7 @@ public class PluginManager implements IManager {
             throw new PluginException("Couldn't instantiate the main class.");
         }
 
-        plugins.add(plugin);
+        plugins.put(plugin, classLoader);
 
         logger.fine("Done.");
     }
@@ -112,16 +113,33 @@ public class PluginManager implements IManager {
             }
         }
 
-        for (IPlugin plugin : plugins) {
-            // TODO: Check dependencies
+        Map<String, IPlugin> pluginNames = new HashMap<>();
+        for (IPlugin plugin : plugins.keySet())
+            pluginNames.put(plugin.getClass().getAnnotation(IPlugin.Info.class).name().toLowerCase(), plugin);
+
+        plugins.forEach((plugin, classLoader) -> {
+            IPlugin.Info info = plugin.getClass().getAnnotation(IPlugin.Info.class);
+            for (String dependency : info.dependencies()) {
+                if (!pluginNames.containsKey(dependency.toLowerCase())) {
+                    logger.warning(String.format("Skipping loading plugin: %s, not all dependencies are loaded.", info.name()));
+                    return;
+                }
+
+                IPlugin dependencyPlugin = pluginNames.get(dependency.toLowerCase());
+                PluginClassLoader dependencyClassLoader = plugins.get(dependencyPlugin);
+
+                logger.finer(String.format("Adding dependency for %s: %s.", plugin, dependencyPlugin));
+
+                classLoader.addDependencyClassLoader(dependencyClassLoader);
+            }
 
             try {
                 plugin.load();
             } catch (PluginException error) {
-                logger.warning(String.format("Couldn't load plugin %s:", plugin.getClass().getAnnotation(IPlugin.Info.class).name()));
+                logger.warning(String.format("Couldn't load plugin %s:", info.name()));
                 logger.throwing(PluginManager.class.getName(), "loadPlugins", error);
             }
-        }
+        });
 
         logger.info(String.format("Done, %d plugin(s) loaded.", plugins.size()));
     }
