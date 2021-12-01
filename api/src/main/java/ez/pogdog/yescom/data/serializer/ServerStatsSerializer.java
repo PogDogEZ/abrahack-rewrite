@@ -57,18 +57,14 @@ public class ServerStatsSerializer implements ISerializer {
         while ((bite = inputStream.read()) != -1) {
             long timeOffset;
             if ((bite & (1 << 7)) != 0) { // time flag
-                System.out.println("Flag");
-                ByteBuffer timeBuilder = ByteBuffer.allocate(4);
-                timeBuilder.put((byte)bite);
-                for (int i = 0; 3 > i; i++)
-                    timeBuilder.put((byte)inputStream.read());
-
-                timeOffset = timeBuilder.getLong();
+                timeOffset = ByteBuffer.wrap(new byte[] { (byte) bite, (byte) inputStream.read(),
+                        (byte) inputStream.read(), (byte) inputStream.read()}).getInt() * -1;
             }
             else {
                 timeOffset = ByteBuffer.wrap(new byte[] { (byte) bite, (byte) inputStream.read()}).getShort();
             }
-            time += timeOffset * 1000;
+            timeOffset *= 1000;
+            time += timeOffset;
 
             byte[] data = new byte[6];
             inputStream.read(data);
@@ -93,22 +89,22 @@ public class ServerStatsSerializer implements ISerializer {
         infoBytes.putInt(dataCache.size());
         outputStream.write(infoBytes.array());
 
-        int prevTime = 0;
+        long prevTime = 0;
         boolean first = true;
 
         for (Map.Entry<Long, ServerStats> entry : dataCache.entrySet()) {
             outputStream.write(serialize(entry.getValue(), prevTime, first));
 
             if (first) first = false;
-            prevTime = entry.getKey().intValue();
+            prevTime = entry.getKey();
         }
         outputStream.close();
 
         logger.info(String.format("Finished writing %s server statistics in %sms", dataCache.size(), (System.currentTimeMillis() - startTime)));
     }
 
-    private byte[] serialize(ServerStats data, int prevTime, boolean first) {
-        boolean timeFlag = (data.getTime() - prevTime) / 1000 > 32767;
+    private byte[] serialize(ServerStats data, long prevTime, boolean first) {
+        boolean timeFlag = (data.getTime() - prevTime) / 1000 > 32767 && !first;
         ByteBuffer buffer = ByteBuffer.allocate(6 + (timeFlag ? 4 : 2));
 
         if (first)
