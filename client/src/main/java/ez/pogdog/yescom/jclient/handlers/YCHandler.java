@@ -275,7 +275,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
                         return;
 
                     } else if (!player.isConnected()) {
-                        yesCom.logger.finer(String.format("Attempted to send chat message to offline player: %s.", player));
+                        yesCom.logger.finer(String.format("Attempted to send chat message with offline player: %s.", player));
                         connection.sendPacket(new ActionResponsePacket(actionRequest.getActionID(), false,
                                 "Player is offline."));
                         return;

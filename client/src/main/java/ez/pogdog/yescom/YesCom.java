@@ -112,12 +112,12 @@ public class YesCom {
         portOpt.setType(Integer.class);
         options.addOption(portOpt);
 
-        Option noYCConnectionOpt = new Option("noyc", "no-yc-connection", false,
+        Option noYCConnectionOpt = new Option("noyc", "noYCConnection", false,
                 "Stops the connection to a remote server, for data reporting,");
         noYCConnectionOpt.setType(Boolean.class);
         options.addOption(noYCConnectionOpt);
 
-        Option ycHandlerName = new Option("n", "handler-name", true, "The name of the YC handler.");
+        Option ycHandlerName = new Option("n", "handlerName", true, "The name of the YC handler.");
         ycHandlerName.setArgName("name");
         ycHandlerName.setType(String.class);
         options.addOption(ycHandlerName);
@@ -133,8 +133,8 @@ public class YesCom {
             String configFile = cmd.getOptionValue("configFile");
             String host = cmd.getOptionValue("host");
             String port = cmd.getOptionValue("port");
-            boolean noYCConnection = cmd.hasOption("no-yc-connection");
-            String handlerName = cmd.getOptionValue("handler-name");
+            boolean noYCConnection = cmd.hasOption("noYCConnection");
+            String handlerName = cmd.getOptionValue("handlerName");
 
             try {
                 Level level = Level.parse(logLevel.toUpperCase(Locale.ROOT));

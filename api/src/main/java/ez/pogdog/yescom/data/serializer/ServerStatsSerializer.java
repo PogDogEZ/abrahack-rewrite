@@ -3,13 +3,13 @@ package ez.pogdog.yescom.data.serializer;
 import ez.pogdog.yescom.data.ISerializable;
 import ez.pogdog.yescom.data.ISerializer;
 import ez.pogdog.yescom.data.serializable.ServerStats;
-import ez.pogdog.yescom.logging.Logger;
 
 import java.io.*;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.*;
+import java.util.logging.Logger;
 
 public class ServerStatsSerializer implements ISerializer {
 
