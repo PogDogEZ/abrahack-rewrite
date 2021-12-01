@@ -1,3 +1,6 @@
+/venv/
+/__pycache__/
+
 /client/.idea/
 /client/.gradle/
 /client/build/
@@ -10,6 +13,7 @@
 /api/build/
 
 /viewer/.idea/
+/viewer/previous_servers.json
 
 /server/.idea/
 /server/.gradle/
