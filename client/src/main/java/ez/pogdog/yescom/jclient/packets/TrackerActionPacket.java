@@ -10,30 +10,38 @@ import me.iska.jclient.network.packet.types.EnumType;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
-@Packet.Info(name="tracker_action", id=YCRegistry.ID_OFFSET + 14, side=Packet.Side.CLIENT)
+/**
+ * Sent by the client/server to report a change in the state of a tracker.
+ */
+@Packet.Info(name="tracker_action", id=YCRegistry.ID_OFFSET + 8, side=Packet.Side.BOTH)
 public class TrackerActionPacket extends Packet {
 
     private final EnumType<Action> ACTION = new EnumType<>(Action.class);
 
+    private final List<BigInteger> trackedPlayerIDs = new ArrayList<>();
+
     private Action action;
     private ITracker tracker;
     private long trackerID;
-    private TrackedPlayer trackedPlayer;
 
-    public TrackerActionPacket(Action action, ITracker tracker, long trackerID, TrackedPlayer trackedPlayer) {
+    public TrackerActionPacket(Action action, ITracker tracker, long trackerID, List<BigInteger> trackedPlayerIDs) {
         this.action = action;
         this.tracker = tracker;
         this.trackerID = trackerID;
-        this.trackedPlayer = trackedPlayer;
+        this.trackedPlayerIDs.addAll(trackedPlayerIDs);
     }
 
     public TrackerActionPacket(Action action, ITracker tracker) {
-        this(action, tracker, tracker.getTrackerID(), tracker.getTrackedPlayer());
+        this(action, tracker, tracker.getTrackerID(), tracker.getTrackedPlayers().stream().map(TrackedPlayer::getID).collect(Collectors.toList()));
     }
 
     public TrackerActionPacket() {
-        this(Action.ADD, null, 0L, null);
+        this(Action.ADD, null, 0L, new ArrayList<>());
     }
 
     @Override
@@ -50,10 +58,11 @@ public class TrackerActionPacket extends Packet {
                 trackerID = Registry.LONG.read(inputStream);
                 break;
             }
-            case UPDATE:
-            case SET_PLAYER: {
+            case UPDATE: {
                 trackerID = Registry.LONG.read(inputStream);
-                trackedPlayer = YCRegistry.TRACKED_PLAYER.read(inputStream);
+
+                int IDsToRead = Registry.UNSIGNED_SHORT.read(inputStream);
+                for (int index = 0; index < IDsToRead; ++index) trackedPlayerIDs.add(Registry.VAR_INTEGER.read(inputStream));
                 break;
             }
         }
@@ -73,15 +82,40 @@ public class TrackerActionPacket extends Packet {
                 Registry.LONG.write(trackerID, outputStream);
                 break;
             }
-            case UPDATE:
-            case SET_PLAYER: {
+            case UPDATE: {
                 Registry.LONG.write(trackerID, outputStream);
-                YCRegistry.TRACKED_PLAYER.write(trackedPlayer, outputStream);
+
+                Registry.UNSIGNED_SHORT.write(trackedPlayerIDs.size(), outputStream);
+                for (BigInteger trackedPlayerID : trackedPlayerIDs) Registry.VAR_INTEGER.write(trackedPlayerID, outputStream);
                 break;
             }
         }
     }
 
+    public List<BigInteger> getTrackedPlayerIDs() {
+        return new ArrayList<>(trackedPlayerIDs);
+    }
+
+    public void addTrackedPlayerID(BigInteger trackedPlayerID) {
+        trackedPlayerIDs.add(trackedPlayerID);
+    }
+
+    public void setTrackedPlayerIDs(List<BigInteger> trackedPlayerIDs) {
+        this.trackedPlayerIDs.clear();
+        this.trackedPlayerIDs.addAll(trackedPlayerIDs);
+    }
+
+    public void addTrackedPlayerIDs(List<BigInteger> trackedPlayerIDs) {
+        this.trackedPlayerIDs.addAll(trackedPlayerIDs);
+    }
+
+    public void removeTrackedPlayerID(BigInteger trackedPlayerID) {
+        trackedPlayerIDs.remove(trackedPlayerID);
+    }
+
+    /**
+     * @return The action being performed.
+     */
     public Action getAction() {
         return action;
     }
@@ -106,16 +140,8 @@ public class TrackerActionPacket extends Packet {
         this.trackerID = trackerID;
     }
 
-    public TrackedPlayer getTrackedPlayer() {
-        return trackedPlayer;
-    }
-
-    public void setTrackedPlayer(TrackedPlayer trackedPlayer) {
-        this.trackedPlayer = trackedPlayer;
-    }
-
     public enum Action {
         ADD, REMOVE, UPDATE,
-        UNTRACK, SET_PLAYER;
+        UNTRACK;
     }
 }

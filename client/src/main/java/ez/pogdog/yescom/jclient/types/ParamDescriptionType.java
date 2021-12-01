@@ -1,6 +1,7 @@
 package ez.pogdog.yescom.jclient.types;
 
 import ez.pogdog.yescom.task.TaskRegistry;
+import ez.pogdog.yescom.util.DataType;
 import me.iska.jclient.network.packet.Registry;
 import me.iska.jclient.network.packet.Type;
 import me.iska.jclient.network.packet.types.EnumType;
@@ -12,14 +13,14 @@ import java.io.OutputStream;
 public class ParamDescriptionType extends Type<TaskRegistry.ParamDescription> {
 
     private final EnumType<TaskRegistry.ParamDescription.InputType> INPUT_TYPE = new EnumType<>(TaskRegistry.ParamDescription.InputType.class);
-    private final EnumType<TaskRegistry.ParamDescription.DataType> DATA_TYPE = new EnumType<>(TaskRegistry.ParamDescription.DataType.class);
+    private final EnumType<DataType> DATA_TYPE = new EnumType<>(DataType.class);
 
     @Override
     public TaskRegistry.ParamDescription read(InputStream inputStream) throws IOException {
         String paramName = Registry.STRING.read(inputStream);
         String paramDescription = Registry.STRING.read(inputStream);
         TaskRegistry.ParamDescription.InputType paramInputType = INPUT_TYPE.read(inputStream);
-        TaskRegistry.ParamDescription.DataType paramDataType = DATA_TYPE.read(inputStream);
+        DataType paramDataType = DATA_TYPE.read(inputStream);
 
         return new TaskRegistry.ParamDescription(paramName, paramDescription, paramInputType, paramDataType);
     }

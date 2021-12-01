@@ -1,115 +1,125 @@
 package me.iska.jclient.network;
 
-import ez.pogdog.yescom.logging.Logger;
-import me.iska.jclient.impl.user.User;
-import me.iska.jclient.network.enums.EncryptionType;
 import me.iska.jclient.network.handler.IHandler;
-import me.iska.jclient.network.handler.LoginHandler;
+import me.iska.jclient.network.handler.handlers.LoginHandler;
 import me.iska.jclient.network.packet.Packet;
 import me.iska.jclient.network.packet.Registry;
+import me.iska.jclient.user.User;
 
-import javax.crypto.CipherOutputStream;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
+import java.math.BigInteger;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.logging.Logger;
 import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
-import java.util.zip.InflaterInputStream;
 
 public class Connection extends Thread {
 
-    public final Logger logger;
+    private static final Logger logger = Logger.getLogger("jclient");
+
+    public static Logger getLogger() {
+        return logger;
+    }
+
+    private final List<Class<? extends Packet>> capabilities = new ArrayList<>();
 
     private final List<Packet> latestRecv = new ArrayList<>();
     private final List<Packet> sendQueue = new ArrayList<>();
 
-    private final List<IHandler> otherHandlers = new ArrayList<>();
-
-    private final int protocolVersion = 4;
+    private final List<IHandler> secondaryHandlers = new ArrayList<>();
 
     private final String host;
     private final int port;
+
+    private final ServerInfo serverInfo;
 
     private Socket sock;
     private InputStream inputStream;
     private OutputStream outputStream;
 
-    private IHandler handler;
-
-    private Supplier<User> userSupplier;
-    private Supplier<String> passwordSupplier;
-    private boolean cacheLatest;
+    private IHandler primaryHandler;
 
     private boolean connected;
-    private String serverName;
+    private long lastPacket;
 
-    private boolean encryption;
-    private EncryptionType encryptionType;
-
-    private boolean compression;
-    private int compressionThreshold;
+    private Supplier<Account> accountSupplier;
+    private User serverUser;
 
     private boolean exited;
     private boolean shouldExit;
     private String exitReason;
 
-    public Connection(String host, int port, Logger logger) {
+    public Connection(String host, int port) {
         this.host = host;
         this.port = port;
 
-        this.logger = logger;
+        capabilities.addAll(Registry.KNOWN_PACKETS);
 
-        cacheLatest = false;
+        serverInfo = new ServerInfo("", false, EncryptionType.NONE, true, 1024, true);
 
         connected = false;
-        serverName = "";
-
-        encryption = false;
-        encryptionType = EncryptionType.NONE;
-
-        compression = false;
-        compressionThreshold = 256;
+        lastPacket = System.currentTimeMillis();
 
         exited = false;
         shouldExit = false;
-        exitReason = "Generic Disconnect.";
+        exitReason = "Generic disconnect.";
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Connection(host=%s, port=%d)", host, port);
     }
 
     @Override
     @SuppressWarnings("BusyWait")
     public void run() {
         while (connected) {
-            doSendPackets();
+            try {
+                primaryHandler.update();
+                new ArrayList<>(secondaryHandlers).forEach(IHandler::update);
+            } catch (Exception error) {
+                logger.warning("Error while updating handlers:");
+                logger.throwing(Connection.class.getSimpleName(), "run", error);
+                exit(error.toString());
+            }
+
             doReadPackets();
+            doSendPackets();
+
+            if (System.currentTimeMillis() - lastPacket > 30000) exit("Timed out.");
 
             if (shouldExit) { // We still want to read and write packets while exiting
-                if (!sendQueue.isEmpty()) {
-                    doSendPackets();
+                try {
+                    primaryHandler.exit(exitReason);
+                    new ArrayList<>(secondaryHandlers).forEach(handler -> handler.exit(exitReason));
+                } catch (Exception error) {
+                    logger.warning("Error while handling exit:");
+                    logger.throwing(Connection.class.getSimpleName(), "run", error);
+                }
+
+                if (!sendQueue.isEmpty() && connected) { // Don't send if we aren't still connected
                     try {
+                        doSendPackets();
                         Thread.sleep(1000);
-                    } catch (InterruptedException ignored) {
+                    } catch (Exception ignored) {
                     }
                 }
 
-                logger.info(String.format("Client disconnect, reason: '%s'.", exitReason));
+                logger.info(String.format("%s disconnected, reason: %s", this, exitReason));
 
                 try {
                     sock.close();
                 } catch (IOException error) {
-                    logger.warn(String.format("Error while closing socket: %s.", error));
+                    logger.warning("Error while closing socket:");
+                    logger.throwing(Connection.class.getSimpleName(), "run", error);
                 }
 
                 connected = false;
@@ -125,67 +135,76 @@ public class Connection extends Thread {
         }
     }
 
-    /* ----------------------------- Handlers and Connection Stuff ----------------------------- */
+    /* ----------------------------- Handlers and connection stuff ----------------------------- */
 
-    public void setAuthSuppliers(Supplier<User> userSupplier, Supplier<String> passwordSupplier) {
-        this.userSupplier = userSupplier;
-        this.passwordSupplier = passwordSupplier;
+    public IHandler getPrimaryHandler() {
+        return primaryHandler;
     }
 
-    public IHandler getHandler() {
-        return handler;
+    public void setPrimaryHandler(IHandler primaryHandler) {
+        this.primaryHandler = primaryHandler;
     }
 
-    public void setHandler(IHandler handler) {
-        this.handler = handler;
+    public void addSecondaryHandler(IHandler handler) {
+        if (!secondaryHandlers.contains(handler)) secondaryHandlers.add(handler);
     }
 
-    public void addHandler(IHandler handler) {
-        if (!otherHandlers.contains(handler)) otherHandlers.add(handler);
+    public void removeSecondaryHandler(IHandler handler) {
+        secondaryHandlers.remove(handler);
     }
 
-    public void removeHandler(IHandler handler) {
-        otherHandlers.remove(handler);
+    public void setAccountSupplier(Supplier<Account> accountSupplier) {
+        this.accountSupplier = accountSupplier;
     }
 
-    public void connect() throws IOException {
-        sock = new Socket();
-        // For some reason Java sockets only support AF_INET and AF_INET6 (that's what the server uses but still)
-        // And I guess they're also using TCP cos fuck support for anything else
-        sock.connect(new InetSocketAddress(host, port));
+    public void connect(Socket sock) throws IOException {
+        this.sock = sock;
+        this.sock.connect(new InetSocketAddress(host, port));
 
         connected = true;
+        lastPacket = System.currentTimeMillis();
+
         shouldExit = false;
-        exitReason = "Generic Disconnect";
+        exitReason = "Generic disconnect.";
 
         inputStream = sock.getInputStream();
         outputStream = sock.getOutputStream();
 
-        handler = new LoginHandler(this);
+        primaryHandler = new LoginHandler(this);
         start();
     }
 
-    /* ----------------------------- Reading Packets ----------------------------- */
+    /* ----------------------------- Reading packets ----------------------------- */
 
     private void doReadPackets() {
-        int readTimeout = sendQueue.isEmpty() ? 10 : 1;
+        int readTimeout = 2; // sendQueue.isEmpty() ? 10 : 1;
 
-        for (int index = 0; index < 300; ++index) {
+        for (int index = 0; index < 10; ++index) {
             Packet packet;
             try {
                 packet = readPacket(readTimeout);
             } catch (Exception error) {
                 if (!(error instanceof SocketTimeoutException)) {
-                    error.printStackTrace();
+                    logger.warning("Error while reading packets:");
+                    logger.throwing(Connection.class.getSimpleName(), "doReadPackets", error);
+
+                    connected = false; // We can be sure that we aren't connected anymore
                     exit(error.toString());
                 }
                 return; // We've read all we can right now probably
             }
 
             if (packet != null) {
-                if (handler != null) handler.handlePacket(packet);
-                otherHandlers.forEach(handler -> handler.handlePacket(packet));
-                if (cacheLatest) latestRecv.add(packet);
+                lastPacket = System.currentTimeMillis();
+
+                try {
+                    if (primaryHandler != null) primaryHandler.handlePacket(packet);
+                    new ArrayList<>(secondaryHandlers).forEach(handler -> handler.handlePacket(packet));
+                } catch (Exception error) {
+                    logger.warning("Error while handling packet:");
+                    logger.throwing(Connection.class.getSimpleName(), "doReadPackets", error);
+                    exit(error.toString());
+                }
             }
         }
     }
@@ -198,15 +217,18 @@ public class Connection extends Thread {
 
             while (bytesRead < 7) {
                 int justRead = inputStream.read(headerBytes, bytesRead, 7 - bytesRead);
-                if (justRead <= 0) return null; // We can probably say that the peer hasn't sent us anything
+                sock.setSoTimeout(30000); // Set this immediately so we don't timeout on next read, this mistake caused A LOT of pain
                 bytesRead += justRead;
+                if (bytesRead == 0) { // We can probably say that the peer hasn't sent us anything
+                    return null;
+                } else if (justRead < 0) {
+                    throw new IOException("Connection closed.");
+                }
             }
-
-            sock.setSoTimeout(30000);
 
             ByteArrayInputStream headerInputStream = new ByteArrayInputStream(headerBytes);
 
-            int packetLength = Registry.INT.read(headerInputStream);
+            int packetLength = Registry.INTEGER.read(headerInputStream);
             byte[] flags = new byte[1];
             headerInputStream.read(flags);
             int packetID = Registry.UNSIGNED_SHORT.read(headerInputStream);
@@ -216,7 +238,11 @@ public class Connection extends Thread {
             byte[] packetContents = new byte[packetLength];
             while (bytesRead < packetLength) {
                 int justRead = inputStream.read(packetContents, bytesRead, packetLength - bytesRead);
-                if (justRead <= 0) return null;
+                if (justRead == 0) {
+                    return null;
+                } else if (justRead < 0) {
+                    throw new IOException("Connection closed.");
+                }
                 bytesRead += justRead;
             }
 
@@ -244,7 +270,7 @@ public class Connection extends Thread {
 
             // logger.debug(packetID);
 
-            Optional<Class<? extends Packet>> packetClazz = Registry.knownPackets.stream()
+            Optional<Class<? extends Packet>> packetClazz = capabilities.stream()
                     .filter(clazz -> Packet.getID(clazz) == packetID)
                     .findFirst();
 
@@ -254,12 +280,13 @@ public class Connection extends Thread {
                 try {
                     packet = packetClazz.get().newInstance();
                 } catch (IllegalAccessException | InstantiationException error) {
-                    logger.warn(String.format("Couldn't create a new instance of %s:", packetClazz));
-                    logger.error(error.toString());
-                    // TODO: Exception?
+                    logger.warning(String.format("Couldn't create a new instance of %s:", packetClazz.get()));
+                    logger.throwing(Connection.class.getSimpleName(), "readPacket", error);
+                    exit("Error while instantiating packet.");
                 }
             } else {
-                // TODO: Exception?
+                logger.warning(String.format("Unknown packet ID: %d", packetID));
+                exit("Received unknown packet.");
             }
 
             if (packet != null) packet.read(new ByteArrayInputStream(packetContents));
@@ -276,7 +303,7 @@ public class Connection extends Thread {
         return null;
     }
 
-    /* ----------------------------- Writing Packets ----------------------------- */
+    /* ----------------------------- Writing packets ----------------------------- */
 
     private void doSendPackets() {
         for (int index = 0; index < Math.min(15, sendQueue.size()); ++index) {
@@ -284,7 +311,10 @@ public class Connection extends Thread {
                 writePacket(sendQueue.remove(0), false);
             } catch (Exception error) {
                 if (!(error instanceof SocketTimeoutException)) {
-                    error.printStackTrace();
+                    logger.warning("Error while sending packets:");
+                    logger.throwing(Connection.class.getSimpleName(), "doSendPackets", error);
+
+                    connected = false;
                     exit(error.toString());
                 }
                 return;
@@ -294,13 +324,14 @@ public class Connection extends Thread {
 
     private void writePacket(Packet packet, boolean noCompression) throws IOException {
         if (packet == null) return;
+        // logger.finest(String.format("Writing packet: %s.", packet));
 
         ByteArrayOutputStream serialized = new ByteArrayOutputStream();
         packet.write(serialized);
 
         byte flags = 0;
 
-        if (!noCompression && compression && serialized.size() > compressionThreshold) {
+        if (!noCompression && serverInfo.isCompressionEnabled() && serialized.size() > serverInfo.getCompressionThreshold()) {
             flags |= 1;
 
             Deflater deflater = new Deflater();
@@ -322,7 +353,7 @@ public class Connection extends Thread {
             serialized.write(compressed.toByteArray());
         }
 
-        Registry.INT.write(serialized.size(), outputStream);
+        Registry.INTEGER.write(serialized.size(), outputStream);
         outputStream.write(flags);
         Registry.UNSIGNED_SHORT.write(Packet.getID(packet.getClass()), outputStream);
         outputStream.write(serialized.toByteArray());
@@ -349,26 +380,44 @@ public class Connection extends Thread {
         sendPacket(packet, false);
     }
 
+    /* ----------------------------- Capabilities ----------------------------- */
+
+    public List<Class<? extends Packet>> getCapabilities() {
+        return new ArrayList<>(capabilities);
+    }
+
+    public void addCapability(Class<? extends Packet> packetClazz) {
+        if (!capabilities.contains(packetClazz)) capabilities.add(packetClazz);
+    }
+
+    public void setCapabilities(List<Class<? extends Packet>> capabilities) {
+        this.capabilities.clear();
+        this.capabilities.addAll(capabilities);
+    }
+
+    public void addCapabilities(List<Class<? extends Packet>> capabilities) {
+        this.capabilities.addAll(capabilities);
+    }
+
+    public void removeCapability(Class<? extends Packet> packetClazz) {
+        capabilities.remove(packetClazz);
+    }
+
     /* ----------------------------- Other ----------------------------- */
 
     public void exit(String reason) {
+        if (shouldExit) return;
+
+        logger.finer(String.format("Exiting, reason: %s", reason));
         shouldExit = true;
         exitReason = reason;
     }
 
     public void exit() {
-        exit("Generic Disconnect.");
+        exit("Generic disconnect.");
     }
 
-    /* ----------------------------- Setters/Getters ----------------------------- */
-
-    public boolean getCacheLatest() {
-        return cacheLatest;
-    }
-
-    public void setCacheLatest(boolean cacheLatest) {
-        this.cacheLatest = cacheLatest;
-    }
+    /* ----------------------------- Setters and getters ----------------------------- */
 
     public String getHost() {
         return host;
@@ -376,6 +425,10 @@ public class Connection extends Thread {
 
     public int getPort() {
         return port;
+    }
+
+    public ServerInfo getServerInfo() {
+        return serverInfo;
     }
 
     public InputStream getInputStream() {
@@ -400,56 +453,20 @@ public class Connection extends Thread {
         }
     }
 
+    public Account getAccount() {
+        return accountSupplier == null ? new Account("", "", "") : accountSupplier.get();
+    }
+
+    public User getServerUser() {
+        return serverUser;
+    }
+
+    public void setServerUser(User serverUser) {
+        this.serverUser = serverUser;
+    }
+
     public boolean isConnected() {
         return connected;
-    }
-
-    public User getUser() {
-        return userSupplier == null ? null : userSupplier.get();
-    }
-
-    public String getPassword() {
-        return passwordSupplier == null ? "" : passwordSupplier.get();
-    }
-
-    public String getServerName() {
-        return serverName;
-    }
-
-    public void setServerName(String serverName) {
-        this.serverName = serverName;
-    }
-
-    public boolean getEncryption() {
-        return encryption;
-    }
-
-    public void setEncryption(boolean encryption) {
-        this.encryption = encryption;
-    }
-
-    public EncryptionType getEncryptionType() {
-        return encryptionType;
-    }
-
-    public void setEncryptionType(EncryptionType encryptionType) {
-        this.encryptionType = encryptionType;
-    }
-
-    public boolean getCompression() {
-        return compression;
-    }
-
-    public void setCompression(boolean compression) {
-        this.compression = compression;
-    }
-
-    public int getCompressionThreshold() {
-        return compressionThreshold;
-    }
-
-    public void setCompressionThreshold(int compressionThreshold) {
-        this.compressionThreshold = compressionThreshold;
     }
 
     public boolean isExited() {
@@ -458,5 +475,127 @@ public class Connection extends Thread {
 
     public String getExitReason() {
         return exitReason;
+    }
+
+    /* ----------------------------- Inner classes ----------------------------- */
+
+    /**
+     * A representation of an account, for simplicity.
+     */
+    public static class Account {
+
+        private final String username;
+        private final String password;
+        private final String groupName;
+
+        public Account(String username, String password, String groupName) {
+            this.username = username;
+            this.password = password;
+            this.groupName = groupName;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public String getGroupName() {
+            return groupName;
+        }
+    }
+
+    /**
+     * Stores information about the server we are connected to.
+     */
+    public static class ServerInfo {
+
+        private String serverName;
+
+        private boolean encryptionEnabled;
+        private EncryptionType encryptionType;
+
+        private boolean compressionEnabled;
+        private int compressionThreshold;
+
+        private boolean authenticationEnabled;
+
+        public ServerInfo(String serverName, boolean encryptionEnabled, EncryptionType encryptionType,
+                          boolean compressionEnabled, int compressionThreshold, boolean authenticationEnabled) {
+            this.serverName = serverName;
+            this.encryptionEnabled = encryptionEnabled;
+            this.encryptionType = encryptionType;
+            this.compressionEnabled = compressionEnabled;
+            this.compressionThreshold = compressionThreshold;
+            this.authenticationEnabled = authenticationEnabled;
+        }
+
+        /**
+         * @return The reported name of the server.
+         */
+        public String getServerName() {
+            return serverName;
+        }
+
+        public void setServerName(String serverName) {
+            this.serverName = serverName;
+        }
+
+        /**
+         * @return Whether or not encryption is enabled on the server.
+         */
+        public boolean isEncryptionEnabled() {
+            return encryptionEnabled;
+        }
+
+        public void setEncryptionEnabled(boolean encryptionEnabled) {
+            this.encryptionEnabled = encryptionEnabled;
+        }
+
+        /**
+         * @return The type of encryption the server wants us to use.
+         */
+        public EncryptionType getEncryptionType() {
+            return encryptionType;
+        }
+
+        public void setEncryptionType(EncryptionType encryptionType) {
+            this.encryptionType = encryptionType;
+        }
+
+        /**
+         * @return Whether or not compression is enabled on the server.
+         */
+        public boolean isCompressionEnabled() {
+            return compressionEnabled;
+        }
+
+        public void setCompressionEnabled(boolean compressionEnabled) {
+            this.compressionEnabled = compressionEnabled;
+        }
+
+        /**
+         * @return The compression threshold.
+         */
+        public int getCompressionThreshold() {
+            return compressionThreshold;
+        }
+
+        public void setCompressionThreshold(int compressionThreshold) {
+            this.compressionThreshold = compressionThreshold;
+        }
+
+        /**
+         * @return Whether or not authentication is enabled on the server.
+         */
+        public boolean isAuthenticationEnabled() {
+            return authenticationEnabled;
+        }
+
+        public void setAuthenticationEnabled(boolean authenticationEnabled) {
+            this.authenticationEnabled = authenticationEnabled;
+        }
     }
 }

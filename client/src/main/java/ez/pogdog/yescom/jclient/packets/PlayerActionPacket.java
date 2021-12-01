@@ -13,7 +13,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-@Packet.Info(name="player_action", id=YCRegistry.ID_OFFSET + 12, side=Packet.Side.CLIENT)
+/**
+ * Sent by the client/server to indicate a change in a player's state.
+ */
+@Packet.Info(name="player_action", id=YCRegistry.ID_OFFSET + 7, side=Packet.Side.BOTH)
 public class PlayerActionPacket extends Packet {
 
     private Action action;
@@ -21,6 +24,7 @@ public class PlayerActionPacket extends Packet {
     private Player player;
 
     private String playerName;
+    private String disconnectReason;
 
     private Position newPosition;
     private Angle newAngle;
@@ -29,39 +33,46 @@ public class PlayerActionPacket extends Packet {
 
     private Player.FoodStats newStats;
 
-    public PlayerActionPacket(Action action, Player player, String playerName, Position newPosition, Angle newAngle,
-                              Dimension newDimension, Player.FoodStats newStats) {
+    public PlayerActionPacket(Action action, Player player, String playerName, String disconnectReason,
+                              Position newPosition, Angle newAngle, Dimension newDimension, Player.FoodStats newStats) {
         this.action = action;
         this.player = player;
         this.playerName = playerName;
+        this.disconnectReason = disconnectReason;
         this.newPosition = newPosition;
         this.newAngle = newAngle;
         this.newDimension = newDimension;
         this.newStats = newStats;
     }
 
-    public PlayerActionPacket(Action action, Player player) {
-        this(action, player, player.getAuthService().getUsername(), player.getPosition(), player.getAngle(),
+    public PlayerActionPacket(Player player, String disconnectReason) {
+        this(Action.REMOVE, player, player.getAuthService().getUsername(), disconnectReason, player.getPosition(), player.getAngle(),
+                player.getDimension(), player.getFoodStats());
+    }
+
+    public PlayerActionPacket(Player player) {
+        this(Action.ADD, player, player.getAuthService().getUsername(), "", player.getPosition(), player.getAngle(),
                 player.getDimension(), player.getFoodStats());
     }
 
     public PlayerActionPacket(String playerName, Position newPosition, Angle newAngle) {
-        this(Action.UPDATE_POSITION, null, playerName, newPosition, newAngle, Dimension.OVERWORLD, null);
+        this(Action.UPDATE_POSITION, null, playerName, "", newPosition, newAngle, Dimension.OVERWORLD,
+                null);
     }
 
     public PlayerActionPacket(String playerName, Dimension newDimension) {
-        this(Action.UPDATE_DIMENSION, null, playerName, new Position(0, 0,0), new Angle(0.0f, 0.0f),
-                newDimension, null);
+        this(Action.UPDATE_DIMENSION, null, playerName, "", new Position(0, 0,0),
+                new Angle(0.0f, 0.0f), newDimension, null);
     }
 
     public PlayerActionPacket(String playerName, Player.FoodStats newStats) {
-        this(Action.UPDATE_HEALTH, null, playerName, new Position(0, 0, 0), new Angle(0.0f, 0.0f),
-                Dimension.OVERWORLD, newStats);
+        this(Action.UPDATE_HEALTH, null, playerName, "", new Position(0, 0, 0),
+                new Angle(0.0f, 0.0f), Dimension.OVERWORLD, newStats);
     }
 
     public PlayerActionPacket() {
-        this(Action.ADD, null, "", new Position(0, 0, 0), new Angle(0.0f, 0.0f),
-                Dimension.OVERWORLD, null);
+        this(Action.ADD, null, "", "", new Position(0, 0, 0),
+                new Angle(0.0f, 0.0f), Dimension.OVERWORLD, null);
     }
 
     @Override
@@ -75,6 +86,7 @@ public class PlayerActionPacket extends Packet {
             }
             case REMOVE: {
                 playerName = Registry.STRING.read(inputStream);
+                disconnectReason = Registry.STRING.read(inputStream);
                 break;
             }
             case UPDATE_POSITION: {
@@ -111,6 +123,7 @@ public class PlayerActionPacket extends Packet {
             }
             case REMOVE: {
                 Registry.STRING.write(playerName, outputStream);
+                Registry.STRING.write(disconnectReason, outputStream);
                 break;
             }
             case UPDATE_POSITION: {
@@ -134,6 +147,9 @@ public class PlayerActionPacket extends Packet {
         }
     }
 
+    /**
+     * @return The action being performed.
+     */
     public Action getAction() {
         return action;
     }
@@ -142,6 +158,9 @@ public class PlayerActionPacket extends Packet {
         this.action = action;
     }
 
+    /**
+     * @return The player.
+     */
     public Player getPlayer() {
         return player;
     }
@@ -150,6 +169,9 @@ public class PlayerActionPacket extends Packet {
         this.player = player;
     }
 
+    /**
+     * @return The username of the player.
+     */
     public String getPlayerName() {
         return playerName;
     }
@@ -158,6 +180,20 @@ public class PlayerActionPacket extends Packet {
         this.playerName = playerName;
     }
 
+    /**
+     * @return The reason the player was disconnected.
+     */
+    public String getDisconnectReason() {
+        return disconnectReason;
+    }
+
+    public void setDisconnectReason(String disconnectReason) {
+        this.disconnectReason = disconnectReason;
+    }
+
+    /**
+     * @return The updated position of the player.
+     */
     public Position getNewPosition() {
         return newPosition;
     }
@@ -166,6 +202,9 @@ public class PlayerActionPacket extends Packet {
         this.newPosition = newPosition;
     }
 
+    /**
+     * @return The updated angle of the player.
+     */
     public Angle getNewAngle() {
         return newAngle;
     }
@@ -174,6 +213,9 @@ public class PlayerActionPacket extends Packet {
         this.newAngle = newAngle;
     }
 
+    /**
+     * @return The updated dimension of the player.
+     */
     public Dimension getNewDimension() {
         return newDimension;
     }
@@ -182,6 +224,9 @@ public class PlayerActionPacket extends Packet {
         this.newDimension = newDimension;
     }
 
+    /**
+     * @return The new food stats of the player.
+     */
     public Player.FoodStats getNewStats() {
         return newStats;
     }

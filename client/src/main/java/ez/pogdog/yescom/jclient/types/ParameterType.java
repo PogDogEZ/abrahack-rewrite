@@ -21,7 +21,7 @@ public class ParameterType extends Type<TaskRegistry.Parameter> {
         List<Object> values = new ArrayList<>();
 
         try {
-            Type<Object> type = (Type<Object>)Registry.knownTypes.get(paramDescription.getDataType().getClazz()).newInstance();
+            Type<Object> type = (Type<Object>)Registry.KNOWN_TYPES.get(paramDescription.getDataType().getClazz()).newInstance();
 
             switch (paramDescription.getInputType()) {
                 case SINGULAR: {
@@ -29,14 +29,14 @@ public class ParameterType extends Type<TaskRegistry.Parameter> {
                     break;
                 }
                 case ARRAY: {
-                    int valuesToRead = Registry.INT.read(inputStream);
+                    int valuesToRead = Registry.INTEGER.read(inputStream);
                     for (int index = 0; index < valuesToRead; ++index) values.add(type.read(inputStream));
                     break;
                 }
             }
         } catch (InstantiationException | IllegalAccessException error) {
-            YesCom.getInstance().logger.warn("Couldn't deserialize parameter:");
-            YesCom.getInstance().logger.error(error.toString());
+            YesCom.getInstance().logger.warning("Couldn't deserialize parameter:");
+            YesCom.getInstance().logger.throwing(ParameterType.class.getName(), "read", error);
         }
 
         return new TaskRegistry.Parameter(paramDescription, values);
@@ -50,7 +50,7 @@ public class ParameterType extends Type<TaskRegistry.Parameter> {
         YCRegistry.PARAM_DESCRIPTION.write(paramDescription, outputStream);
 
         try {
-            Type<Object> type = (Type<Object>)Registry.knownTypes.get(paramDescription.getDataType().getClazz()).newInstance();
+            Type<Object> type = (Type<Object>)Registry.KNOWN_TYPES.get(paramDescription.getDataType().getClazz()).newInstance();
 
             switch (paramDescription.getInputType()) {
                 case SINGULAR: {
@@ -60,14 +60,14 @@ public class ParameterType extends Type<TaskRegistry.Parameter> {
                 case ARRAY: {
                     List<Object> paramValues = value.getValues();
 
-                    Registry.INT.write(paramValues.size(), outputStream);
+                    Registry.INTEGER.write(paramValues.size(), outputStream);
                     for (Object paramValue : paramValues) type.write(paramValue, outputStream);
                     break;
                 }
             }
         } catch (InstantiationException | IllegalAccessException error) {
-            YesCom.getInstance().logger.warn("Couldn't serialize parameter:");
-            YesCom.getInstance().logger.error(error.toString());
+            YesCom.getInstance().logger.warning("Couldn't serialize parameter:");
+            YesCom.getInstance().logger.throwing(ParameterType.class.getName(), "write", error);
         }
     }
 }

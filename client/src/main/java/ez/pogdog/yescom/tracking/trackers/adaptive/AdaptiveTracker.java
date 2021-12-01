@@ -130,7 +130,7 @@ public class AdaptiveTracker implements ITracker {
                             lastOffsetX = averageX;
                             lastOffsetZ = averageZ;
 
-                            yesCom.logger.debug(String.format("%s, curr: %.1f, avg: %.1f / %.1f.", trackedPlayer, currentHealth,
+                            yesCom.logger.finer(String.format("%s, curr: %.1f, avg: %.1f / %.1f.", trackedPlayer, currentHealth,
                                     earlyAverage, lateAverage));
                         }
                     }
@@ -153,8 +153,8 @@ public class AdaptiveTracker implements ITracker {
     }
 
     @Override
-    public TrackedPlayer getTrackedPlayer() {
-        return trackedPlayer;
+    public List<TrackedPlayer> getTrackedPlayers() {
+        return Collections.singletonList(trackedPlayer);
     }
 
     @Override

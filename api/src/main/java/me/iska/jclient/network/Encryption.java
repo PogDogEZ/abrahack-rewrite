@@ -1,7 +1,5 @@
 package me.iska.jclient.network;
 
-import me.iska.jclient.network.enums.EncryptionType;
-
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;

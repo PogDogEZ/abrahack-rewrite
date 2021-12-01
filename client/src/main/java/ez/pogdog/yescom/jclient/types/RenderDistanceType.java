@@ -15,7 +15,7 @@ public class RenderDistanceType extends Type<RenderDistance> {
 
     @Override
     public RenderDistance read(InputStream inputStream) throws IOException {
-        BigInteger renderDistanceID = Registry.VARINT.read(inputStream);
+        BigInteger renderDistanceID = Registry.VAR_INTEGER.read(inputStream);
         ChunkPosition centerPosition = YCRegistry.CHUNK_POSITION.read(inputStream);
         int renderDistance = Registry.UNSIGNED_SHORT.read(inputStream);
         float errorX = Registry.FLOAT.read(inputStream);
@@ -26,7 +26,7 @@ public class RenderDistanceType extends Type<RenderDistance> {
 
     @Override
     public void write(RenderDistance value, OutputStream outputStream) throws IOException {
-        Registry.VARINT.write(value.getID(), outputStream);
+        Registry.VAR_INTEGER.write(value.getID(), outputStream);
         YCRegistry.CHUNK_POSITION.write(value.getCenterPosition(), outputStream);
         Registry.UNSIGNED_SHORT.write(value.getRenderDistance(), outputStream);
         Registry.FLOAT.write(value.getErrorX(), outputStream);

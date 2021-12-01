@@ -7,7 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-@Packet.Info(name="encryption_response", id=2, side=Packet.Side.SERVER)
+@Packet.Info(name="encryption_response", id=2, side= Packet.Side.SERVER)
 public class EncryptionResponsePacket extends Packet {
 
     private byte[] bPeerPublicKey;

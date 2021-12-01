@@ -8,8 +8,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.math.BigInteger;
 
-@Packet.Info(name="encryption_request", id=1, side=Packet.Side.CLIENT)
-public class EncryptionRequestPacket extends Packet { // TODO: StartEncryptionPacket
+@Packet.Info(name="encryption_request", id=1, side= Packet.Side.CLIENT)
+public class EncryptionRequestPacket extends Packet {
 
     private byte[] aPeerPublicKey;
     private int keySize;
@@ -23,20 +23,24 @@ public class EncryptionRequestPacket extends Packet { // TODO: StartEncryptionPa
         this.paramP = paramP;
     }
 
+    public EncryptionRequestPacket() {
+        this(new byte[0], 0, BigInteger.ZERO, BigInteger.ZERO);
+    }
+
     @Override
     public void read(InputStream inputStream) throws IOException {
         aPeerPublicKey = Registry.BYTES.read(inputStream);
         keySize = Registry.UNSIGNED_SHORT.read(inputStream);
-        paramG = Registry.VARINT.read(inputStream);
-        paramP = Registry.VARINT.read(inputStream);
+        paramG = Registry.VAR_INTEGER.read(inputStream);
+        paramP = Registry.VAR_INTEGER.read(inputStream);
     }
 
     @Override
     public void write(OutputStream outputStream) throws IOException {
         Registry.BYTES.write(aPeerPublicKey, outputStream);
         Registry.UNSIGNED_SHORT.write(keySize, outputStream);
-        Registry.VARINT.write(paramG, outputStream);
-        Registry.VARINT.write(paramP, outputStream);
+        Registry.VAR_INTEGER.write(paramG, outputStream);
+        Registry.VAR_INTEGER.write(paramP, outputStream);
     }
 
     public byte[] getAPeerPublicKey() {

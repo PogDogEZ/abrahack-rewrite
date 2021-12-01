@@ -12,5 +12,7 @@
 /viewer/.idea/
 
 /server/.idea/
-/server/trusted_handlers/
-/server/config.json
+/server/.gradle/
+/server/build/
+/server/jserver/build
+/server/plugins/

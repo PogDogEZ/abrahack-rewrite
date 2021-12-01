@@ -12,7 +12,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-@Packet.Info(name="info_update", id=YCRegistry.ID_OFFSET + 15, side=Packet.Side.CLIENT)
+/**
+ * Notifies the client about certain information.
+ */
+@Packet.Info(name="info_update", id=YCRegistry.ID_OFFSET + 9, side=Packet.Side.BOTH)
 public class InfoUpdatePacket extends Packet {
 
     private int waitingQueries;
@@ -20,28 +23,31 @@ public class InfoUpdatePacket extends Packet {
     private float queriesPerSecond;
     private boolean isConnected;
     private float tickRate;
+    private float serverPing;
     private int timeSinceLastPacket;
 
     public InfoUpdatePacket(int waitingQueries, int tickingQueries, float queriesPerSecond, boolean isConnected, float tickRate,
-                            int timeSinceLastPacket) {
+                            float serverPing, int timeSinceLastPacket) {
         this.waitingQueries = waitingQueries;
         this.tickingQueries = tickingQueries;
         this.queriesPerSecond = queriesPerSecond;
         this.isConnected = isConnected;
         this.tickRate = tickRate;
+        this.serverPing = serverPing;
         this.timeSinceLastPacket = timeSinceLastPacket;
     }
 
-    public InfoUpdatePacket(int waitingQueries, int tickingQueries, float queriesPerSecond, float tickRate, int timeSinceLastPacket) {
-        this(waitingQueries, tickingQueries, queriesPerSecond, true, tickRate, timeSinceLastPacket);
+    public InfoUpdatePacket(int waitingQueries, int tickingQueries, float queriesPerSecond, float tickRate, float serverPing,
+                            int timeSinceLastPacket) {
+        this(waitingQueries, tickingQueries, queriesPerSecond, true, tickRate, serverPing, timeSinceLastPacket);
     }
 
     public InfoUpdatePacket(int waitingQueries, int tickingQueries, float queriesPerSecond) {
-        this(waitingQueries, tickingQueries, queriesPerSecond, false, 20.0f, 0);
+        this(waitingQueries, tickingQueries, queriesPerSecond, false, 20.0f, 0.0f, 0);
     }
 
     public InfoUpdatePacket() {
-        this(0, 0, 0.0f, false, 20.0f, 0);
+        this(0, 0, 0.0f, false, 20.0f, 0.0f,0);
     }
 
     @Override
@@ -53,6 +59,7 @@ public class InfoUpdatePacket extends Packet {
 
         if (isConnected) {
             tickRate = Registry.FLOAT.read(inputStream);
+            serverPing = Registry.FLOAT.read(inputStream);
             timeSinceLastPacket = Registry.UNSIGNED_SHORT.read(inputStream);
         }
     }
@@ -66,10 +73,14 @@ public class InfoUpdatePacket extends Packet {
 
         if (isConnected) {
             Registry.FLOAT.write(tickRate, outputStream);
+            Registry.FLOAT.write(serverPing, outputStream);
             Registry.UNSIGNED_SHORT.write(timeSinceLastPacket, outputStream);
         }
     }
 
+    /**
+     * @return The number of queries waiting to be processed.
+     */
     public int getWaitingQueries() {
         return waitingQueries;
     }
@@ -78,6 +89,9 @@ public class InfoUpdatePacket extends Packet {
         this.waitingQueries = waitingQueries;
     }
 
+    /**
+     * @return The number of queries currently being processed / ticked.
+     */
     public int getTickingQueries() {
         return tickingQueries;
     }
@@ -86,6 +100,9 @@ public class InfoUpdatePacket extends Packet {
         this.tickingQueries = tickingQueries;
     }
 
+    /**
+     * @return The current QPS rate.
+     */
     public float getQueriesPerSecond() {
         return queriesPerSecond;
     }
@@ -94,6 +111,9 @@ public class InfoUpdatePacket extends Packet {
         this.queriesPerSecond = queriesPerSecond;
     }
 
+    /**
+     * @return Whether or not the client is connected to the Minecraft server.
+     */
     public boolean getIsConnected() {
         return isConnected;
     }
@@ -102,6 +122,9 @@ public class InfoUpdatePacket extends Packet {
         isConnected = connected;
     }
 
+    /**
+     * @return The Minecraft server's tickrate.
+     */
     public float getTickRate() {
         return tickRate;
     }
@@ -110,6 +133,20 @@ public class InfoUpdatePacket extends Packet {
         this.tickRate = tickRate;
     }
 
+    /**
+     * @return The ping to the Minecraft server, as measured by the server.
+     */
+    public float getServerPing() {
+        return serverPing;
+    }
+
+    public void setServerPing(float serverPing) {
+        this.serverPing = serverPing;
+    }
+
+    /**
+     * @return The time since the last packet was received from the Minecraft server.
+     */
     public int getTimeSinceLastPacket() {
         return timeSinceLastPacket;
     }

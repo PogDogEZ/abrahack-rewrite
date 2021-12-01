@@ -19,7 +19,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Packet.Info(name="task_action", id=YCRegistry.ID_OFFSET + 9, side=Packet.Side.BOTH)
+/**
+ * Sent by either party to perform an action on a task.
+ */
+@Packet.Info(name="task_action", id=YCRegistry.ID_OFFSET + 5, side=Packet.Side.BOTH)
 public class TaskActionPacket extends Packet {
 
     private Action action;
@@ -176,7 +179,7 @@ public class TaskActionPacket extends Packet {
                 taskID = Registry.UNSIGNED_SHORT.read(inputStream);
                 loadedChunkTask = Registry.BOOLEAN.read(inputStream);
                 progress = Registry.FLOAT.read(inputStream);
-                timeElapsed = Registry.INT.read(inputStream);
+                timeElapsed = Registry.INTEGER.read(inputStream);
 
                 if (loadedChunkTask) currentPosition = YCRegistry.CHUNK_POSITION.read(inputStream);
                 break;
@@ -220,7 +223,7 @@ public class TaskActionPacket extends Packet {
                 Registry.UNSIGNED_SHORT.write(taskID, outputStream);
                 Registry.BOOLEAN.write(loadedChunkTask, outputStream);
                 Registry.FLOAT.write(progress, outputStream);
-                Registry.INT.write(timeElapsed, outputStream);
+                Registry.INTEGER.write(timeElapsed, outputStream);
 
                 if (loadedChunkTask) YCRegistry.CHUNK_POSITION.write(currentPosition, outputStream);
                 break;

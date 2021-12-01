@@ -5,7 +5,7 @@ import ez.pogdog.yescom.data.*;
 import ez.pogdog.yescom.data.serializable.ChunkState;
 import ez.pogdog.yescom.data.serializable.RenderDistance;
 import ez.pogdog.yescom.data.serializable.TrackedPlayer;
-import ez.pogdog.yescom.jclient.packets.UpdateDataIDsPacket;
+import ez.pogdog.yescom.data.serializable.ChatMessage;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
 
@@ -18,7 +18,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 public class DataHandler implements IDataProvider, IHandler {
 
@@ -28,34 +27,31 @@ public class DataHandler implements IDataProvider, IHandler {
     private final Map<BigInteger, RenderDistance> renderDistances = new HashMap<>();
     private final Map<BigInteger, TrackedPlayer> trackedPlayers = new HashMap<>();
 
-    private final List<BigInteger> remoteChunkStates = new ArrayList<>();
-    private final List<BigInteger> remoteRenderDistances = new ArrayList<>();
-    private final List<BigInteger> remoteTrackedPlayers = new ArrayList<>();
+    private final Map<BigInteger, String> logData = new HashMap<>();
+    private final Map<BigInteger, ChatMessage> chatData = new HashMap<>();
 
-    private BigInteger minChunkStateID;
-    private BigInteger minRenderDistanceID;
-    private BigInteger minTrackedPlayerID;
+    private final List<Float> tickData = new ArrayList<>();
+    private final List<Float> pingData = new ArrayList<>();
+    private final List<Float> TSLPData = new ArrayList<>();
 
     private BigInteger chunkStateID;
     private BigInteger renderDistanceID;
     private BigInteger trackedPlayerID;
 
-    private BigInteger lastChunkStateID;
-    private BigInteger lastRenderDistanceID;
-    private BigInteger lastTrackedPlayerID;
+    private BigInteger logID;
+    private BigInteger chatID;
+
+    private long lastUpdate;
 
     public DataHandler() {
-        minChunkStateID = BigInteger.ZERO;
-        minRenderDistanceID = BigInteger.ZERO;
-        minTrackedPlayerID = BigInteger.ZERO;
-
         chunkStateID = BigInteger.ZERO;
         renderDistanceID = BigInteger.ZERO;
         trackedPlayerID = BigInteger.ZERO;
 
-        lastChunkStateID = BigInteger.ZERO;
-        lastRenderDistanceID = BigInteger.ZERO;
-        lastTrackedPlayerID = BigInteger.ZERO;
+        logID = BigInteger.ZERO;
+        chatID = BigInteger.ZERO;
+
+        lastUpdate = System.currentTimeMillis();
 
         createDirectories();
     }
@@ -89,53 +85,24 @@ public class DataHandler implements IDataProvider, IHandler {
 
     @Override
     public void onTick() {
-        if (yesCom.handler != null) {
-            if (!chunkStateID.equals(lastChunkStateID)) {
-                yesCom.handler.onUpdateDataIDs(UpdateDataIDsPacket.DataType.CHUNK_STATE, minChunkStateID, chunkStateID);
-                lastChunkStateID = chunkStateID;
-            }
+        /*
+        while (!yesCom.logger.messages.isEmpty()) {
+            Message message = yesCom.logger.messages.remove(0);
+            newLogMessage(String.format("[%s] %s", message.getLevel().name(), message.getText()));
+        }
+         */
 
-            if (!renderDistanceID.equals(lastRenderDistanceID)) {
-                yesCom.handler.onUpdateDataIDs(UpdateDataIDsPacket.DataType.RENDER_DISTANCE, minRenderDistanceID, renderDistanceID);
-                lastRenderDistanceID = renderDistanceID;
-            }
+        if (System.currentTimeMillis() - lastUpdate > yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL) {
+            lastUpdate = System.currentTimeMillis();
 
-            if (!trackedPlayerID.equals(lastTrackedPlayerID)) {
-                yesCom.handler.onUpdateDataIDs(UpdateDataIDsPacket.DataType.TRACKED_PLAYER, minTrackedPlayerID, trackedPlayerID);
-                lastTrackedPlayerID = trackedPlayerID;
-            }
-
-            if (!remoteChunkStates.isEmpty()) {
-                yesCom.handler.requestChunkStatesDownload(remoteChunkStates, this::onChunkStates);
-                remoteChunkStates.clear();
-            }
-
-            if (!remoteRenderDistances.isEmpty()) {
-                yesCom.handler.requestRenderDistancesDownload(remoteRenderDistances, this::onRenderDistances);
-                remoteRenderDistances.clear();
-            }
-
-            if (!remoteTrackedPlayers.isEmpty()) {
-                yesCom.handler.requestTrackedPlayersDownload(remoteTrackedPlayers, this::onTrackedPlayers);
-                remoteTrackedPlayers.clear();
-            }
+            tickData.add(yesCom.connectionHandler.getMeanTickRate());
+            pingData.add(yesCom.connectionHandler.getMeanServerPing());
+            TSLPData.add((float)yesCom.connectionHandler.getTimeSinceLastPacket());
         }
     }
 
     @Override
     public void onExit() {
-    }
-
-    private void onChunkStates(boolean valid, Map<Integer, byte[]> dataParts) {
-
-    }
-
-    private void onRenderDistances(boolean valid, Map<Integer, byte[]> dataParts) {
-
-    }
-
-    private void onTrackedPlayers(boolean valid, Map<Integer, byte[]> dataParts) {
-
     }
 
     /* ------------------------ New Data Objects ------------------------ */
@@ -146,6 +113,7 @@ public class DataHandler implements IDataProvider, IHandler {
 
         chunkStateID = chunkStateID.add(BigInteger.ONE);
 
+        if (yesCom.ycHandler != null) yesCom.ycHandler.onChunkState(chunkState); // FIXME: Is there a better place for this stuff?
         return chunkState;
     }
 
@@ -168,16 +136,41 @@ public class DataHandler implements IDataProvider, IHandler {
         return trackedPlayer;
     }
 
-    /* ------------------------ Loaded Chunk Stuff ------------------------ */
-
-    public void onLoaded(ChunkPosition chunkPosition, Dimension dimension) {
-        if (yesCom.handler != null)
-            yesCom.handler.onChunkState(newChunkState(ChunkState.State.LOADED, chunkPosition, dimension, System.currentTimeMillis()));
+    /**
+     * Adds a new log entry.
+     * @param message The log message.
+     */
+    public synchronized void newLogMessage(String message) { // FIXME: Better format for log messages
+        logData.put(logID, message);
+        logID = logID.add(BigInteger.ONE);
     }
 
-    public void onUnloaded(ChunkPosition chunkPosition, Dimension dimension) {
-        if (yesCom.handler != null)
-            yesCom.handler.onChunkState(newChunkState(ChunkState.State.UNLOADED, chunkPosition, dimension, System.currentTimeMillis()));
+    /**
+     * Adds a new chat message.
+     * @param username The username of the account that received the chat message.
+     * @param message The chat message.
+     * @return The serializable chat message.
+     */
+    public synchronized ChatMessage newChatMessage(String username, String message, long timestamp) {
+        ChatMessage chatMessage = new ChatMessage(chatID, username, message, timestamp);
+
+        chatData.put(chatID, chatMessage);
+        chatID = chatID.add(BigInteger.ONE);
+
+        if (yesCom.ycHandler != null) yesCom.ycHandler.onChatMessage(chatMessage);
+        return chatMessage;
+    }
+
+    public List<Float> getTickData(long startTime, long endTime) { // FIXME: Fix all numeric data
+        return new ArrayList<>(); // return tickData.subList(Math.max(0, tickData.size() - (int)(System.currentTimeMillis() - startTime) / yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL), tickData.size());
+    }
+
+    public List<Float> getPingData(long startTime, long endTime) {
+        return new ArrayList<>(); // return pingData.subList(Math.max(0, pingData.size() - (int)(System.currentTimeMillis() - startTime) / yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL), pingData.size());
+    }
+
+    public List<Float> getTSLPData(long startTime, long endTime) {
+        return new ArrayList<>(); // return TSLPData.subList(Math.max(0, TSLPData.size() - (int)(System.currentTimeMillis() - startTime) / yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL), TSLPData.size());
     }
 
     /* ------------------------ Lookup ------------------------ */
@@ -188,7 +181,7 @@ public class DataHandler implements IDataProvider, IHandler {
      * @return Whether it is locally stored.
      */
     public boolean hasLocalChunkState(BigInteger chunkStateID) {
-        return chunkStateID.compareTo(minChunkStateID) > 0 && chunkStateID.compareTo(this.chunkStateID) <= 0;
+        return chunkStateID.compareTo(this.chunkStateID) <= 0; // FIXME: Yeah
     }
 
     public ChunkState getLocalChunkState(BigInteger chunkStateID) {
@@ -199,17 +192,13 @@ public class DataHandler implements IDataProvider, IHandler {
         }
     }
 
-    public void getRemoteChunkState(BigInteger chunkStateID, Consumer<ChunkState> callBack) {
-
-    }
-
     /**
      * Whether this client has the given render distance locally stored.
      * @param renderDistanceID The render distance ID.
      * @return Whether it is locally stored.
      */
     public boolean hasLocalRenderDistance(BigInteger renderDistanceID) {
-        return renderDistanceID.compareTo(minRenderDistanceID) > 0 && renderDistanceID.compareTo(this.renderDistanceID) <= 0;
+        return renderDistanceID.compareTo(this.renderDistanceID) <= 0;
     }
 
     public RenderDistance getLocalRenderDistance(BigInteger renderDistanceID) {
@@ -220,17 +209,13 @@ public class DataHandler implements IDataProvider, IHandler {
         }
     }
 
-    public void getRemoteRenderDistance(BigInteger renderDistanceID, Consumer<RenderDistance> callBack) {
-
-    }
-
     /**
      * Whether this client has the given tracked player locally stored.
      * @param trackedPlayerID The tracked player ID.
      * @return Whether it is locally stored.
      */
     public boolean hasLocalTrackedPlayer(BigInteger trackedPlayerID) {
-        return trackedPlayerID.compareTo(minTrackedPlayerID) > 0 && trackedPlayerID.compareTo(this.trackedPlayerID) <= 0;
+        return trackedPlayerID.compareTo(this.trackedPlayerID) <= 0;
     }
 
     public TrackedPlayer getLocalTrackedPlayer(BigInteger trackedPlayerID) {
@@ -241,8 +226,28 @@ public class DataHandler implements IDataProvider, IHandler {
         }
     }
 
-    public void getRemoteTrackedPlayer(BigInteger trackedPlayerID, Consumer<TrackedPlayer> callBack) {
+    public boolean hasLogMessage(BigInteger logID) {
+        return logID.compareTo(this.logID) <= 0;
+    }
 
+    public String getLogMessage(BigInteger logID) {
+        if (!logData.containsKey(logID)) {
+            return null;
+        } else {
+            return logData.get(logID);
+        }
+    }
+
+    public boolean hasChatMessage(BigInteger chatID) {
+        return chatID.compareTo(this.chatID) <= 0;
+    }
+
+    public ChatMessage getChatMessage(BigInteger chatID) {
+        if (!chatData.containsKey(chatID)) {
+            return null;
+        } else {
+            return chatData.get(chatID);
+        }
     }
 
     /* ------------------------ Uncompressed Saving & Private Methods ------------------------ */

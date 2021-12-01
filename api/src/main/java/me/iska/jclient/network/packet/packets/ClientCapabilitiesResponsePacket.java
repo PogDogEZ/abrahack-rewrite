@@ -7,7 +7,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-@Packet.Info(name="client_capabilities_response", id=4, side=Packet.Side.SERVER)
+/**
+ * Sent by the server to indicate whether or not it supports the client's capabilities.
+ */
+@Packet.Info(name="client_capabilities_response", id=4, side= Packet.Side.SERVER)
 public class ClientCapabilitiesResponsePacket extends Packet {
 
     private boolean rejected;
@@ -32,5 +35,9 @@ public class ClientCapabilitiesResponsePacket extends Packet {
 
     public boolean isRejected() {
         return rejected;
+    }
+
+    public void setRejected(boolean rejected) {
+        this.rejected = rejected;
     }
 }

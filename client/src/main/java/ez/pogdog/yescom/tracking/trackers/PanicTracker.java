@@ -9,6 +9,9 @@ import ez.pogdog.yescom.tracking.resolvers.DimChangeResolver;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
 
+import java.util.Collections;
+import java.util.List;
+
 public class PanicTracker implements ITracker {
 
     private final YesCom yesCom = YesCom.getInstance();
@@ -76,8 +79,8 @@ public class PanicTracker implements ITracker {
     }
 
     @Override
-    public TrackedPlayer getTrackedPlayer() {
-        return trackedPlayer;
+    public List<TrackedPlayer> getTrackedPlayers() {
+        return Collections.singletonList(trackedPlayer);
     }
 
     @Override

@@ -12,7 +12,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-@Packet.Info(name="task_sync", id=YCRegistry.ID_OFFSET + 8, side=Packet.Side.CLIENT)
+@Packet.Info(name="task_sync", id=YCRegistry.ID_OFFSET + 13, side=Packet.Side.CLIENT)
 public class TaskSyncPacket extends Packet {
 
     private final List<TaskRegistry.RegisteredTask> registeredTasks = new ArrayList<>();
@@ -22,7 +22,7 @@ public class TaskSyncPacket extends Packet {
     }
 
     public TaskSyncPacket() {
-        this(TaskRegistry.registeredTasks);
+        this(new ArrayList<>());
     }
 
     @Override
@@ -34,7 +34,7 @@ public class TaskSyncPacket extends Packet {
             Registry.STRING.read(inputStream);
 
             int paramsToRead = Registry.UNSIGNED_SHORT.read(inputStream);
-            for (int pIndex = 0; pIndex < paramsToRead; ++pIndex) YCRegistry.PARAM_DESCRIPTION.read(inputStream);
+            for (int index1 = 0; index1 < paramsToRead; ++index1) YCRegistry.PARAM_DESCRIPTION.read(inputStream);
         }
     }
 

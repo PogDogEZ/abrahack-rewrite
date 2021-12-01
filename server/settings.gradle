@@ -1,0 +1,5 @@
+rootProject.name = "server"
+
+include ":api", ":jserver"
+project(":api").projectDir = new File("../api")
+project(":jserver").projectDir = new File("./jserver")

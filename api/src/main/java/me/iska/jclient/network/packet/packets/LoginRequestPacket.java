@@ -1,6 +1,5 @@
 package me.iska.jclient.network.packet.packets;
 
-import me.iska.jclient.impl.user.User;
 import me.iska.jclient.network.packet.Packet;
 import me.iska.jclient.network.packet.Registry;
 
@@ -8,39 +7,61 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-@Packet.Info(name="login_request", id=5, side=Packet.Side.CLIENT)
+/**
+ * Sent by the client when attempting to login to the server.
+ */
+@Packet.Info(name="login_request", id=5, side= Packet.Side.CLIENT)
 public class LoginRequestPacket extends Packet {
 
-    private User user;
+    private String username;
+    private String groupName;
     private String password;
 
-    public LoginRequestPacket(User user, String pasword) {
-        this.user = user;
-        this.password = pasword;
+    public LoginRequestPacket(String username, String groupName, String password) {
+        this.username = username;
+        this.groupName = groupName;
+        this.password = password;
     }
 
     public LoginRequestPacket() {
-        this(null, "");
+        this("", "", "");
     }
 
     @Override
     public void read(InputStream inputStream) throws IOException {
-        if (Registry.BOOLEAN.read(inputStream)) {
-            user = Registry.USER.read(inputStream);
-        } else {
-            user = null;
-        }
+        username = Registry.STRING.read(inputStream);
         password = Registry.STRING.read(inputStream);
+        groupName = Registry.STRING.read(inputStream);
     }
 
     @Override
     public void write(OutputStream outputStream) throws IOException {
-        if (user == null) {
-            Registry.BOOLEAN.write(false, outputStream);
-        } else {
-            Registry.BOOLEAN.write(true, outputStream);
-            Registry.USER.write(user, outputStream);
-        }
+        Registry.STRING.write(username, outputStream);
         Registry.STRING.write(password, outputStream);
+        Registry.STRING.write(groupName, outputStream);
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public String getGroupName() {
+        return groupName;
+    }
+
+    public void setGroupName(String groupName) {
+        this.groupName = groupName;
     }
 }

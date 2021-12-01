@@ -6,6 +6,7 @@ import com.github.steveice10.mc.protocol.packet.ingame.client.player.ClientPlaye
 import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerBlockChangePacket;
 import com.github.steveice10.packetlib.packet.Packet;
 import ez.pogdog.yescom.YesCom;
+import ez.pogdog.yescom.data.serializable.ChunkState;
 import ez.pogdog.yescom.handlers.connection.Player;
 import ez.pogdog.yescom.util.BlockPosition;
 import ez.pogdog.yescom.util.ChunkPosition;
@@ -188,22 +189,19 @@ public class IsLoadedQuery implements IQuery {
     private void onFinished() {
         player.removePacketListener(listenerID);
 
-        if (result == Result.LOADED) {
-            yesCom.dataHandler.onLoaded(getChunkPosition(), dimension);
-        } else {
-            yesCom.dataHandler.onUnloaded(getChunkPosition(), dimension);
-        }
+        yesCom.dataHandler.newChunkState(result == Result.LOADED ? ChunkState.State.LOADED : ChunkState.State.UNLOADED,
+                getChunkPosition(), dimension, System.currentTimeMillis());
     }
 
     /* ------------------------ Public Methods ------------------------ */
 
     public void reschedule() {
-        yesCom.logger.debug(String.format("Rescheduling query %s.", this));
+        yesCom.logger.finest(String.format("Rescheduling query %s.", this));
         rescheduled = true;
     }
 
     public void cancel() {
-        yesCom.logger.debug(String.format("Cancelling query %s.", this));
+        yesCom.logger.finest(String.format("Cancelling query %s.", this));
         cancelled = true;
     }
 

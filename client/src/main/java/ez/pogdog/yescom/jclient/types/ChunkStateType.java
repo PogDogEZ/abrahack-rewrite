@@ -19,7 +19,7 @@ public class ChunkStateType extends Type<ChunkState> {
 
     @Override
     public ChunkState read(InputStream inputStream) throws IOException {
-        BigInteger chunkStateID = Registry.VARINT.read(inputStream);
+        BigInteger chunkStateID = Registry.VAR_INTEGER.read(inputStream);
         ChunkState.State state = STATE.read(inputStream);
         ChunkPosition chunkPosition = YCRegistry.CHUNK_POSITION.read(inputStream);
         Dimension dimension = Dimension.fromMC(Registry.SHORT.read(inputStream));
@@ -30,7 +30,7 @@ public class ChunkStateType extends Type<ChunkState> {
 
     @Override
     public void write(ChunkState value, OutputStream outputStream) throws IOException {
-        Registry.VARINT.write(value.getID(), outputStream);
+        Registry.VAR_INTEGER.write(value.getID(), outputStream);
         STATE.write(value.getState(), outputStream);
         YCRegistry.CHUNK_POSITION.write(value.getChunkPosition(), outputStream);
         Registry.SHORT.write((short)value.getDimension().getMCDim(), outputStream);

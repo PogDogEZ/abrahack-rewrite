@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
+
 from typing import List
 
 import cv2
 import numpy as np
-from numba import jit
-from numba.experimental import jitclass
 
 import viewer.gui.renderer.layers as layers
-
 from viewer.config import Config
 
 
@@ -77,4 +75,3 @@ class Renderer:
             image = layer.draw(image)
 
         return image
-

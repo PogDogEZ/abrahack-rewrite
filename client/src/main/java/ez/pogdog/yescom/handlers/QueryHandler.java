@@ -99,9 +99,11 @@ public class QueryHandler implements IHandler {
 
         while (finished.size() > yesCom.configHandler.MAX_FINISHED_CACHE) finished.removeFirst();
 
+        /*
         yesCom.logger.infoDisappearing(String.format("wait/tick: %d/%d, tslp: %dms.",
                 yesCom.queryHandler.getWaitingSize(), yesCom.queryHandler.getTickingSize(),
                 yesCom.connectionHandler.getTimeSinceLastPacket()));
+         */
     }
 
     @Override

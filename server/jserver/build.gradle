@@ -1,0 +1,26 @@
+apply plugin: "java"
+apply plugin: "idea"
+
+group = "me.iska.jserver"
+version = "1.0"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+}
+
+jar {
+    // noinspection GroovyAssignabilityCheck
+    manifest {
+        attributes ("Main-Class": "me.iska.jserver.Main")
+    }
+
+    from configurations.compile.collect {
+        it.isDirectory() ? it : zipTree(it)
+    }
+
+    baseName = "jserver"
+    version = "${version}"
+}

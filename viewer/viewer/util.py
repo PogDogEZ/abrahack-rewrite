@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
-import operator
+
 import typing
-from typing import List, Tuple, Dict, ValuesView, KeysView
+from typing import List, Dict, Tuple
 from uuid import UUID
 
 import viewer.network.types as network_types
-from pclient.networking.types import Enum, Type
-from pclient.networking.types.basic import Short, String, Integer, Float, Boolean
+from pyclient.networking.types import Enum, Type
+from pyclient.networking.types.basic import Short, String, Integer, Float, Boolean
 
 
 class DataType(Enum):
+    """
+    Enum for the data types.
+    """
+
     POSITION = 0
     ANGLE = 1
     CHUNK_POSITION = 2
@@ -22,33 +26,51 @@ class DataType(Enum):
 
     @classmethod
     def value_to_serializable(cls, value) -> typing.Type[Type]:
+        """
+        Returns the serializable type for the given value.
+
+        :param value: The enum value.
+        :return: The serializable type.
+        """
         return (network_types.PositionSpec, network_types.AngleSpec, network_types.ChunkPositionSpec, Short, Priority,
                 String, Integer, Float, Boolean)[value]
 
     @classmethod
     def value_to_type(cls, value) -> type:
+        """
+        Returns the type for the given value.
+
+        :param value: The enum value.
+        :return: The python type.
+        """
         return (Position, Angle, ChunkPosition, int, Priority, str, int, float, bool)[value]
 
     @classmethod
     def type_to_value(cls, data_type: type):  # -> DataType:
+        """
+        Returns the enum value for the given python type.
+
+        :param data_type: The python type.
+        :return: The enum value.
+        """
         return (Position, Angle, ChunkPosition, int, Priority, str, int, float, bool).index(data_type)
 
 
 class Dimension(Enum):
+    """
+    Intermediary dimension enum, for client compatibility.
+    """
+
     NETHER = 0
     OVERWORLD = 1
     END = 2
 
-    @classmethod
-    def value_to_mc(cls, value) -> int:
-        return value - 1  # Lol this is so lazy
-
-    @classmethod
-    def mc_to_value(cls, mc: int):  # -> Dimension:
-        return mc + 1
-
 
 class Priority(Enum):
+    """
+    Task priorities.
+    """
+
     LOW = 0
     MEDIUM = 1
     HIGH = 2
@@ -56,13 +78,24 @@ class Priority(Enum):
 
 
 class ChunkPosition:
+    """
+    A chunk position, duh.
+    """
 
     @property
     def x(self) -> int:
+        """
+        :return: The X chunk ordinate.
+        """
+
         return self._position[0]
 
     @property
     def z(self) -> int:
+        """
+        :return: The Z chunk ordinate.
+        """
+
         return self._position[1]
 
     def __init__(self, x: int, z: int) -> None:
@@ -71,19 +104,11 @@ class ChunkPosition:
     def __repr__(self) -> str:
         return "ChunkPosition(x=%i, z=%i)" % self._position
 
-    def __eq__(self, other) -> bool:
-        if isinstance(other, tuple):
-            return other == self._position
-        elif isinstance(other, ChunkPosition):
-            return other._position == self._position
-        else:
-            return False
-
-    def __hash__(self) -> int:
-        return self._position.__hash__()
-
 
 class Position:
+    """
+    A position, not a block position.
+    """
 
     @property
     def x(self) -> float:
@@ -105,6 +130,9 @@ class Position:
 
 
 class Angle:
+    """
+    An angle.
+    """
 
     @property
     def yaw(self) -> float:
@@ -122,15 +150,49 @@ class Angle:
         return "Angle(yaw=%.1f, pitch=%.1f)" % (self._yaw, self._pitch)
 
 
-class Player:
+class ChatMessage:
+    """
+    A chat message, the username is the username of the account that received the chat message.
+    """
+
+    @property
+    def chat_message_id(self) -> int:
+        return self._chat_message_id
 
     @property
     def username(self) -> str:
         return self._username
 
-    @username.setter
-    def username(self, username: str) -> None:
+    @property
+    def message(self) -> str:
+        return self._message
+
+    @property
+    def timestamp(self) -> int:
+        return self._timestamp
+
+    def __init__(self, chat_message_id: int, username: str, message: str, timestamp: int) -> None:
+        self._chat_message_id = chat_message_id
         self._username = username
+        self._message = message
+        self._timestamp = timestamp
+
+    def __repr__(self) -> str:
+        return "ChatMessage(username=%s, message=%r)" % (self._username, self._message)
+
+
+class Player:
+    """
+    Intermediary player class, for client compatibility.
+    """
+
+    @property
+    def username(self) -> str:
+        """
+        :return: The "username" (honestly I'm not even sure what this is lol, I think it's the UUID).
+        """
+
+        return self._username
 
     @property
     def uuid(self) -> UUID:
@@ -138,6 +200,10 @@ class Player:
 
     @property
     def display_name(self) -> str:
+        """
+        :return: The in-game display name.
+        """
+
         return self._display_name
 
     def __init__(self, username: str) -> None:
@@ -167,7 +233,56 @@ class Player:
             self._display_name = display_name
 
 
+class ConfigRule:
+    """
+    A config rule.
+    """
+
+    @property
+    def name(self) -> str:
+        """
+        :return: The name of the rule.
+        """
+
+        return self._name
+
+    @property
+    def data_type(self) -> DataType:
+        return self._data_type
+
+    @property
+    def enum_values(self) -> List[str]:
+        """
+        :return: The enum constant values, if this is an enum value.
+        """
+
+        return self._enum_values.copy() if self._enum_values is not None else []
+
+    @property
+    def enum_value(self) -> bool:
+        """
+        :return: A boolean indicating whether the value is an enum value or not.
+        """
+
+        return self._enum_value
+
+    def __init__(self, name: str, data_type: DataType = DataType.STRING, enum_values: List[str] = None) -> None:
+        self._name = name
+
+        self._data_type = data_type if enum_values is None else DataType.STRING
+        self._enum_values = enum_values.copy() if enum_values is not None else []
+
+        self._enum_value = enum_values is not None
+
+    def __repr__(self) -> str:
+        return "ConfigRule(name=%s, data_type=%s)" % (self._name, DataType.name_from_value(self._data_type))
+
+
 class RegisteredTask:
+    """
+    A representation of a registered task. This is a task that may not be currently active. It is used to indicate to
+    the client which tasks can be run, and what parameters they take.
+    """
 
     @property
     def name(self) -> str:
@@ -175,16 +290,27 @@ class RegisteredTask:
 
     @property
     def description(self) -> str:
+        """
+        :return: The general description for this task.
+        """
+
         return self._description
 
     @property
     def param_descriptions(self):  # -> List[ParamDescription]
+        """
+        :return: The parameter descriptions for this task.
+        """
+
         return self._param_descriptions.copy()
 
     def __init__(self, name: str, description: str, param_descriptions) -> None:
         self._name = name
         self._description = description
         self._param_descriptions = param_descriptions
+
+    def __repr__(self) -> str:
+        return "RegisteredTask(name=%s, description=%r)" % (self._name, self._description)
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, RegisteredTask):
@@ -193,6 +319,11 @@ class RegisteredTask:
             return other._name == self._name and other._description == self._description
 
     def get_param_description(self, param_name: str):  # -> ParamDescription
+        """
+        :param param_name: The name of the parameter to get the description for.
+        :return: The "parameter description".
+        """
+
         for param_description in self._param_descriptions:
             if param_description.name == param_name:
                 return param_description
@@ -200,6 +331,14 @@ class RegisteredTask:
         raise LookupError("Couldn't find param description by name %r." % param_name)
 
     def create_new(self, task_id: int, **kwargs):  # -> ActiveTask:
+        """
+        Creates a new active task based on this registered task.
+
+        :param task_id: The ID of the task.
+        :param kwargs: The parameters to pass to the task.
+        :return: The new active task.
+        """
+
         parameters = []
         for param_name in kwargs:
             try:
@@ -211,6 +350,9 @@ class RegisteredTask:
         return ActiveTask(self, task_id, parameters, 0, 0, [])
 
     class ParamDescription:
+        """
+        Terrible way of representing parameters for tasks, shut up.
+        """
 
         @property
         def name(self) -> str:
@@ -222,10 +364,18 @@ class RegisteredTask:
 
         @property
         def input_type(self):  # -> InputType:
+            """
+            :return: Whether this is a singular or array parameter type.
+            """
+
             return self._input_type
 
         @property
         def data_type(self) -> DataType:
+            """
+            :return: The data type of the parameter.
+            """
+
             return self._data_type
 
         def __init__(self, name: str, description: str, input_type, data_type) -> None:
@@ -245,25 +395,48 @@ class RegisteredTask:
 
 
 class ActiveTask:
+    """
+    An active task, this is a task that is currently running.
+    """
 
     @property
     def registered_task(self) -> RegisteredTask:
+        """
+        :return: The registered task representation of this.
+        """
+
         return self._registered_task
 
     @property
     def task_id(self) -> int:
+        """
+        :return: The assigned ID of this task.
+        """
+
         return self._task_id
 
     @property
     def parameters(self):  # -> List[Parameter]
+        """
+        :return: The parameters used to create this task.
+        """
+
         return self._parameters.copy()
 
     @property
     def loaded_chunk_task(self) -> bool:
+        """
+        :return: Whether this is a loaded chunk task.
+        """
+
         return self._loaded_chunk_task
 
     @property
     def progress(self) -> float:
+        """
+        :return: The completed progress of this task.
+        """
+
         return self._progress
 
     @property
@@ -272,10 +445,18 @@ class ActiveTask:
 
     @property
     def current_position(self) -> ChunkPosition:
+        """
+        :return: The current position of this task, this is only applicable to loaded chunk tasks.
+        """
+
         return self._current_position
 
     @property
     def results(self) -> List[str]:
+        """
+        :return: The results (string representations of them).
+        """
+
         return self._results.copy()
 
     def __init__(self, registered_task: RegisteredTask, task_id: int, parameters: List, progress: float,
@@ -297,15 +478,17 @@ class ActiveTask:
         else:
             return other._registered_task == self._registered_task and other._task_id == self._task_id
 
-    def get_parameter(self, name: str):  # -> ActiveTask.Parameter:
-        for parameter in self._parameters:
-            if parameter.param_description.name == name:
-                return parameter
-
-        raise LookupError("Parameter by name %r not found." % name)
-
     def update(self, loaded_chunk_task: bool, progress: float, time_elapsed: int,
                current_position: ChunkPosition) -> None:
+        """
+        Updates the progress of this task.
+
+        :param loaded_chunk_task: Whether this is a loaded chunk task.
+        :param progress: The completed progress of this task.
+        :param time_elapsed: The time elapsed since this task started.
+        :param current_position: The current position of this task, this is only applicable to loaded chunk tasks.
+        """
+
         self._loaded_chunk_task = loaded_chunk_task
         self._progress = progress
         self._time_elapsed = time_elapsed
@@ -320,6 +503,9 @@ class ActiveTask:
             self._results.remove(result)
 
     class Parameter:
+        """
+        A parameter used to create this task.
+        """
 
         @property
         def param_description(self) -> RegisteredTask.ParamDescription:
@@ -333,7 +519,7 @@ class ActiveTask:
         def values(self) -> List[object]:
             return self._values.copy()
 
-        def __init__(self, param_description: RegisteredTask.ParamDescription, *values: object) -> None:
+        def __init__(self, param_description: RegisteredTask.ParamDescription, *values: Tuple[object]) -> None:
             self._param_description = param_description
             self._values = list(values)
 
@@ -342,6 +528,9 @@ class ActiveTask:
 
 
 class ChunkState:
+    """
+    Stores information about the "state" of a chunk (if it's loaded or not).
+    """
 
     @property
     def chunk_state_id(self) -> int:
@@ -361,6 +550,10 @@ class ChunkState:
 
     @property
     def found_at(self) -> int:
+        """
+        :return: The time this chunk state was found.
+        """
+
         return self._found_at
 
     def __init__(self, chunk_state_id: int, state, chunk_position: ChunkPosition, dimension: int, found_at: int) -> None:
@@ -385,7 +578,11 @@ class ChunkState:
         LOADED = 0
         UNLOADED = 1
 
+
 class RenderDistance:
+    """
+    Stores information about the render distance of a player.
+    """
 
     @property
     def render_distance_id(self) -> int:
@@ -401,10 +598,18 @@ class RenderDistance:
 
     @property
     def error_x(self) -> float:
+        """
+        :return: The error in the x direction.
+        """
+
         return self._error_x
 
     @property
     def error_z(self) -> float:
+        """
+        :return: The error in the z direction.
+        """
+
         return self._error_z
 
     def __init__(self, render_distance_id: int, center_position: ChunkPosition, render_distance: int, error_x: float,
@@ -426,8 +631,11 @@ class RenderDistance:
 
 
 class TrackingData:
+    """
+    Stores previous render distances of a player, as well as the time they were found at.
+    """
 
-    def __init__(self, previous_render_distances: Dict[int, int]) -> None:
+    def __init__(self, previous_render_distances: Dict[int, int] = {}) -> None:
         self._previous_render_distances = previous_render_distances.copy()
 
     def get_render_distances(self) -> Dict[int, int]:
@@ -435,6 +643,9 @@ class TrackingData:
 
 
 class TrackedPlayer:
+    """
+    The representation of a tracked player.
+    """
 
     @property
     def tracked_player_id(self) -> int:
@@ -442,10 +653,18 @@ class TrackedPlayer:
 
     @property
     def tracking_data(self) -> TrackingData:
+        """
+        :return: The previous tracking data of this player.
+        """
+
         return self._tracking_data
 
     @property
     def render_distance(self) -> RenderDistance:
+        """
+        :return: The current render distance of this player.
+        """
+
         return self._render_distance
 
     @property
@@ -454,6 +673,10 @@ class TrackedPlayer:
 
     @property
     def logged_out(self) -> bool:
+        """
+        :return: Whether or not this player is logged out.
+        """
+
         return self._logged_out
 
     @property
@@ -481,15 +704,6 @@ class TrackedPlayer:
         else:
             return other._tracked_player_id == self._tracked_player_id
 
-    def get_best_possible_player(self) -> UUID:
-        if not self._possible_players:
-            return None
-        else:
-            return max(list(self._possible_players.items()), key=operator.itemgetter(1))[0]
-
-    def get_possible_player(self, uuid: UUID) -> int:
-        return self._possible_players.get(uuid, 0)
-
     def get_possible_players(self) -> Dict[UUID, int]:
         return self._possible_players.copy()
 
@@ -508,248 +722,42 @@ class TrackedPlayer:
 
 
 class Tracker:
+    """
+    A tracker, idk what to say.
+    """
 
     @property
-    def tracker_id(self) -> int:
+    def tracked_id(self) -> int:
         return self._tracker_id
 
-    @property
-    def tracked_player(self) -> TrackedPlayer:
-        return self._tracked_player
-
-    @tracked_player.setter
-    def tracked_player(self, tracked_player: TrackedPlayer) -> None:
-        self._tracked_player = tracked_player
-
-    def __init__(self, tracker_id: int, tracked_player: TrackedPlayer) -> None:
+    def __init__(self, tracker_id: int, tracked_player_ids: List[int]) -> None:
         self._tracker_id = tracker_id
-        self._tracked_player = tracked_player
+        self._tracked_player_ids = tracked_player_ids.copy()
 
     def __repr__(self) -> str:
-        return "Tracker(ID=%i, player=%r)" % (self._tracker_id, self._tracked_player)
+        return "Tracker(ID=%i)" % self._tracker_id
 
+    def add_tracked_player_id(self, tracked_player_id: int) -> None:
+        """
+        Adds a tracked player ID to this tracker.
 
-class Reporter:  # FIXME: Move this out of here
+        :param tracked_player_id: The ID of the tracked player.
+        """
 
-    @property
-    def handler_id(self) -> int:
-        return self._id
+        self._tracked_player_ids.append(tracked_player_id)
 
-    @property
-    def handler_name(self) -> str:
-        return self._name
+    def set_tracked_player_ids(self, tracked_player_ids: List[int]) -> None:
+        self._tracked_player_ids.clear()
+        self._tracked_player_ids.extend(tracked_player_ids)
 
-    @property
-    def registered_tasks(self) -> List[RegisteredTask]:
-        return self._registered_tasks.copy()
+    def remove_tracked_player_id(self, tracked_player_id: int) -> None:
+        """
+        Removes a tracked player ID from this tracker.
 
-    @property
-    def active_tasks(self) -> List[ActiveTask]:
-        return self._active_tasks.copy()
+        :param tracked_player_id: The ID of the tracked player.
+        """
 
-    @property
-    def players(self) -> List[Player]:
-        return self._players.copy()
+        self._tracked_player_ids.remove(tracked_player_id)
 
-    @property
-    def trackers(self) -> List[Tracker]:
-        return self._trackers.copy()
-
-    @property
-    def online_players(self) -> Dict[UUID, str]:
-        return self._online_players.copy()
-
-    @property
-    def waiting_queries(self) -> int:
-        return self._waiting_queries
-
-    @property
-    def ticking_queries(self) -> int:
-        return self._ticking_queries
-
-    @property
-    def queries_per_second(self) -> float:
-        return self._queries_per_second
-
-    @property
-    def is_connected(self) -> bool:
-        return self._is_connected
-
-    @property
-    def tick_rate(self) -> float:
-        return self._tick_rate
-
-    @property
-    def time_since_last_packet(self) -> int:
-        return self._time_since_last_packet
-
-    def __init__(self, handler_id: int, handler_name: str) -> None:
-        self._id = handler_id
-        self._name = handler_name
-
-        self._registered_tasks = []
-        self._active_tasks = []
-        self._players = []
-        self._trackers = []
-
-        self._dim_data = {
-            -1: {},
-            0: {},
-            1: {},
-        }
-
-        self._online_players = {}
-
-        self._waiting_queries = 0
-        self._ticking_queries = 0
-        self._queries_per_second = 0
-
-        self._is_connected = False
-        self._tick_rate = 20
-        self._time_since_last_packet = 0
-
-    def __repr__(self) -> str:
-        return "Reporter(name=%s, id=%i)" % (self._name, self._id)
-
-    # ------------------------------ Misc ------------------------------ #
-
-    def reset(self) -> None:
-        self._active_tasks.clear()
-        self._players.clear()
-        self._trackers.clear()
-        self._online_players.clear()
-
-        self._dim_data[-1].clear()
-        self._dim_data[0].clear()
-        self._dim_data[1].clear()
-
-        self._waiting_queries = 0
-        self._ticking_queries = 0
-        self._queries_per_second = 0
-
-        self._is_connected = False
-        self._tick_rate = 20
-        self._time_since_last_packet = 0
-
-    def update_info(self, waiting_queries: int, ticking_queries: int, queries_per_second: float, is_connected: bool,
-                    tick_rate: float = 20, time_since_last_packet: int = 0):
-        self._waiting_queries = waiting_queries
-        self._ticking_queries = ticking_queries
-        self._queries_per_second = queries_per_second
-        self._is_connected = is_connected
-        self._tick_rate = tick_rate
-        self._time_since_last_packet = time_since_last_packet
-
-    # ------------------------------ Registered tasks ------------------------------ #
-
-    def add_registered_task(self, registered_task: RegisteredTask) -> None:
-        if not registered_task in self._registered_tasks:
-            self._registered_tasks.append(registered_task)
-
-    def remove_registered_task(self, registered_task: RegisteredTask) -> None:
-        if registered_task in self._registered_tasks:
-            self._registered_tasks.remove(registered_task)
-
-    def get_registered_task(self, name: str) -> RegisteredTask:
-        for registered_task in self._registered_tasks:
-            if registered_task.name == name:
-                return registered_task
-
-        raise LookupError("Couldn't find registered task by name %r." % name)
-
-    # ------------------------------ Active tasks ------------------------------ #
-
-    def add_active_task(self, active_task: ActiveTask) -> None:
-        if not active_task in self._active_tasks:
-            self._active_tasks.append(active_task)
-
-    def remove_active_task(self, active_task: ActiveTask) -> None:
-        if active_task in self._active_tasks:
-            self._active_tasks.remove(active_task)
-
-    def get_active_task(self, task_id: int) -> ActiveTask:
-        for active_task in self._active_tasks:
-            if active_task.task_id == task_id:
-                return active_task
-
-        raise LookupError("Couldn't find active task by id %i." % task_id)
-
-    def get_active_tasks(self) -> List[ActiveTask]:
-        return self._active_tasks.copy()
-
-    # ------------------------------ Players ------------------------------ #
-
-    def add_player(self, player: Player) -> None:
-        if not player in self._players:
-            self._players.append(player)
-
-    def remove_player(self, player: Player) -> None:
-        if player in self._players:
-            self._players.remove(player)
-
-    def get_player(self, name: str) -> Player:
-        for player in self._players:
-            if player.username == name or player.display_name == name:
-                return player
-
-        raise LookupError("Couldn't find player by name %r." % name)
-
-    # ------------------------------ Chunk data ------------------------------ #
-
-    def update_chunk_states(self, chunk_states: List[ChunkState]) -> None:
-        for chunk_state in chunk_states:
-            self._dim_data[chunk_state.dimension][chunk_state.chunk_position] = chunk_state
-
-    def has_state(self, dimension: int, position: ChunkPosition) -> bool:
-        return position in self._dim_data[dimension][position]
-
-    def get_state(self, dimension: int, position: ChunkPosition) -> ChunkState:
-        return self._dim_data[dimension][position]
-
-    def get_states(self, dimension: int) -> List[ChunkState]:
-        return list(self._dim_data[dimension].values())
-
-    # ------------------------------ Tracked players ------------------------------ #
-
-    def add_tracker(self, tracker: Tracker) -> None:
-        if not tracker in self._trackers:
-            self._trackers.append(tracker)
-
-    def remove_tracker(self, tracker: Tracker) -> None:
-        if tracker in self._trackers:
-            self._trackers.remove(tracker)
-
-    def get_tracker(self, tracker_id: int) -> Tracker:
-        for tracker in self._trackers:
-            if tracker.tracker_id == tracker_id:
-                return tracker
-
-        raise LookupError("Couldn't find tracker by ID %i." % tracker_id)
-
-    def get_trackers(self) -> List[Tracker]:
-        return self._trackers.copy()
-
-    # ------------------------------ Online players ------------------------------ #
-
-    def put_online_player(self, uuid: UUID, display_name: str) -> None:
-        self._online_players[uuid] = display_name
-
-    def set_online_players(self, online_players: Dict[UUID, str]) -> None:
-        self._online_players.clear()
-        self._online_players.update(online_players)
-
-    def put_online_players(self, online_players: Dict[UUID, str]) -> None:
-        self._online_players.update(online_players)
-
-    def remove_online_player(self, uuid: UUID) -> None:
-        if uuid in self._online_players:
-            del self._online_players[uuid]
-
-    def get_online_player(self, uuid: UUID) -> str:
-        if not uuid in self._online_players:
-            raise LookupError("Couldn't find online player by uuid %r." % uuid)
-
-        return self._online_players[uuid]
-
-    def get_online_players(self) -> Dict[UUID, str]:
-        return self._online_players.copy()
+    def get_tracked_player_ids(self) -> List[int]:
+        return self._tracked_player_ids.copy()

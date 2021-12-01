@@ -21,39 +21,39 @@ public class YCRegistry {
     public static final AngleType ANGLE = new AngleType();
     public static final DimensionType DIMENSION = new DimensionType();
     public static final PriorityType PRIORITY = new PriorityType();
+    public static final ChatMessageType CHAT_MESSAGE = new ChatMessageType();
     public static final PlayerType PLAYER = new PlayerType();
+    public static final ConfigRuleType CONFIG_RULE = new ConfigRuleType();
     public static final ParamDescriptionType PARAM_DESCRIPTION = new ParamDescriptionType();
     public static final ParameterType PARAMETER = new ParameterType();
     public static final ChunkStateType CHUNK_STATE = new ChunkStateType();
     public static final RenderDistanceType RENDER_DISTANCE = new RenderDistanceType();
     public static final TrackedPlayerType TRACKED_PLAYER = new TrackedPlayerType();
+    public static final TrackingDataType TRACKING_DATA = new TrackingDataType();
     public static final TrackerType TRACKER = new TrackerType();
 
     public static void registerPackets() {
-        Registry.knownPackets.add(YCInitRequestPacket.class);
-        Registry.knownPackets.add(YCInitResponsePacket.class);
-        Registry.knownPackets.add(YCExtendedResponsePacket.class);
-        Registry.knownPackets.add(UpdateDataIDsPacket.class);
-        Registry.knownPackets.add(DataRequestPacket.class);
-        Registry.knownPackets.add(DataResponsePacket.class);
-        Registry.knownPackets.add(DataPartPacket.class);
-        Registry.knownPackets.add(ConfigActionPacket.class);
-        Registry.knownPackets.add(TaskSyncPacket.class);
-        Registry.knownPackets.add(TaskActionPacket.class);
-        Registry.knownPackets.add(AccountActionPacket.class);
-        Registry.knownPackets.add(AccountActionResponsePacket.class);
-        Registry.knownPackets.add(PlayerActionPacket.class);
-        Registry.knownPackets.add(ChunkStatesPacket.class);
-        Registry.knownPackets.add(TrackerActionPacket.class);
-        Registry.knownPackets.add(InfoUpdatePacket.class);
-        Registry.knownPackets.add(OnlinePlayersActionPacket.class);
+        Registry.KNOWN_PACKETS.add(YCInitRequestPacket.class);
+        Registry.KNOWN_PACKETS.add(YCInitResponsePacket.class);
+        Registry.KNOWN_PACKETS.add(YCExtendedResponsePacket.class);
+        Registry.KNOWN_PACKETS.add(DataExchangePacket.class);
+        Registry.KNOWN_PACKETS.add(ConfigActionPacket.class);
+        Registry.KNOWN_PACKETS.add(TaskActionPacket.class);
+        Registry.KNOWN_PACKETS.add(AccountActionPacket.class);
+        Registry.KNOWN_PACKETS.add(PlayerActionPacket.class);
+        Registry.KNOWN_PACKETS.add(TrackerActionPacket.class);
+        Registry.KNOWN_PACKETS.add(InfoUpdatePacket.class);
+        Registry.KNOWN_PACKETS.add(ActionRequestPacket.class);
+        Registry.KNOWN_PACKETS.add(ActionResponsePacket.class);
+        Registry.KNOWN_PACKETS.add(ConfigSyncPacket.class);
+        Registry.KNOWN_PACKETS.add(TaskSyncPacket.class);
 
-        Registry.knownTypes.put(Dimension.class, DimensionType.class);
-        Registry.knownTypes.put(ChunkPosition.class, ChunkPositionType.class);
-        Registry.knownTypes.put(Position.class, PositionType.class);
-        Registry.knownTypes.put(Angle.class, AngleType.class);
-        Registry.knownTypes.put(IQuery.Priority.class, PriorityType.class);
-        Registry.knownTypes.put(Player.class, PlayerType.class);
-        Registry.knownTypes.put(TaskRegistry.ParamDescription.class, ParamDescriptionType.class);
+        Registry.KNOWN_TYPES.put(Dimension.class, DimensionType.class);
+        Registry.KNOWN_TYPES.put(ChunkPosition.class, ChunkPositionType.class);
+        Registry.KNOWN_TYPES.put(Position.class, PositionType.class);
+        Registry.KNOWN_TYPES.put(Angle.class, AngleType.class);
+        Registry.KNOWN_TYPES.put(IQuery.Priority.class, PriorityType.class);
+        Registry.KNOWN_TYPES.put(Player.class, PlayerType.class);
+        Registry.KNOWN_TYPES.put(TaskRegistry.ParamDescription.class, ParamDescriptionType.class);
     }
 }

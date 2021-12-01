@@ -1,7 +1,10 @@
 package ez.pogdog.yescom.handlers;
 
 import ez.pogdog.yescom.YesCom;
+import ez.pogdog.yescom.query.IQuery;
 import ez.pogdog.yescom.query.IsLoadedQuery;
+import ez.pogdog.yescom.task.TaskRegistry;
+import ez.pogdog.yescom.util.*;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -15,9 +18,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.lang.reflect.Field;
 import java.nio.file.Paths;
-import java.util.LinkedHashMap;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -53,6 +54,11 @@ public class ConfigHandler implements IHandler {
 
     public double QUERIES_PER_TICK = 1.0f;
     public int MAX_FINISHED_CACHE = 50;
+
+    /**
+     * How often to update numerical data such as tickrate.
+     */
+    public int NUMERICAL_DATA_UPDATE_INTERVAL = 2000;
 
     public int LOGIN_CACHE_TIME = 5000;
     public int LOGOUT_CACHE_TIME = 30000;
@@ -114,8 +120,6 @@ public class ConfigHandler implements IHandler {
     public String PLAYER_DIRECTORY = "data/players";
     public String TRACKERS_DIRECTORY = "data/trackers";
 
-    public int FOUND_LOADED_SAVE_CACHE = 500;
-
     /* ------------------------ Other Fields ------------------------ */
 
     private final YesCom yesCom = YesCom.getInstance();
@@ -130,8 +134,8 @@ public class ConfigHandler implements IHandler {
         try {
             readConfig();
         } catch (IOException error) {
-            yesCom.logger.warn("Error while reading config:");
-            yesCom.logger.error(error.toString());
+            yesCom.logger.warning("Error while reading config:");
+            yesCom.logger.throwing(ConfigHandler.class.getSimpleName(), "ConfigHandler", error);
         }
 
         autoSaveTime = System.currentTimeMillis();
@@ -139,13 +143,13 @@ public class ConfigHandler implements IHandler {
 
     @Override
     public void onTick() {
-        if (System.currentTimeMillis() - autoSaveTime > 30000) {
+        if (System.currentTimeMillis() - autoSaveTime > 180000) {
             try {
                 dumpConfig();
             } catch (IOException error) {
-                yesCom.logger.warn("Couldn't save config due to:");
-                yesCom.logger.error(error.toString());
-                autoSaveTime = System.currentTimeMillis() + 30000; // Let's keep increasing this to not spam console
+                yesCom.logger.warning("Couldn't save config due to:");
+                yesCom.logger.throwing(ConfigHandler.class.getSimpleName(), "onTick", error);
+                autoSaveTime = System.currentTimeMillis() + 180000; // Let's keep increasing this to not spam console
                 return;
             }
 
@@ -165,11 +169,11 @@ public class ConfigHandler implements IHandler {
         Yaml yaml = new Yaml(dumperOptions);
 
         if (!configFile.exists() || configFile.isDirectory()) {
-            yesCom.logger.warn("Config file does not exist, creating a new one.");
+            yesCom.logger.warning("Config file does not exist, creating a new one.");
             dumpConfig();
         }
 
-        yesCom.logger.debug("Reading config...");
+        yesCom.logger.fine("Reading config...");
 
         InputStream inputStream = new FileInputStream(configFile);
         Map<String, Object> rules = yaml.load(new InputStreamReader(inputStream));
@@ -185,14 +189,14 @@ public class ConfigHandler implements IHandler {
                 field.set(this, value);
                 rulesSet.addAndGet(1);
             } catch (NoSuchFieldException | IllegalAccessException | IllegalArgumentException error) {
-                yesCom.logger.warn(String.format("Couldn't set field \"%s\":", name));
-                yesCom.logger.error(error.toString());
+                yesCom.logger.warning(String.format("Couldn't set field \"%s\":", name));
+                yesCom.logger.throwing(ConfigHandler.class.getSimpleName(), "readConfig", error);
 
                 requiresRewrite.set(true);
             }
         });
 
-        yesCom.logger.debug(String.format("Done, %d fields set.", rulesSet.get()));
+        yesCom.logger.fine(String.format("Done, %d fields set.", rulesSet.get()));
 
         if (requiresRewrite.get()) {
             yesCom.logger.info("Rewriting config...");
@@ -211,7 +215,7 @@ public class ConfigHandler implements IHandler {
                 !configFile.createNewFile()) throw new IOException("Couldn't create the config file due to unknown.");
         // ProxyCon.logger.info("Done.");
 
-        yesCom.logger.debug("Dumping config...");
+        yesCom.logger.fine("Dumping config...");
 
         Map<String, Object> config = new LinkedHashMap<>();
 
@@ -223,16 +227,136 @@ public class ConfigHandler implements IHandler {
             }
         }
 
-        yesCom.logger.debug(String.format("Found %d fields.", config.size()));
+        yesCom.logger.fine(String.format("Found %d fields.", config.size()));
 
         OutputStream outputStream = new FileOutputStream(configFile);
         yaml.dump(config, new OutputStreamWriter(outputStream));
         outputStream.close();
 
-        yesCom.logger.debug("Dumped config.");
+        yesCom.logger.fine("Dumped config.");
+    }
+
+    /**
+     * @return The config rules in a serializable format.
+     */
+    public Map<ConfigRule, Object> getConfigRules() {
+        Map<ConfigRule, Object> rules = new LinkedHashMap<>();
+
+        for (Field field : ConfigHandler.class.getFields()) {
+            field.setAccessible(true);
+            try {
+                String name = field.getName().toLowerCase(Locale.ROOT);
+                Class<?> clazz = field.getType();
+                boolean enumValue = false;
+
+                DataType dataType = DataType.STRING;
+                List<String> enumValues = new ArrayList<>();
+
+                Object value = "";
+
+                if (Position.class.isAssignableFrom(clazz)) { // FIXME: Wow this is bad
+                    dataType = DataType.POSITION;
+                    value = field.get(this);
+
+                } else if (Angle.class.isAssignableFrom(clazz)) {
+                    dataType = DataType.ANGLE;
+                    value = field.get(this);
+
+                } else if (ChunkPosition.class.isAssignableFrom(clazz)) {
+                    dataType = DataType.CHUNK_POSITION;
+                    value = field.get(this);
+
+                } else if (Enum.class.isAssignableFrom(clazz)) {
+                    enumValue = true;
+                    value = ((Enum<?>)field.get(this)).name();
+
+                    // :vomit:
+                    for (Enum<?> constant : ((Enum<?>)field.get(this)).getDeclaringClass().getEnumConstants())
+                        enumValues.add(constant.name());
+
+                } else if (String.class.isAssignableFrom(clazz)) {
+                    value = field.get(this);
+
+                } else if (int.class.isAssignableFrom(clazz)) {
+                    dataType = DataType.INTEGER;
+                    value = field.get(this);
+
+                } else if (double.class.isAssignableFrom(clazz)) {
+                    dataType = DataType.FLOAT;
+                    value = new Double((double)field.get(this)).floatValue();
+
+                } else if (boolean.class.isAssignableFrom(clazz)) {
+                    dataType = DataType.BOOLEAN;
+                    value = field.get(this);
+
+                } else {
+                    continue;
+                }
+
+                if (!enumValue) {
+                    rules.put(new ConfigRule(name, dataType), value);
+                } else {
+                    rules.put(new ConfigRule(name, enumValues), value);
+                }
+
+            } catch (IllegalAccessException | IllegalArgumentException error) {
+                yesCom.logger.warning(String.format("Couldn't get config rule for field %s.", field.getName()));
+                yesCom.logger.throwing(ConfigHandler.class.getName(), "getConfigRules", error);
+            }
+        }
+
+        return rules;
     }
 
     public File getConfigFile() {
         return configFile;
+    }
+
+    /**
+     * Can't believe I'm making this class, but it's for client compatibility if you're wondering.
+     */
+    public static class ConfigRule {
+
+        private final List<String> enumValues = new ArrayList<>();
+
+        private final String name;
+        private final DataType dataType;
+        private final boolean enumValue;
+
+        public ConfigRule(String name, DataType dataType) {
+            this.name = name;
+            this.dataType = dataType;
+
+            enumValue = false;
+        }
+
+        public ConfigRule(String name, List<String> enumValues) {
+            this.name = name;
+            this.enumValues.addAll(enumValues);
+
+            dataType = DataType.STRING; // We'll assume it's a string cos I'm lazy
+            enumValue = true;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("ConfigRule(name=%s, dataType=%s)", name, dataType);
+        }
+
+        public List<String> getEnumValues() {
+            return enumValues;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public DataType getDataType() {
+            return dataType;
+        }
+
+        public boolean isEnumValue() {
+            return enumValue;
+        }
     }
 }

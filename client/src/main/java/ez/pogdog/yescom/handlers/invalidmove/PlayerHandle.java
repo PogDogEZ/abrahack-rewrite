@@ -104,7 +104,7 @@ public class PlayerHandle {
                                         x + chunkData.getColumn().getX() * 16,
                                         y + index * 16,
                                         z + chunkData.getColumn().getZ() * 16);
-                                yesCom.logger.debug("Found storage: " + position);
+                                yesCom.logger.fine("Found storage: " + position);
                                 positions.add(position);
                             }
                         }
@@ -135,7 +135,7 @@ public class PlayerHandle {
                 BlockPosition blockPos = new BlockPosition(record.getPosition());
 
                 if (yesCom.invalidMoveHandler.VALID_STORAGES.contains(record.getBlock().getId())) {
-                    yesCom.logger.debug(record.getPosition() + ", " + record.getBlock());
+                    yesCom.logger.finer(record.getPosition() + ", " + record.getBlock());
                     confirmedStorages.add(blockPos);
 
                 } else if (confirmedStorages.contains(blockPos)) {
@@ -150,7 +150,7 @@ public class PlayerHandle {
             // If we have read more than 5 packets expect that we weren't sent a position rotation packet (note that it
             // should only be 2 as we receive the sound packet before the close window, but better safe than sorry).
             if (packetsSinceCloseWindow >= 5) {
-                yesCom.logger.warn(String.format("%s probably dropping packets, expected TP ID %d but didn't find one!",
+                yesCom.logger.warning(String.format("%s probably dropping packets, expected TP ID %d but didn't find one!",
                         this, expectedTeleportID));
                 reSync();
 
@@ -170,7 +170,7 @@ public class PlayerHandle {
 
                         // Ok so yeah we may have guessed wrong but there is really nothing we can do about it if we have
                         if (!yesCom.configHandler.ARZI_MODE && !yesCom.configHandler.ARZI_MODE_NO_WID_RESYNC) {
-                            yesCom.logger.debug("Found loaded, invalidating all previous queries and resyncing...");
+                            yesCom.logger.finest("Found loaded, invalidating all previous queries and resyncing...");
                             reSync();
                         }
 
@@ -182,7 +182,7 @@ public class PlayerHandle {
                     }
                     default: { // Loaded + resync check
                         if (positionRotation.getTeleportId() != expectedTeleportID) {
-                            yesCom.logger.warn(String.format("%s misaligned IDs, (expected: %d, actual: %d), possible packet loss.",
+                            yesCom.logger.warning(String.format("%s misaligned IDs, (expected: %d, actual: %d), possible packet loss.",
                                     this, expectedTeleportID, positionRotation.getTeleportId()));
                             reSync();
                             query.reschedule();
@@ -195,7 +195,7 @@ public class PlayerHandle {
 
             } else {
                 // Happens on joining the world, as well as just unknown teleports
-                yesCom.logger.debug(String.format("%s got unknown TP ID, (expected: %d, actual: %d)!", this,
+                yesCom.logger.finest(String.format("%s got unknown TP ID, (expected: %d, actual: %d)!", this,
                         expectedTeleportID < 0 ? player.getEstimatedTP() : expectedTeleportID, positionRotation.getTeleportId()));
                 reSync();
             }
@@ -214,7 +214,7 @@ public class PlayerHandle {
 
             if (expectedTeleportID != -1) {
                 // We should receive a close window and then a teleport packet always one after another
-                yesCom.logger.warn(String.format("%s got second close window while only expecting one, WTF?", this));
+                yesCom.logger.warning(String.format("%s got second close window while only expecting one, WTF?", this));
                 reSync(); // Cancel this query even if we may get the correct result we'll have cleared our expected queries
             } else {
                 expectedTeleportID = windowToTPIDMap.getOrDefault(closeWindow.getWindowId(), -2);
@@ -258,7 +258,7 @@ public class PlayerHandle {
         player.setAngle(angle);
         player.sendPacket(new ClientPlayerRotationPacket(true, angle.getYaw(), angle.getPitch()));
 
-        yesCom.logger.debug(String.format("Required angle: %s.", angle));
+        yesCom.logger.finest(String.format("Required angle: %s.", angle));
 
         facingStorage = true;
     }
@@ -268,7 +268,7 @@ public class PlayerHandle {
      */
     private void openStorage() {
         if (bestStorage == null && !findBestStorage()) {
-            yesCom.logger.warn(String.format("Couldn't find storage for %s!", this));
+            yesCom.logger.warning(String.format("Couldn't find storage for %s!", this));
             storageOpen = false;
             return;
         }
@@ -289,7 +289,7 @@ public class PlayerHandle {
         if (player.isConnected() && player.getTimeLoggedIn() > yesCom.configHandler.MIN_TIME_CONNECTED &&
                 player.getTimeSinceLastPacket() < yesCom.configHandler.MAX_PACKET_TIME) {
             if (!expectingOpen && (!facingStorage || (!storageOpen && queryMap.isEmpty()))) {
-                yesCom.logger.debug(String.format("Attempting to open storage for %s.", this));
+                yesCom.logger.finest(String.format("Attempting to open storage for %s.", this));
                 reSync();
 
                 expectingOpen = true;
@@ -299,11 +299,11 @@ public class PlayerHandle {
                 expectingOpen = false;
 
                 if (openAttempts++ > yesCom.configHandler.MAX_OPEN_ATTEMPTS) {
-                    yesCom.logger.error(String.format("%s couldn't find a valid storage after %d attempts, disconnecting.",
+                    yesCom.logger.warning(String.format("%s couldn't find a valid storage after %d attempts, disconnecting.",
                             this, openAttempts));
                     player.disconnect("Couldn't find valid storage!");
                 } else {
-                    yesCom.logger.warn(String.format("%s couldn't open storage, attempting again...", this));
+                    yesCom.logger.warning(String.format("%s couldn't open storage, attempting again...", this));
                 }
 
             } else if (yesCom.configHandler.ARZI_MODE && !forceNoARZIMode) {
@@ -316,7 +316,7 @@ public class PlayerHandle {
             synchronized (this) {
                 new HashMap<>(queryMap).forEach((teleportID, query) -> {
                     if (player.getCurrentTP() > teleportID || query.getTickingTime() > yesCom.configHandler.INVALID_MOVE_TIMEOUT) {
-                        yesCom.logger.debug(String.format("%s has timed out (packet loss?), cancelling.", query));
+                        yesCom.logger.finest(String.format("%s has timed out (packet loss?), cancelling.", query));
                         queryMap.remove(teleportID);
                         query.reschedule();
                     }
@@ -356,7 +356,7 @@ public class PlayerHandle {
     }
 
     public synchronized void reSync() {
-        yesCom.logger.debug(String.format("Resynchronizing (rescheduling %d queries)...", queryMap.size()));
+        yesCom.logger.finest(String.format("Resynchronizing (rescheduling %d queries)...", queryMap.size()));
 
         player.setEstimatedTP(player.getCurrentTP());
         player.setEstimatedWindowID(player.getCurrentWindowID());
@@ -400,7 +400,7 @@ public class PlayerHandle {
     public void setForceNoARZIMode(boolean forceNoARZIMode) {
         // Do this as we will be assuming that all our queries were valid under the last state
         if (this.forceNoARZIMode != forceNoARZIMode) {
-            yesCom.logger.debug("ARZI mode state change, resyncing...");
+            yesCom.logger.finest("ARZI mode state change, resyncing...");
             reSync();
         }
         this.forceNoARZIMode = forceNoARZIMode;

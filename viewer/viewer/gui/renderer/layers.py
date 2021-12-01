@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
 import math
-from typing import Dict, Tuple, List
+from typing import Dict
 
 import cv2
 import numpy as np
-from numba import jit
 
 from viewer.config import Config
 from viewer.util import Dimension, ChunkState

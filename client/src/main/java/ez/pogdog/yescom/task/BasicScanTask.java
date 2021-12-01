@@ -8,9 +8,7 @@ import ez.pogdog.yescom.util.Dimension;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class BasicScanTask implements ILoadedChunkTask {
 
@@ -48,11 +46,11 @@ public class BasicScanTask implements ILoadedChunkTask {
 
         maxIndex = (getMaxX() - getMinX()) * (getMaxZ() - getMinZ());
 
-        yesCom.logger.debug("Starting basic scan task.");
-        yesCom.logger.debug(String.format("Start: %s.", startPos));
-        yesCom.logger.debug(String.format("End: %s.", endPos));
-        yesCom.logger.debug("Dimension:", dimension);
-        yesCom.logger.debug(String.format("Max index: %d.", maxIndex));
+        yesCom.logger.fine("Starting basic scan task.");
+        yesCom.logger.fine(String.format("Start: %s.", startPos));
+        yesCom.logger.fine(String.format("End: %s.", endPos));
+        yesCom.logger.fine(String.format("Dimension: %s.", dimension));
+        yesCom.logger.fine(String.format("Max index: %d.", maxIndex));
 
         currentQueries = 0;
         currentIndex = 0;
@@ -85,9 +83,11 @@ public class BasicScanTask implements ILoadedChunkTask {
             }
         }
 
+        /*
         yesCom.logger.infoDisappearing(String.format("Scanning: %d, %d / %d, %d, %s, %dms.",
                 yesCom.queryHandler.getWaitingSize(), yesCom.queryHandler.getTickingSize(),
                 currentQueries, currentIndex, getCurrentPosition(), yesCom.connectionHandler.getTimeSinceLastPacket()));
+         */
     }
 
     @Override
@@ -151,7 +151,7 @@ public class BasicScanTask implements ILoadedChunkTask {
 
     private void onLoaded(ChunkPosition chunkPosition) {
         yesCom.logger.info(getFormattedResult(chunkPosition));
-        if (yesCom.handler != null) yesCom.handler.onTaskResult(this, getFormattedResult(chunkPosition));
+        if (yesCom.ycHandler != null) yesCom.ycHandler.onTaskResult(this, getFormattedResult(chunkPosition));
         onLoaded(chunkPosition, dimension);
 
         yesCom.trackingHandler.onLoadedChunk(chunkPosition, dimension);

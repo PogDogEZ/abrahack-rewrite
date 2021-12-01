@@ -1,10 +1,6 @@
 package ez.pogdog.yescom.task;
 
-import ez.pogdog.yescom.query.IQuery;
-import ez.pogdog.yescom.util.Angle;
-import ez.pogdog.yescom.util.ChunkPosition;
-import ez.pogdog.yescom.util.Dimension;
-import ez.pogdog.yescom.util.Position;
+import ez.pogdog.yescom.util.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,80 +12,80 @@ import java.util.Objects;
  */
 public class TaskRegistry {
 
-    public static final List<RegisteredTask> registeredTasks = new ArrayList<>();
+    public static final List<RegisteredTask> REGISTERED_TASKS = new ArrayList<>();
 
     static {
-        registeredTasks.add(new RegisteredTask(
+        REGISTERED_TASKS.add(new RegisteredTask(
                 BasicScanTask.class,
                 "basic_scan",
                 "A basic scanning task that scans a rectangle looking for loaded chunks.",
                 new ParamDescription("startPos", "The starting position for the scan.",
-                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.CHUNK_POSITION),
+                        ParamDescription.InputType.SINGULAR, DataType.CHUNK_POSITION),
                 new ParamDescription("endPos", "The end position that the scan will finish at.",
-                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.CHUNK_POSITION),
+                        ParamDescription.InputType.SINGULAR, DataType.CHUNK_POSITION),
                 new ParamDescription("chunkSkip",
                         "The number of chunks to linearly skip while scanning " +
                                 "(recommended to use the render distance of the server * 2).",
-                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.INTEGER),
+                        ParamDescription.InputType.SINGULAR, DataType.INTEGER),
                 new ParamDescription("dimension", "The dimension to scan in.",
-                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.DIMENSION),
+                        ParamDescription.InputType.SINGULAR, DataType.DIMENSION),
                 new ParamDescription("priority", "The query priority.",
-                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.PRIORITY)
+                        ParamDescription.InputType.SINGULAR, DataType.PRIORITY)
         ));
 
-        registeredTasks.add(new RegisteredTask(
+        REGISTERED_TASKS.add(new RegisteredTask(
                 SpiralScanTask.class,
                 "spiral_scan",
                 "A scan task that spirals out from a given coordinate.",
                 new ParamDescription("startPos", "The starting position for the scan.",
-                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.CHUNK_POSITION),
+                        ParamDescription.InputType.SINGULAR, DataType.CHUNK_POSITION),
                 new ParamDescription("chunkSkip",
                         "The number of chunks to linearly skip while scanning " +
                                 "(recommended the render distance of the server * 2).",
-                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.INTEGER),
+                        ParamDescription.InputType.SINGULAR, DataType.INTEGER),
                 new ParamDescription("dimension", "The dimension to scan in.",
-                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.DIMENSION),
+                        ParamDescription.InputType.SINGULAR, DataType.DIMENSION),
                 new ParamDescription("priority", "The query priority.",
-                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.PRIORITY)
+                        ParamDescription.InputType.SINGULAR, DataType.PRIORITY)
         ));
 
-        registeredTasks.add(new RegisteredTask(
+        REGISTERED_TASKS.add(new RegisteredTask(
                 HighwayScanTask.class,
                 "highway_scan",
                 "A scan that only checks the highways, for a given distance.",
                 new ParamDescription("maxDistance", "The maximum distance to scan to.",
-                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.INTEGER),
+                        ParamDescription.InputType.SINGULAR, DataType.INTEGER),
                 new ParamDescription("minDistance", "The minumum distance to scan from.",
-                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.INTEGER),
+                        ParamDescription.InputType.SINGULAR, DataType.INTEGER),
                 new ParamDescription("chunkSkip",
                         "The number of chunks to linearly skip while scanning " +
                                 "(recommended the render distance of the server * 2).",
-                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.INTEGER),
+                        ParamDescription.InputType.SINGULAR, DataType.INTEGER),
                 new ParamDescription("dimension", "The dimension to scan in.",
-                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.DIMENSION),
+                        ParamDescription.InputType.SINGULAR, DataType.DIMENSION),
                 new ParamDescription("priority", "The query priority.",
-                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.PRIORITY)
+                        ParamDescription.InputType.SINGULAR, DataType.PRIORITY)
         ));
 
-        registeredTasks.add(new RegisteredTask(
+        REGISTERED_TASKS.add(new RegisteredTask(
                 StaticScanTask.class,
                 "static_scan",
                 "A scan task that only checks coordinates from a given array.",
                 new ParamDescription("positions", "Static positions to scan.",
-                        ParamDescription.InputType.ARRAY, ParamDescription.DataType.CHUNK_POSITION),
+                        ParamDescription.InputType.ARRAY, DataType.CHUNK_POSITION),
                 new ParamDescription("dimension", "The dimension to scan in.",
-                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.DIMENSION),
+                        ParamDescription.InputType.SINGULAR, DataType.DIMENSION),
                 new ParamDescription("priority", "The query priority.",
-                        ParamDescription.InputType.SINGULAR, ParamDescription.DataType.PRIORITY)
+                        ParamDescription.InputType.SINGULAR, DataType.PRIORITY)
         ));
     }
 
     public static RegisteredTask getTask(String name) {
-        return registeredTasks.stream().filter(task -> task.getName().equalsIgnoreCase(name)).findFirst().orElse(null);
+        return REGISTERED_TASKS.stream().filter(task -> task.getName().equalsIgnoreCase(name)).findFirst().orElse(null);
     }
 
     public static RegisteredTask getTask(Class<? extends ITask> clazz) {
-        return registeredTasks.stream().filter(task -> task.getTaskClazz().equals(clazz)).findFirst().orElse(null);
+        return REGISTERED_TASKS.stream().filter(task -> task.getTaskClazz().equals(clazz)).findFirst().orElse(null);
     }
 
     /**
@@ -193,24 +189,6 @@ public class TaskRegistry {
 
         public enum InputType {
             SINGULAR, ARRAY;
-        }
-
-        public enum DataType {
-            POSITION(Position.class), ANGLE(Angle.class),
-            CHUNK_POSITION(ChunkPosition.class),
-            DIMENSION(Dimension.class),
-            PRIORITY(IQuery.Priority.class),
-            STRING(String.class), INTEGER(Integer.class), FLOAT(Float.class), BOOLEAN(Boolean.class);
-
-            private final Class<?> clazz;
-
-            DataType(Class<?> clazz) {
-                this.clazz = clazz;
-            }
-
-            public Class<?> getClazz() {
-                return clazz;
-            }
         }
     }
 

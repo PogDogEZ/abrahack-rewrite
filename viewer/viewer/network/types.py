@@ -3,11 +3,11 @@
 from typing import IO
 from uuid import UUID
 
-from pclient.networking.types import Type
-from pclient.networking.types.basic import Double, Integer, String, Float, Short, UnsignedShort, Long, Bytes, VarInt, \
+from pyclient.networking.types import Type
+from pyclient.networking.types.basic import Double, Integer, String, Float, Short, UnsignedShort, Long, Bytes, VarInt, \
     Boolean
 from viewer.util import Position, ChunkPosition, Player, Angle, RegisteredTask, ActiveTask, TrackedPlayer, ChunkState, \
-    DataType, RenderDistance, TrackingData, Tracker
+    DataType, RenderDistance, TrackingData, Tracker, ConfigRule, ChatMessage
 
 
 class PositionSpec(Type):
@@ -57,6 +57,25 @@ class ChunkPositionSpec(Type):
         Integer.write(chunk_pos.z, fileobj)
 
 
+class ChatMessageSpec(Type):
+
+    @classmethod
+    def read(cls, fileobj: IO) -> ChatMessage:
+        chat_message_id = VarInt.read(fileobj)
+        username = String.read(fileobj)
+        message = String.read(fileobj)
+        timestamp = Long.read(fileobj)
+
+        return ChatMessage(chat_message_id, username, message, timestamp)
+
+    @classmethod
+    def write(cls, chat_message: ChatMessage, fileobj: IO) -> None:
+        VarInt.write(chat_message.chat_message_id, fileobj)
+        String.write(chat_message.username, fileobj)
+        String.write(chat_message.message, fileobj)
+        Long.write(chat_message.timestamp, fileobj)
+
+
 class PlayerSpec(Type):
 
     @classmethod
@@ -96,6 +115,41 @@ class PlayerSpec(Type):
         Float.write(player.health, fileobj)
         UnsignedShort.write(player.food, fileobj)
         Float.write(player.saturation, fileobj)
+
+
+class ConfigRuleSpec(Type):
+
+    @classmethod
+    def read(cls, fileobj: IO) -> ConfigRule:
+        name = String.read(fileobj)
+        enum_value = Boolean.read(fileobj)
+
+        if enum_value:
+            enum_values = []
+            enum_values_to_read = UnsignedShort.read(fileobj)
+            for index in range(enum_values_to_read):
+                enum_values.append(String.read(fileobj))
+
+            return ConfigRule(name, DataType.STRING, enum_values)
+
+        else:
+            # noinspection PyTypeChecker
+            return ConfigRule(name, DataType.read(fileobj))
+
+    @classmethod
+    def write(cls, rule: ConfigRule, fileobj: IO) -> None:
+        String.write(rule.name, fileobj)
+        # noinspection PyTypeChecker
+        Boolean.write(rule.enum_value, fileobj)
+
+        if rule.enum_value:
+            UnsignedShort.write(len(rule.enum_values), fileobj)
+            for enum_value in rule.enum_values:
+                String.write(enum_value, fileobj)
+
+        else:
+            # noinspection PyTypeChecker
+            DataType.write(rule.data_type, fileobj)
 
 
 class ParamDescriptionSpec(Type):
@@ -207,19 +261,12 @@ class TrackedPlayerSpec(Type):
             count = UnsignedShort.read(fileobj)
             possible_players[uuid] = count
 
-        render_distances = {}
-        render_distances_to_read = UnsignedShort.read(fileobj)
-        for index in range(render_distances_to_read):
-            timestamp = Long.read(fileobj)
-            render_distance_id = VarInt.read(fileobj)
-            render_distances[timestamp] = render_distance_id
-
         render_distance = RenderDistanceSpec.read(fileobj)
         dimension = Short.read(fileobj)
         logged_out = Boolean.read(fileobj)
         found_at = Long.read(fileobj)
 
-        tracked_player = TrackedPlayer(tracked_player_id, TrackingData(render_distances), render_distance, dimension,
+        tracked_player = TrackedPlayer(tracked_player_id, TrackingData(), render_distance, dimension,
                                        logged_out, found_at)
         tracked_player.set_possible_players(possible_players)
 
@@ -235,16 +282,32 @@ class TrackedPlayerSpec(Type):
             Bytes.write(uuid.bytes, fileobj)
             UnsignedShort.write(possible_players[uuid], fileobj)
 
-        render_distances = tracked_player.tracking_data.get_render_distances()
-        UnsignedShort.write(len(render_distances), fileobj)
-        for timestamp in render_distances:
-            Long.write(timestamp, fileobj)
-            VarInt.write(render_distances[timestamp], fileobj)
-
         RenderDistanceSpec.write(tracked_player.render_distance, fileobj)
         Short.write(tracked_player.dimension, fileobj)
         Boolean.write(tracked_player.logged_out, fileobj)
         Long.write(tracked_player.found_at, fileobj)
+
+
+class TrackingDataSpec(Type):
+
+    @classmethod
+    def read(cls, fileobj: IO) -> TrackingData:
+        render_distances = {}
+        render_distances_to_read = UnsignedShort.read(fileobj)
+        for index in range(render_distances_to_read):
+            timestamp = Long.read(fileobj)
+            render_distance_id = VarInt.read(fileobj)
+            render_distances[timestamp] = render_distance_id
+
+        return TrackingData(render_distances)
+
+    @classmethod
+    def write(cls, tracking_data: TrackingData, fileobj: IO) -> None:
+        render_distances = tracking_data.get_render_distances()
+        UnsignedShort.write(len(render_distances), fileobj)
+        for timestamp in render_distances:
+            Long.write(timestamp, fileobj)
+            VarInt.write(render_distances[timestamp], fileobj)
 
 
 class TrackerSpec(Type):
@@ -252,15 +315,18 @@ class TrackerSpec(Type):
     @classmethod
     def read(cls, fileobj: IO) -> Tracker:
         tracker_id = Long.read(fileobj)
-        tracked_player = TrackedPlayerSpec.read(fileobj)
 
-        return Tracker(tracker_id, tracked_player)
+        tracked_player_ids = []
+        ids_to_read = UnsignedShort.read(fileobj)
+        for index in range(ids_to_read):
+            tracked_player_ids.append(VarInt.read(fileobj))
+
+        return Tracker(tracker_id, tracked_player_ids)
 
     @classmethod
     def write(cls, tracker: Tracker, fileobj: IO) -> None:
         Long.write(tracker.tracked_id, fileobj)
-        TrackedPlayerSpec.write(tracker.tracked_player, fileobj)
 
-
-
-
+        UnsignedShort.write(len(tracker.get_tracked_player_ids()), fileobj)
+        for tracked_player_id in tracker.get_tracked_player_ids():
+            VarInt.write(tracked_player_id, fileobj)

@@ -5,7 +5,6 @@ import me.iska.jclient.network.packet.Type;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
 
 public class BooleanType extends Type<Boolean> {
 

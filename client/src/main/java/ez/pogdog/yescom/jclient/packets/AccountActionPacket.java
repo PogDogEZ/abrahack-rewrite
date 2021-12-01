@@ -9,7 +9,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-@Packet.Info(name="account_action", id=YCRegistry.ID_OFFSET + 10, side=Packet.Side.SERVER)
+/**
+ * Sent to the client/server to request that an account either be added or removed. Should support legacy auth (providing
+ * just the username and password) as well as the new auth (providing the access and client tokens).
+ */
+@Packet.Info(name="account_action", id=YCRegistry.ID_OFFSET + 6, side=Packet.Side.BOTH)
 public class AccountActionPacket extends Packet {
 
     private final EnumType<Action> ACTION = new EnumType<>(Action.class);
@@ -25,7 +29,7 @@ public class AccountActionPacket extends Packet {
     private String accessToken;
     private String clientToken;
 
-    public AccountActionPacket(Action action, int actionID, String username, boolean legacy, String password, String accessToken,
+    public AccountActionPacket(Action action, long actionID, String username, boolean legacy, String password, String accessToken,
                                String clientToken) {
         this.action = action;
         this.actionID = actionID;
@@ -36,29 +40,29 @@ public class AccountActionPacket extends Packet {
         this.clientToken = clientToken;
     }
 
-    public AccountActionPacket(int actionID, String username, String password) {
-        this(Action.ADD, actionID, username, true, password, "", "");
+    public AccountActionPacket(long actionID, String username, String password) {
+        this(Action.LOGIN, actionID, username, true, password, "", "");
     }
 
-    public AccountActionPacket(int actionID, String username, String accessToken, String clientToken) {
-        this(Action.ADD, actionID, username, false, "", accessToken, clientToken);
+    public AccountActionPacket(long actionID, String username, String accessToken, String clientToken) {
+        this(Action.LOGIN, actionID, username, false, "", accessToken, clientToken);
     }
 
-    public AccountActionPacket(int actionID, String username) {
-        this(Action.REMOVE, actionID, username, false, "", "", "");
+    public AccountActionPacket(long actionID, String username) {
+        this(Action.LOGOUT, actionID, username, false, "", "", "");
     }
 
     public AccountActionPacket() {
-        this(Action.ADD, 0, "", false, "", "", "");
+        this(Action.LOGIN, 0, "", false, "", "", "");
     }
 
     @Override
     public void read(InputStream inputStream) throws IOException {
         action = ACTION.read(inputStream);
-        actionID = Registry.UNSIGNED_INT.read(inputStream);
+        actionID = Registry.LONG.read(inputStream);
         username = Registry.STRING.read(inputStream);
 
-        if (action == Action.ADD) {
+        if (action == Action.LOGIN) {
             legacy = Registry.BOOLEAN.read(inputStream);
 
             if (legacy) {
@@ -73,10 +77,10 @@ public class AccountActionPacket extends Packet {
     @Override
     public void write(OutputStream outputStream) throws IOException {
         ACTION.write(action, outputStream);
-        Registry.UNSIGNED_INT.write(actionID, outputStream);
+        Registry.LONG.write(actionID, outputStream);
         Registry.STRING.write(username, outputStream);
 
-        if (action == Action.ADD) {
+        if (action == Action.LOGIN) {
             Registry.BOOLEAN.write(legacy, outputStream);
 
             if (legacy) {
@@ -88,6 +92,9 @@ public class AccountActionPacket extends Packet {
         }
     }
 
+    /**
+     * @return The action to perform.
+     */
     public Action getAction() {
         return action;
     }
@@ -96,6 +103,9 @@ public class AccountActionPacket extends Packet {
         this.action = action;
     }
 
+    /**
+     * @return The action ID, this is a unique number that is used to identify the action.
+     */
     public long getActionID() {
         return actionID;
     }
@@ -104,6 +114,9 @@ public class AccountActionPacket extends Packet {
         this.actionID = actionID;
     }
 
+    /**
+     * @return The username of the account.
+     */
     public String getUsername() {
         return username;
     }
@@ -112,6 +125,9 @@ public class AccountActionPacket extends Packet {
         this.username = username;
     }
 
+    /**
+     * @return Whether the legacy auth is being used.
+     */
     public boolean isLegacy() {
         return legacy;
     }
@@ -120,6 +136,9 @@ public class AccountActionPacket extends Packet {
         this.legacy = legacy;
     }
 
+    /**
+     * @return The password of the account.
+     */
     public String getPassword() {
         return password;
     }
@@ -128,6 +147,9 @@ public class AccountActionPacket extends Packet {
         this.password = password;
     }
 
+    /**
+     * @return The access token of the account.
+     */
     public String getAccessToken() {
         return accessToken;
     }
@@ -136,6 +158,9 @@ public class AccountActionPacket extends Packet {
         this.accessToken = accessToken;
     }
 
+    /**
+     * @return The client token of the account.
+     */
     public String getClientToken() {
         return clientToken;
     }
@@ -145,6 +170,6 @@ public class AccountActionPacket extends Packet {
     }
 
     public enum Action {
-        ADD, REMOVE;
+        LOGIN, LOGOUT;
     }
 }

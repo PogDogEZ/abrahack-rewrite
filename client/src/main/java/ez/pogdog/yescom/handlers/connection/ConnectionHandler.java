@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 
 /**
@@ -63,7 +62,7 @@ public class ConnectionHandler implements IHandler {
         });
         new ArrayList<>(players).forEach(player -> {
             if (player.getFoodStats().getHealth() <= yesCom.configHandler.LOG_OUT_HEALTH) {
-                yesCom.logger.warn(String.format("%s logged out as health was below %.1f.",
+                yesCom.logger.warning(String.format("%s logged out as health was below %.1f.",
                         player.getAuthService().getSelectedProfile().getName(), yesCom.configHandler.LOG_OUT_HEALTH));
                 healthLogout.put(player.getAuthService().getSelectedProfile().getId(), System.currentTimeMillis());
                 player.disconnect(String.format("Health disconnect at health: %.1f.", player.getFoodStats().getHealth()));
@@ -100,7 +99,7 @@ public class ConnectionHandler implements IHandler {
     private synchronized void onJoinLeave(Player.PlayerAction action, UUID uuid) {
         switch (action) {
             case ADD: {
-                if (yesCom.handler != null) yesCom.handler.onPlayerJoin(uuid, UUIDtoNameCache.get(uuid));
+                if (yesCom.ycHandler != null) yesCom.ycHandler.onPlayerJoin(uuid, UUIDtoNameCache.get(uuid));
                 yesCom.trackingHandler.onPlayerJoin(uuid);
                 if (recentLeaves.containsKey(uuid) && System.currentTimeMillis() - recentLeaves.get(uuid) < 2000) {
                     recentLeaves.remove(uuid);
@@ -110,7 +109,7 @@ public class ConnectionHandler implements IHandler {
                 break;
             }
             case REMOVE: {
-                if (yesCom.handler != null) yesCom.handler.onPlayerLeave(uuid);
+                if (yesCom.ycHandler != null) yesCom.ycHandler.onPlayerLeave(uuid);
                 if (recentJoins.containsKey(uuid) && System.currentTimeMillis() - recentJoins.get(uuid) < 2000) {
                     recentJoins.remove(uuid);
                     return;
@@ -159,6 +158,10 @@ public class ConnectionHandler implements IHandler {
         return (float)players.stream().mapToDouble(Player::getMeanTickRate).sum() / Math.max(1.0f, players.size());
     }
 
+    public synchronized float getMeanServerPing() {
+        return (float)players.stream().mapToDouble(Player::getServerPing).sum() / Math.max(1.0f, players.size());
+    }
+
     /* ------------------------ Account and Player Stuff ------------------------ */
 
     public void login(AuthenticationService authService) {
@@ -166,7 +169,7 @@ public class ConnectionHandler implements IHandler {
 
         if (System.currentTimeMillis() - lastLoginTime > yesCom.configHandler.LOGIN_TIME && !isOnline(authService) &&
                 healthLogin(authService) && !isPlayerOnline(authService.getSelectedProfile().getId())) {
-            yesCom.logger.debug(String.format("Logging in %s...", authService.getSelectedProfile().getName()));
+            yesCom.logger.fine(String.format("Logging in %s...", authService.getSelectedProfile().getName()));
             lastLoginTime = System.currentTimeMillis();
             // healthLogout.remove(authService.getSelectedProfile().getId());
 
@@ -183,14 +186,15 @@ public class ConnectionHandler implements IHandler {
 
             // coordExploit.ceHandler.onPlayerAdded(player);
 
+            if (yesCom.ycHandler != null) yesCom.ycHandler.onPlayerAdded(player); // Fixed the issue with invalid player names
             session.addListener(new SessionReactionAdapter(player));
             session.connect();
 
-            yesCom.logger.debug(String.format("%s logged in: %s.", authService.getSelectedProfile().getName(), session.isConnected()));
+            yesCom.logger.fine(String.format("%s logged in: %s.", authService.getSelectedProfile().getName(), session.isConnected()));
 
             if (!session.isConnected()) {
                 // TODO: Perhaps try to refresh the token? Idk why else it wouldn't have connected <- except the server being down
-                yesCom.logger.warn(String.format("Couldn't log %s in, immediate disconnect.", authService.getSelectedProfile().getName()));
+                yesCom.logger.warning(String.format("Couldn't log %s in, immediate disconnect.", authService.getSelectedProfile().getName()));
             } else {
                 healthLogout.remove(authService.getSelectedProfile().getId());
             }
@@ -355,13 +359,12 @@ public class ConnectionHandler implements IHandler {
 
         @Override
         public void connected(ConnectedEvent event) {
-            if (yesCom.handler != null) yesCom.handler.onPlayerAdded(player);
             yesCom.invalidMoveHandler.addHandle(player);
         }
 
         @Override
         public void disconnected(DisconnectedEvent event) {
-            if (yesCom.handler != null) yesCom.handler.onPlayerRemoved(player, event.getReason());
+            if (yesCom.ycHandler != null) yesCom.ycHandler.onPlayerRemoved(player, event.getReason());
             yesCom.logger.info(String.format("%s was disconnected for: %s",
                     player.getAuthService().getSelectedProfile().getName(), event.getReason()));
             yesCom.invalidMoveHandler.removeHandle(player);

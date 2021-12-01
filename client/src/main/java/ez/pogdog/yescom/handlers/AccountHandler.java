@@ -36,13 +36,13 @@ public class AccountHandler implements IHandler {
     public AccountHandler(String filePath) {
         accountsFile = Paths.get(filePath).toFile();
 
-        yesCom.logger.debug(String.format("Accounts file: %s.", accountsFile));
+        yesCom.logger.fine(String.format("Accounts file: %s.", accountsFile));
 
         try {
             parseAccounts();
         } catch (IOException error) {
-            yesCom.logger.warn("Couldn't load / parse accounts file due to:");
-            yesCom.logger.error(error.toString());
+            yesCom.logger.warning("Couldn't load / parse accounts file due to:");
+            yesCom.logger.throwing(AccountHandler.class.getSimpleName(), "AccountHandler", error);
         }
 
         loginAccounts();
@@ -64,7 +64,7 @@ public class AccountHandler implements IHandler {
         userMap.clear();
 
         if (!accountsFile.exists()) {
-            yesCom.logger.warn("Accounts file does not exist, creating one.");
+            yesCom.logger.warning("Accounts file does not exist, creating one.");
             if (!accountsFile.createNewFile()) throw new IOException("Couldn't create the accounts file due to unknown.");
             yesCom.logger.info("Done.");
         }
@@ -79,13 +79,13 @@ public class AccountHandler implements IHandler {
                 String username = lineMatcher.group().split(":")[0];
                 String password = lineMatcher.group().split(":", 2)[1];
                 userMap.put(username, password);
-                yesCom.logger.debug(String.format("Found account %s.",
+                yesCom.logger.fine(String.format("Found account %s.",
                         yesCom.configHandler.DONT_SHOW_EMAILS ? "[EMAIL REDACTED]" : username));
             }
         }
 
         if (userMap.isEmpty()) {
-            yesCom.logger.warn("Couldn't find any accounts, continuing anyway.");
+            yesCom.logger.warning("Couldn't find any accounts, continuing anyway.");
         } else {
             yesCom.logger.info(String.format("Done, %s account(s) found.", userMap.size()));
         }
@@ -100,14 +100,14 @@ public class AccountHandler implements IHandler {
             try {
                 legacyLogin(username, password);
             } catch (RequestException error) {
-                yesCom.logger.warn(String.format("Error while logging in account: %s.",
+                yesCom.logger.warning(String.format("Error while logging in account: %s.",
                         yesCom.configHandler.DONT_SHOW_EMAILS ? "[EMAIL REDACTED]" : username));
-                yesCom.logger.error(error.toString());
+                yesCom.logger.throwing(AccountHandler.class.getSimpleName(), "loginAccounts", error);
             }
         });
 
         if (accountCache.isEmpty()) {
-            yesCom.logger.warn("Didn't authenticate any accounts, continuing anyway.");
+            yesCom.logger.warning("Didn't authenticate any accounts, continuing anyway.");
         } else {
             yesCom.logger.info(String.format("Done, %s account(s) authenticated.", accountCache.size()));
         }
@@ -132,7 +132,7 @@ public class AccountHandler implements IHandler {
         authService.login();
 
         if (authService.isLoggedIn()) {
-            yesCom.logger.debug(String.format("Successfully authenticated account with username: %s.",
+            yesCom.logger.fine(String.format("Successfully authenticated account with username: %s.",
                     authService.getSelectedProfile().getName()));
             userMap.put(username, password);
             accountCache.add(authService);
@@ -150,7 +150,7 @@ public class AccountHandler implements IHandler {
         authService.login();
 
         if (authService.isLoggedIn()) {
-            yesCom.logger.debug(String.format("Successfully authenticated account with username: %s.",
+            yesCom.logger.fine(String.format("Successfully authenticated account with username: %s.",
                     authService.getSelectedProfile().getName()));
             userMap.put(username, accessToken);
             accountCache.add(authService);
@@ -193,8 +193,8 @@ public class AccountHandler implements IHandler {
             try {
                 parseAccounts();
             } catch (IOException error) {
-                yesCom.logger.warn("Couldn't refresh accounts file:");
-                yesCom.logger.error(error.toString());
+                yesCom.logger.warning("Couldn't refresh accounts file:");
+                yesCom.logger.throwing(AccountHandler.class.getSimpleName(), "refreshFile", error);
             }
         }).start();
     }

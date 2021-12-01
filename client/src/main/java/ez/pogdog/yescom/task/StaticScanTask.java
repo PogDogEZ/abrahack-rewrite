@@ -3,15 +3,12 @@ package ez.pogdog.yescom.task;
 import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.query.IQuery;
 import ez.pogdog.yescom.query.IsLoadedQuery;
-import ez.pogdog.yescom.util.BlockPosition;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class StaticScanTask implements ILoadedChunkTask {
 
@@ -84,8 +81,8 @@ public class StaticScanTask implements ILoadedChunkTask {
 
         // addDefaults();
 
-        yesCom.logger.debug(String.format("Starting static scan task with %d positions to check.", this.positions.size()));
-        yesCom.logger.debug(String.format("Dimension: %s.", dimension.name()));
+        yesCom.logger.fine(String.format("Starting static scan task with %d positions to check.", this.positions.size()));
+        yesCom.logger.fine(String.format("Dimension: %s.", dimension));
 
         currentIndex = 0;
     }
@@ -118,9 +115,11 @@ public class StaticScanTask implements ILoadedChunkTask {
             }
         }
 
+        /*
         yesCom.logger.infoDisappearing(String.format("Scanning: %d, %d / %d, %d, %s, %dms.",
                 yesCom.queryHandler.getWaitingSize(), yesCom.queryHandler.getTickingSize(),
                 currentQueries.size(), currentIndex, getCurrentPosition(), yesCom.connectionHandler.getTimeSinceLastPacket()));
+         */
     }
 
     @Override
@@ -182,7 +181,7 @@ public class StaticScanTask implements ILoadedChunkTask {
 
     private void onLoaded(ChunkPosition chunkPosition) {
         yesCom.logger.info(getFormattedResult(chunkPosition));
-        if (yesCom.handler != null) yesCom.handler.onTaskResult(this, getFormattedResult(chunkPosition));
+        if (yesCom.ycHandler != null) yesCom.ycHandler.onTaskResult(this, getFormattedResult(chunkPosition));
         onLoaded(chunkPosition, dimension);
 
         yesCom.trackingHandler.onLoadedChunk(chunkPosition, dimension);

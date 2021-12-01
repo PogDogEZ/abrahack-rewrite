@@ -10,6 +10,8 @@ import java.math.BigInteger;
 
 public class VarIntType extends Type<BigInteger> {
 
+    private final BigInteger BIG_256 = BigInteger.valueOf(256);
+
     @Override
     public BigInteger read(InputStream inputStream) throws IOException {
         byte[] readLength = new byte[1];
@@ -19,7 +21,7 @@ public class VarIntType extends Type<BigInteger> {
 
         BigInteger result = BigInteger.ZERO;
         for (int index = 0; index < bytes.length; ++index)
-            result = result.add(BigInteger.valueOf(Byte.toUnsignedInt(bytes[index])).multiply(BigInteger.valueOf(256L).pow(index)));
+            result = result.add(BigInteger.valueOf(Byte.toUnsignedInt(bytes[index])).multiply(BIG_256.pow(index)));
 
         return result;
     }
@@ -29,11 +31,11 @@ public class VarIntType extends Type<BigInteger> {
         ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
 
         do {
-            bytesOut.write(new byte[] { (byte)(value.mod(BigInteger.valueOf(256)).intValue()) });
-            value = value.divide(BigInteger.valueOf(256));
-        } while (value.compareTo(BigInteger.valueOf(256)) > 0);
+            bytesOut.write(new byte[] { (byte)(value.mod(BIG_256).intValue()) });
+            value = value.divide(BIG_256);
+        } while (value.compareTo(BIG_256) > 0);
 
-        bytesOut.write(new byte[] { (byte)(value.mod(BigInteger.valueOf(256)).intValue()) });
+        bytesOut.write(new byte[] { (byte)(value.mod(BIG_256).intValue()) });
 
         outputStream.write(new byte[] { (byte)bytesOut.size() });
         outputStream.write(bytesOut.toByteArray());

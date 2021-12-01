@@ -2,21 +2,22 @@ package ez.pogdog.yescom.jclient.handlers;
 
 import com.github.steveice10.mc.auth.exception.request.RequestException;
 import ez.pogdog.yescom.YesCom;
-import ez.pogdog.yescom.data.serializable.RenderDistance;
+import ez.pogdog.yescom.data.serializable.ChatMessage;
+import ez.pogdog.yescom.handlers.ConfigHandler;
 import ez.pogdog.yescom.handlers.connection.Player;
 import ez.pogdog.yescom.jclient.packets.*;
 import ez.pogdog.yescom.task.ILoadedChunkTask;
 import ez.pogdog.yescom.task.ITask;
-import ez.pogdog.yescom.data.serializable.TrackedPlayer;
 import ez.pogdog.yescom.data.serializable.ChunkState;
+import ez.pogdog.yescom.task.TaskRegistry;
 import ez.pogdog.yescom.tracking.ITracker;
 import me.iska.jclient.network.Connection;
 import me.iska.jclient.network.handler.IHandler;
 import me.iska.jclient.network.packet.Packet;
+import me.iska.jclient.network.packet.Registry;
 
 import javax.crypto.Cipher;
 import java.io.*;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -32,20 +33,20 @@ import java.security.PublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.*;
-import java.util.function.BiConsumer;
+import java.util.zip.DeflaterInputStream;
 
 public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
     private final YesCom yesCom = YesCom.getInstance();
 
     private final Deque<Packet> queuedPackets = new ArrayDeque<>();
+
+    private final List<ChatMessage> queuedChatMessages = new ArrayList<>();
     private final List<ChunkState> queuedChunkStates = new ArrayList<>();
 
     private final List<UUID> syncedOnlinePlayers = new ArrayList<>();
     private final Map<UUID, String> queuedJoins = new HashMap<>();
     private final List<UUID> queuedLeaves = new ArrayList<>();
-
-    private final Map<Integer, byte[]> dataParts = new HashMap<>();
 
     private byte[] handlerHash;
     private PrivateKey privateKey;
@@ -58,13 +59,6 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
     private boolean initialized;
     private boolean synced;
 
-    private ByteArrayOutputStream currentUploadData; // Data that has been requested by the server
-
-    private BiConsumer<Boolean, Map<Integer, byte[]>> downloadCallBack;
-    private boolean downloading;
-    private int chunkSize;
-    private int expectedParts;
-
     private long lastChunkStatesUpdate;
 
     public YCHandler(Connection connection, String handlerName) {
@@ -74,24 +68,19 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
         try {
             loadIdentityData();
         } catch (IOException error) {
-            yesCom.logger.warn("An error occurred while loading identity data:");
-            yesCom.logger.error(error.toString());
+            yesCom.logger.warning("An error occurred while loading identity data:");
+            yesCom.logger.throwing(YCHandler.class.getName(), "YCHandler", error);
         }
 
         initializing = false;
         initialized = false;
         synced = false;
 
-        currentUploadData = null;
-
-        downloading = false;
-        chunkSize = 65536;
-        expectedParts = 0;
-
         lastChunkStatesUpdate = System.currentTimeMillis();
     }
 
     @Override
+    @SuppressWarnings("SwitchStatementWithTooFewBranches")
     public void handlePacket(Packet packet) {
         if (packet instanceof YCInitResponsePacket) {
             if (!initializing && initialized) {
@@ -103,7 +92,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
             YCInitResponsePacket initResponse = (YCInitResponsePacket)packet;
 
             if (initResponse.isExtendedInit()) {
-                yesCom.logger.debug("Extended init, verifying identity.");
+                yesCom.logger.fine("Extended init, verifying identity.");
                 byte[] signature = initResponse.getSignature();
                 byte[] nonce;
 
@@ -113,15 +102,15 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
                     nonce = cipher.doFinal(signature);
 
                 } catch (GeneralSecurityException error) {
-                    yesCom.logger.fatal("Couldn't verify identity due to error:");
-                    yesCom.logger.error(error.toString());
+                    yesCom.logger.severe("Couldn't verify identity due to error:");
+                    yesCom.logger.throwing(YCHandler.class.getName(), "handlePacket", error);
 
                     yesCom.exit();
                     return;
                 }
 
                 connection.sendPacket(new YCExtendedResponsePacket(nonce));
-                yesCom.logger.debug("Waiting for response...");
+                yesCom.logger.fine("Waiting for response...");
 
             } else {
                 initializing = false;
@@ -133,143 +122,64 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
                     return;
                 }
 
-                yesCom.logger.debug(String.format("We are handler ID %d.", initResponse.getHandlerID()));
+                yesCom.logger.fine(String.format("We are handler ID %d.", initResponse.getHandlerID()));
 
                 yesCom.logger.info("Successfully initialized YC connection.");
                 yesCom.logger.info("Syncing with server...");
 
-                yesCom.logger.debug("Syncing registered tasks...");
-                connection.sendPacket(new TaskSyncPacket());
-                yesCom.logger.debug("Done.");
+                yesCom.logger.finer("Syncing config rules...");
+                connection.sendPacket(new ConfigSyncPacket(yesCom.configHandler.getConfigRules()));
+                yesCom.logger.finer("Done.");
 
-                yesCom.logger.debug("Syncing active tasks...");
+                yesCom.logger.finer("Syncing registered tasks...");
+                connection.sendPacket(new TaskSyncPacket(TaskRegistry.REGISTERED_TASKS));
+                yesCom.logger.finer("Done.");
+
+                yesCom.logger.finer("Syncing active tasks...");
                 yesCom.getTasks().forEach(this::onTaskAdded);
-                yesCom.logger.debug("Done.");
+                yesCom.logger.finer("Done.");
 
-                yesCom.logger.debug("Syncing players...");
+                yesCom.logger.finer("Syncing players...");
                 yesCom.connectionHandler.getPlayers().forEach(this::onPlayerAdded);
-                yesCom.logger.debug("Done.");
+                yesCom.logger.finer("Done.");
 
-                yesCom.logger.debug("Syncing trackers...");
+                yesCom.logger.finer("Syncing trackers...");
                 yesCom.trackingHandler.getTrackers().forEach(this::onTrackerAdded);
-                yesCom.logger.debug("Done.");
+                yesCom.logger.finer("Done.");
 
-                yesCom.logger.debug("Syncing online players...");
+                /*
+                yesCom.logger.finer("Syncing online players...");
                 yesCom.connectionHandler.getOnlinePlayers().forEach(this::onPlayerJoin);
-                yesCom.logger.debug("Done.");
+                yesCom.logger.finer("Done.");
+                 */
+
+                synced = true;
 
                 yesCom.logger.info("Synced.");
             }
 
-        } else if (packet instanceof DataRequestPacket) {
-            DataRequestPacket dataRequest = (DataRequestPacket)packet;
+        } else if (packet instanceof ConfigActionPacket) {
+            ConfigActionPacket configAction = (ConfigActionPacket)packet;
 
-            switch (dataRequest.getRequestType()) {
-                case DOWNLOAD: {
-                    DataResponsePacket dataResponse;
+            yesCom.logger.fine("Got config action.");
 
-                    if (currentUploadData != null) {
-                        yesCom.logger.warn("Concurrent data request!");
-                        dataResponse = new DataResponsePacket();
-
-                    } else {
-                        List<BigInteger> invalidIDs = new ArrayList<>();
-                        List<Object> fetchedData = new ArrayList<>();
-
-                        switch (dataRequest.getDataType()) {
-                            case CHUNK_STATE: {
-                                for (BigInteger dataID : dataRequest.getDataIDs()) {
-                                    ChunkState chunkState = yesCom.dataHandler.getChunkState(dataID);
-
-                                    if (chunkState == null) {
-                                        invalidIDs.add(dataID);
-                                        break; // We don't need to check anymore since we know it's invalid
-                                    } else {
-                                        fetchedData.add(chunkState);
-                                    }
-                                }
-                                break;
-                            }
-                            case RENDER_DISTANCE: {
-                                for (BigInteger dataID : dataRequest.getDataIDs()) {
-                                    RenderDistance renderDistance = yesCom.dataHandler.getRenderDistance(dataID);
-
-                                    if (renderDistance == null) {
-                                        invalidIDs.add(dataID);
-                                        break;
-                                    } else {
-                                        fetchedData.add(renderDistance);
-                                    }
-                                }
-                                break;
-                            }
-                            case TRACKED_PLAYER: {
-                                for (BigInteger dataID : dataRequest.getDataIDs()) {
-                                    TrackedPlayer trackedPlayer = yesCom.dataHandler.getTrackedPlayer(dataID);
-
-                                    if (trackedPlayer == null) {
-                                        invalidIDs.add(dataID);
-                                        break;
-                                    } else {
-                                        fetchedData.add(trackedPlayer);
-                                    }
-                                }
-                                break;
-                            }
-                            case ONLINE_PLAYER: {
-                                break;
-                            }
-                        }
-
-                        if (!invalidIDs.isEmpty()) {
-                            dataResponse = new DataResponsePacket(new ArrayList<>(), invalidIDs);
-                        } else {
-                            currentUploadData = new ByteArrayOutputStream(); // TODO: Write data
-                            dataResponse = new DataResponsePacket();
-                        }
-                    }
-
-                    connection.sendPacket(dataResponse);
+            switch (configAction.getAction()) { // TODO: Config action
+                case SET_RULE: {
                     break;
                 }
-                case UPLOAD: {
-                    yesCom.logger.warn("Server requested to upload data!");
-                    connection.sendPacket(new DataResponsePacket());
+                case GET_RULE: {
+                    ConfigHandler.ConfigRule rule = null;
+                    Object value = null;
+                    connection.sendPacket(new ConfigActionPacket(ConfigActionPacket.Action.SYNC_RULE, configAction.getActionID(), rule, value));
+                    // TODO: Send action response
                     break;
                 }
-                case CANCEL: {
-                    yesCom.logger.debug("Cancelled current data upload.");
-                    currentUploadData = null;
-                    break;
-                }
-            }
-
-        } else if (packet instanceof DataResponsePacket) {
-            DataResponsePacket dataResponse = (DataResponsePacket)packet;
-
-            if (dataResponse.isValid()) {
-                chunkSize = 0;
-                expectedParts = 0;
-
-            } else {
-                if (downloadCallBack != null) downloadCallBack.accept(false, new HashMap<>());
-                downloading = false;
-                dataParts.clear();
-            }
-
-        } else if (packet instanceof DataPartPacket) {
-            DataPartPacket dataPart = (DataPartPacket)packet;
-
-            dataParts.put(dataPart.getDataPart(), dataPart.getData());
-            if (dataParts.size() >= expectedParts) {
-                if (downloadCallBack != null) downloadCallBack.accept(true, new HashMap<>(dataParts));
-                downloading = false;
             }
 
         } else if (packet instanceof TaskActionPacket) {
             TaskActionPacket taskAction = (TaskActionPacket)packet;
 
-            yesCom.logger.debug("Got task action.");
+            yesCom.logger.fine("Got task action.");
 
             switch (taskAction.getAction()) {
                 case START: {
@@ -285,10 +195,10 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
         } else if (packet instanceof AccountActionPacket) {
             AccountActionPacket accountAction = (AccountActionPacket)packet;
 
-            yesCom.logger.debug("Got account action.");
+            yesCom.logger.fine("Got account action.");
 
             switch (accountAction.getAction()) {
-                case ADD: {
+                case LOGIN: {
                     boolean success;
                     String message;
 
@@ -302,18 +212,76 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
                         success = true;
                         message = "Successfully logged in.";
                     } catch (RequestException error) {
-                        yesCom.logger.warn(String.format("Error while logging in account: %s.", accountAction.getUsername()));
-                        yesCom.logger.error(error.toString());
+                        yesCom.logger.warning(String.format("Error while logging in account: %s.", accountAction.getUsername()));
+                        yesCom.logger.throwing(YCHandler.class.getSimpleName(), "handlePacket", error);
 
                         success = false;
                         message = error.getMessage();
                     }
 
-                    connection.sendPacket(new AccountActionResponsePacket(accountAction.getActionID(), success, message));
+                    connection.sendPacket(new ActionResponsePacket(accountAction.getActionID(), success, message));
                     break;
                 }
-                case REMOVE: {
-                    yesCom.accountHandler.logout(accountAction.getUsername());
+                case LOGOUT: {
+                    if (yesCom.accountHandler.getAccount(accountAction.getUsername()) == null) {
+                        connection.sendPacket(new ActionResponsePacket(accountAction.getActionID(), false, "Account not found."));
+                    } else {
+                        yesCom.accountHandler.logout(accountAction.getUsername());
+                        connection.sendPacket(new ActionResponsePacket(accountAction.getActionID(), true, "Successfully logged out."));
+                    }
+                    break;
+                }
+            }
+
+        } else if (packet instanceof TrackerActionPacket) {
+            TrackerActionPacket trackerAction = (TrackerActionPacket)packet;
+
+            yesCom.logger.fine("Got tracker action.");
+
+            if (trackerAction.getAction() == TrackerActionPacket.Action.UNTRACK) {
+                ITracker tracker = yesCom.trackingHandler.getTracker(trackerAction.getTrackerID());
+
+                if (tracker != null) {
+                    yesCom.logger.fine(String.format("Untracking %s.", tracker));
+                    yesCom.trackingHandler.untrack(tracker);
+                }
+            }
+
+        } else if (packet instanceof ActionRequestPacket) {
+            ActionRequestPacket actionRequest = (ActionRequestPacket)packet;
+
+            ByteArrayInputStream inputStream = new ByteArrayInputStream(actionRequest.getData());
+
+            switch (actionRequest.getAction()) { // It'll prolly have more stuff in the future
+                case SEND_CHAT_MESSAGE: {
+                    String username;
+                    String message;
+                    try {
+                        username = Registry.STRING.read(inputStream);
+                        message = Registry.STRING.read(inputStream);
+                    } catch (IOException error) {
+                        yesCom.logger.finer("Error while reading chat message.");
+                        yesCom.logger.throwing(YCHandler.class.getSimpleName(), "handlePacket", error);
+                        connection.sendPacket(new ActionResponsePacket(actionRequest.getActionID(), false,
+                                "Invalid format for chat message."));
+                        return;
+                    }
+
+                    Player player = yesCom.connectionHandler.getPlayer(username);
+                    if (player == null) {
+                        yesCom.logger.finer(String.format("Attempted to send chat message with invalid username: %s.", username));
+                        connection.sendPacket(new ActionResponsePacket(actionRequest.getActionID(), false,
+                                "Player not found."));
+                        return;
+
+                    } else if (!player.isConnected()) {
+                        yesCom.logger.finer(String.format("Attempted to send chat message to offline player: %s.", player));
+                        connection.sendPacket(new ActionResponsePacket(actionRequest.getActionID(), false,
+                                "Player is offline."));
+                        return;
+                    }
+
+                    player.sendChatMessage(message);
                     break;
                 }
             }
@@ -321,22 +289,40 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
     }
 
     @Override
+    public void update() {
+    }
+
+    @Override
+    public void exit(String reason) {
+        yesCom.restartConnection();
+    }
+
+    @Override
     public synchronized void onTick() {
-        if (connection.isConnected() && initialized) {
+        if (connection.isConnected() && initialized && synced) {
             while (!queuedPackets.isEmpty()) connection.sendPacket(queuedPackets.pop());
+
+            if (!queuedChatMessages.isEmpty()) {
+                connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.CHAT, queuedChatMessages,
+                        new ArrayList<>()));
+                queuedChatMessages.clear();
+            }
 
             if (System.currentTimeMillis() - lastChunkStatesUpdate > 500) {
                 lastChunkStatesUpdate = System.currentTimeMillis();
 
-                if (!queuedChunkStates.isEmpty()) connection.sendPacket(new ChunkStatesPacket(queuedChunkStates));
+                if (!queuedChunkStates.isEmpty())
+                    connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.CHUNK_STATE,
+                            queuedChunkStates, new ArrayList<>()));
                 queuedChunkStates.clear();
-
-                if (!queuedJoins.isEmpty()) connection.sendPacket(new OnlinePlayersActionPacket(OnlinePlayersActionPacket.Action.ADD, queuedJoins));
-                queuedJoins.clear();
-
-                if (!queuedLeaves.isEmpty()) connection.sendPacket(new OnlinePlayersActionPacket(queuedLeaves));
-                queuedLeaves.clear();
             }
+
+            // TODO: Leaves and joins
+            if (!queuedJoins.isEmpty()); // connection.sendPacket(new OnlinePlayersActionPacket(OnlinePlayersActionPacket.Action.ADD, queuedJoins));
+            queuedJoins.clear();
+
+            if (!queuedLeaves.isEmpty()); // connection.sendPacket(new OnlinePlayersActionPacket(queuedLeaves));
+            queuedLeaves.clear();
         }
     }
 
@@ -344,26 +330,26 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
     public void onExit() {
     }
 
+    /* ----------------------------- Identity data ----------------------------- */
+
     private void loadIdentityData() throws IOException {
-        yesCom.logger.debug("Loading identity data...");
+        yesCom.logger.fine("Loading identity data...");
 
         File file = Paths.get(yesCom.configHandler.IDENTITY_DIRECTORY).toFile();
         if (!file.exists() || !file.isDirectory()) {
             yesCom.logger.info("No identity data found, generating new data.");
             saveIdentityData();
         } else {
-            InputStream hashFile = Files.newInputStream(Paths.get(file.getPath(), "hash.txt"));
-            byte[] readHandlerHash = new byte[32];
-            if (hashFile.read(readHandlerHash) == 32) {
-                handlerHash = Base64.getDecoder().decode(readHandlerHash);
+            List<String> lines = Files.readAllLines(Paths.get(file.getPath(), "hash.txt"));
+            if (!lines.isEmpty()) {
+                handlerHash = Base64.getDecoder().decode(lines.get(0));
             } else {
-                yesCom.logger.warn("Invalid handler hash size, regenerating data...");
+                yesCom.logger.warning("Invalid handler hash size, regenerating data...");
                 saveIdentityData();
                 return;
             }
-            hashFile.close();
 
-            yesCom.logger.debug(String.format("Handler hash is %s.", Base64.getEncoder().encodeToString(handlerHash)));
+            yesCom.logger.fine(String.format("Handler hash is %s.", Base64.getEncoder().encodeToString(handlerHash)));
 
             BufferedReader pubKeyFile = new BufferedReader(new InputStreamReader(Files.newInputStream(Paths.get(file.getPath(), "pubkey.pem"))));
             StringBuilder pubKeyBuilder = new StringBuilder();
@@ -372,8 +358,8 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
             try {
                 publicKey = readPublicKey(pubKeyBuilder.toString());
             } catch (GeneralSecurityException | IllegalArgumentException error) {
-                yesCom.logger.warn("Invalid public key format, regenerating data:");
-                yesCom.logger.error(error.toString());
+                yesCom.logger.warning("Invalid public key format, regenerating data:");
+                yesCom.logger.throwing(YCHandler.class.getSimpleName(), "loadIdentityData", error);
                 saveIdentityData();
                 return;
             }
@@ -385,16 +371,16 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
             try {
                 privateKey = readPrivateKey(privKeyBuilder.toString());
             } catch (GeneralSecurityException | IllegalArgumentException error) {
-                yesCom.logger.warn("Invalid private key format, regenerating data:");
-                yesCom.logger.error(error.toString());
+                yesCom.logger.warning("Invalid private key format, regenerating data:");
+                yesCom.logger.throwing(YCHandler.class.getSimpleName(), "loadIdentityData", error);
                 saveIdentityData();
                 return;
             }
 
-            yesCom.logger.debug("Private key:");
-            yesCom.logger.debug("\n" + writePrivateKey(privateKey));
-            yesCom.logger.debug("Public key:");
-            yesCom.logger.debug("\n" + writePublicKey(publicKey));
+            yesCom.logger.finer("Private key:");
+            yesCom.logger.finer("\n" + writePrivateKey(privateKey));
+            yesCom.logger.finer("Public key:");
+            yesCom.logger.finer("\n" + writePublicKey(publicKey));
 
             yesCom.logger.info("Successfully read identity data.");
         }
@@ -405,9 +391,9 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
         try {
             handlerHash = MessageDigest.getInstance("SHA-256").digest(ByteBuffer.allocate(8).putLong(System.currentTimeMillis()).array());
-            yesCom.logger.debug(String.format("Handler hash is %s.", Base64.getEncoder().encodeToString(handlerHash)));
+            yesCom.logger.fine(String.format("Handler hash is %s.", Base64.getEncoder().encodeToString(handlerHash)));
 
-            yesCom.logger.debug(String.format("Generating %d bit RSA keys...", yesCom.configHandler.RSA_KEY_SIZE));
+            yesCom.logger.fine(String.format("Generating %d bit RSA keys...", yesCom.configHandler.RSA_KEY_SIZE));
             KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
             keyPairGenerator.initialize(yesCom.configHandler.RSA_KEY_SIZE);
 
@@ -416,16 +402,16 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
             privateKey = keyPair.getPrivate();
             publicKey = keyPair.getPublic();
 
-            yesCom.logger.debug("Private key:");
-            yesCom.logger.debug("\n" + writePrivateKey(privateKey));
-            yesCom.logger.debug("Public key:");
-            yesCom.logger.debug("\n" + writePublicKey(publicKey));
+            yesCom.logger.finer("Private key:");
+            yesCom.logger.finer("\n" + writePrivateKey(privateKey));
+            yesCom.logger.finer("Public key:");
+            yesCom.logger.finer("\n" + writePublicKey(publicKey));
 
             yesCom.logger.info("Do NOT share the private key (duh).");
 
         } catch (NoSuchAlgorithmException error) {
-            yesCom.logger.fatal("An error occurred while generating the data:");
-            yesCom.logger.error(error.toString());
+            yesCom.logger.severe("An error occurred while generating the data:");
+            yesCom.logger.throwing(YCHandler.class.getSimpleName(), "saveIdentityData", error);
 
             yesCom.exit();
             return;
@@ -451,17 +437,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
         yesCom.logger.info("Done!");
     }
 
-    public void initConnection() {
-        yesCom.logger.debug("Initializing YC connection...");
-
-        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(publicKey.getEncoded());
-
-        connection.sendPacket(new YCInitRequestPacket(YCInitRequestPacket.ClientType.REPORTING, handlerHash,
-                keySpec.getEncoded(), handlerName, yesCom.connectionHandler.getHost(), yesCom.connectionHandler.getPort()));
-        initializing = true;
-    }
-
-    public PrivateKey readPrivateKey(String data) throws GeneralSecurityException {
+    private PrivateKey readPrivateKey(String data) throws GeneralSecurityException {
         String privateKeyPEM = data
                 .replace("-----BEGIN RSA PRIVATE KEY-----", "")
                 .replaceAll(System.lineSeparator(), "")
@@ -474,7 +450,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
         return keyFactory.generatePrivate(keySpec);
     }
 
-    public String writePrivateKey(PrivateKey privateKey) {
+    private String writePrivateKey(PrivateKey privateKey) {
         StringBuilder keyBuilder = new StringBuilder();
         keyBuilder.append("-----BEGIN RSA PRIVATE KEY-----");
 
@@ -517,46 +493,24 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
         return keyBuilder.toString();
     }
 
-    public void requestDataDownload(DataRequestPacket.DataType dataType, List<BigInteger> dataIDs,
-                                    BiConsumer<Boolean, Map<Integer, byte[]>> downloadCallBack) {
-        if (!downloading) {
-            dataParts.clear();
-            this.downloadCallBack = downloadCallBack;
-            downloading = true;
+    /* ----------------------------- Connection stuff ----------------------------- */
 
-            connection.sendPacket(new DataRequestPacket(dataType, dataIDs));
+    /**
+     * Attempts to start a YC connection to the server, if not already initialized.
+     */
+    public void initConnection() {
+        if (!initialized && !initializing) {
+            yesCom.logger.fine("Initializing YC connection...");
+
+            X509EncodedKeySpec keySpec = new X509EncodedKeySpec(publicKey.getEncoded());
+
+            connection.sendPacket(new YCInitRequestPacket(YCInitRequestPacket.ClientType.REPORTING, handlerHash,
+                    keySpec.getEncoded(), handlerName, yesCom.connectionHandler.getHost(), yesCom.connectionHandler.getPort()));
+            initializing = true;
         }
     }
 
-    public void requestChunkStatesDownload(List<BigInteger> dataIDs, BiConsumer<Boolean, Map<Integer, byte[]>> downloadCallBack) {
-        requestDataDownload(DataRequestPacket.DataType.CHUNK_STATE, dataIDs, downloadCallBack);
-    }
-
-    public void requestChunkStatesDownload(List<BigInteger> dataIDs) {
-        requestChunkStatesDownload(dataIDs, null);
-    }
-
-    public void requestRenderDistancesDownload(List<BigInteger> dataIDs, BiConsumer<Boolean, Map<Integer, byte[]>> downloadCallBack) {
-        requestDataDownload(DataRequestPacket.DataType.RENDER_DISTANCE, dataIDs, downloadCallBack);
-    }
-
-    public void requestRenderDistancesDownload(List<BigInteger> dataIDs) {
-        requestRenderDistancesDownload(dataIDs, null);
-    }
-
-    public void requestTrackedPlayersDownload(List<BigInteger> dataIDs, BiConsumer<Boolean, Map<Integer, byte[]>> downloadCallBack) {
-        requestDataDownload(DataRequestPacket.DataType.TRACKED_PLAYER, dataIDs, downloadCallBack);
-    }
-
-    public void requestTrackedPlayersDownload(List<BigInteger> dataIDs) {
-        requestTrackedPlayersDownload(dataIDs, null);
-    }
-
-    public void onUpdateDataIDs(UpdateDataIDsPacket.DataType dataType, BigInteger minDataID, BigInteger maxDataID) {
-        queuedPackets.add(new UpdateDataIDsPacket(dataType, minDataID, maxDataID));
-    }
-
-    /* ------------------------ Task Events ------------------------ */
+    /* ----------------------------- Task Events ----------------------------- */
 
     public synchronized void onTaskAdded(ITask task) {
         queuedPackets.add(new TaskActionPacket(task));
@@ -579,14 +533,14 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
         queuedPackets.add(new TaskActionPacket(task, result));
     }
 
-    /* ------------------------ Player Events ------------------------ */
+    /* ----------------------------- Player Events ----------------------------- */
 
     public synchronized void onPlayerAdded(Player player) {
-        queuedPackets.add(new PlayerActionPacket(PlayerActionPacket.Action.ADD, player));
+        queuedPackets.add(new PlayerActionPacket(player));
     }
 
     public synchronized void onPlayerRemoved(Player player, String reason) {
-        queuedPackets.add(new PlayerActionPacket(PlayerActionPacket.Action.REMOVE, player));
+        queuedPackets.add(new PlayerActionPacket(player, reason));
     }
 
     public synchronized void onPositionChanged(Player player) {
@@ -601,13 +555,13 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
         queuedPackets.add(new PlayerActionPacket(player.getAuthService().getUsername(), player.getFoodStats()));
     }
 
-    /* ------------------------ Chunk Events ------------------------ */
+    /* ----------------------------- Chunk Events ----------------------------- */
 
     public synchronized void onChunkState(ChunkState chunkState) {
         queuedChunkStates.add(chunkState);
     }
 
-    /* ------------------------ Tracker Events ------------------------ */
+    /* ----------------------------- Tracker Events ----------------------------- */
 
     public synchronized void onTrackerAdded(ITracker tracker) {
         queuedPackets.add(new TrackerActionPacket(TrackerActionPacket.Action.ADD, tracker));
@@ -621,10 +575,19 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
         queuedPackets.add(new TrackerActionPacket(TrackerActionPacket.Action.UPDATE, tracker));
     }
 
-    /* ------------------------ Info Events ------------------------ */
+    /* ----------------------------- Info Events ----------------------------- */
 
-    public synchronized void onInfoUpdate(int waitingQueries, int tickingQueries, float queriesPerSecond, float tickRate, int timeSinceLastPacket) {
-        queuedPackets.add(new InfoUpdatePacket(waitingQueries, tickingQueries, queriesPerSecond, tickRate, timeSinceLastPacket));
+    public synchronized void onLogMessage(String logMessage) {
+
+    }
+
+    public synchronized void onChatMessage(ChatMessage chatMessage) {
+        queuedChatMessages.add(chatMessage);
+    }
+
+    public synchronized void onInfoUpdate(int waitingQueries, int tickingQueries, float queriesPerSecond, float tickRate,
+                                          float serverPing,int timeSinceLastPacket) {
+        queuedPackets.add(new InfoUpdatePacket(waitingQueries, tickingQueries, queriesPerSecond, tickRate, serverPing, timeSinceLastPacket));
     }
 
     public synchronized void onInfoUpdate(int waitingQueries, int tickingQueries, float queriesPerSecond) {
@@ -645,33 +608,19 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
         }
     }
 
-    /* ------------------------ Setters and Getters ------------------------ */
+    /* ----------------------------- Setters and Getters ----------------------------- */
 
+    /**
+     * @return Whether or not we have initialized a YC connection with the serve.r
+     */
     public boolean isInitialized() {
         return initialized || initializing;
     }
 
+    /**
+     * @return Whether or not we have synchronized our data with the server.
+     */
     public boolean isSynced() {
         return synced;
-    }
-
-    public boolean isDownloading() {
-        return downloading;
-    }
-
-    public int getChunkSize() {
-        return chunkSize;
-    }
-
-    public int getExpectedParts() {
-        return expectedParts;
-    }
-
-    public int getCurrentParts() {
-        return dataParts.size();
-    }
-
-    public Map<Integer, byte[]> getDataParts() {
-        return new HashMap<>(dataParts);
     }
 }

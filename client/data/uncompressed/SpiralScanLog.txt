@@ -1,1 +1,0 @@
-Found loaded (spiral): BlockPosition(x=384, y=0, z=-576) (dim NETHER).

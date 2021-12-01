@@ -1,0 +1,32 @@
+apply plugin: "java"
+apply plugin: "idea"
+
+group = "ez.pogdog.yescom"
+version = "0.9"
+
+repositories {
+    maven {
+        name = "jitpack"
+        url = "https://jitpack.io"
+    }
+    mavenCentral()
+    jcenter()
+}
+
+dependencies {
+    implementation project(":jserver")
+    compile project(":api")
+}
+
+jar {
+    manifest {
+        attributes("Plugin-Main-Class": "ez.pogdog.yescom.YesCom")
+    }
+
+    from configurations.compile.collect {
+        it.isDirectory() ? it : zipTree(it)
+    }
+
+    baseName = "yescom"
+    version = "${version}"
+}

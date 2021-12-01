@@ -52,11 +52,11 @@ public class HighwayScanTask implements ILoadedChunkTask {
 
         maxIndex = (this.maxDistance - this.minDistance) * 8;
 
-        yesCom.logger.debug("Starting highway scan task.");
-        yesCom.logger.debug(String.format("Min dist: %d.", minDistance));
-        yesCom.logger.debug(String.format("Max dist: %d.", maxDistance));
-        yesCom.logger.debug("Dimension:", dimension);
-        yesCom.logger.debug(String.format("Max index: %d.", maxIndex));
+        yesCom.logger.fine("Starting highway scan task.");
+        yesCom.logger.fine(String.format("Min dist: %d.", minDistance));
+        yesCom.logger.fine(String.format("Max dist: %d.", maxDistance));
+        yesCom.logger.fine(String.format("Dimension: %s.", dimension));
+        yesCom.logger.fine(String.format("Max index: %d.", maxIndex));
 
         currentIndex = 0;
     }
@@ -79,9 +79,11 @@ public class HighwayScanTask implements ILoadedChunkTask {
             }
         }
 
+        /*
         yesCom.logger.infoDisappearing(String.format("Scanning: %d, %d / %d, %d, %s, %dms.",
                 yesCom.queryHandler.getWaitingSize(), yesCom.queryHandler.getTickingSize(),
                 currentQueries.size(), currentIndex, getCurrentPosition(), yesCom.connectionHandler.getTimeSinceLastPacket()));
+         */
     }
 
     @Override
@@ -146,7 +148,7 @@ public class HighwayScanTask implements ILoadedChunkTask {
 
     private void onLoaded(ChunkPosition chunkPosition) {
         yesCom.logger.info(getFormattedResult(chunkPosition));
-        if (yesCom.handler != null) yesCom.handler.onTaskResult(this, getFormattedResult(chunkPosition));
+        if (yesCom.ycHandler != null) yesCom.ycHandler.onTaskResult(this, getFormattedResult(chunkPosition));
         onLoaded(chunkPosition, dimension);
 
         yesCom.trackingHandler.onLoadedChunk(chunkPosition, dimension);

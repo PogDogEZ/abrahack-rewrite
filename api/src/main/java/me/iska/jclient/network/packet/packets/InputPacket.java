@@ -7,6 +7,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+/**
+ * Sent by the server to request information from the client, given a prompt.
+ */
 @Packet.Info(name="input", id=10, side= Packet.Side.SERVER)
 public class InputPacket extends Packet {
 
@@ -28,5 +31,13 @@ public class InputPacket extends Packet {
     @Override
     public void write(OutputStream outputStream) throws IOException {
         Registry.STRING.write(prompt, outputStream);
+    }
+
+    public String getPrompt() {
+        return prompt;
+    }
+
+    public void setPrompt(String prompt) {
+        this.prompt = prompt;
     }
 }

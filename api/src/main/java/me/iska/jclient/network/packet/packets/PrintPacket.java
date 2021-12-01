@@ -7,6 +7,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+/**
+ * Sent by the server to display info, given a channel, on the client. Channels 0-4 are log levels fatal to debug.
+ */
 @Packet.Info(name="print", id=9, side=Packet.Side.SERVER)
 public class PrintPacket extends Packet {
 

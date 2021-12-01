@@ -19,7 +19,7 @@ import java.util.*;
 /*
  * Handles assigning trackers, manages all running trackers, only handles CURRENT tracking
  */
-public class TrackingHandler implements IHandler {
+public class TrackingHandler implements IHandler { // FIXME: Holy shit PLEASE overhaul this fucking class and the tracking system in general
 
     private final YesCom yesCom = YesCom.getInstance();
 
@@ -56,17 +56,17 @@ public class TrackingHandler implements IHandler {
                     .findAny();
 
             if (overLapping.isPresent()) {
-                yesCom.logger.debug(String.format("%s and %s are overlapping, removing one.", trackedPlayer, overLapping.get()));
+                yesCom.logger.fine(String.format("%s and %s are overlapping, removing one.", trackedPlayer, overLapping.get()));
 
                 if (trackedPlayer.getTrackingSince() < overLapping.get().getTrackingSince()) { // Keep the older one
                     removeTrackedPlayer(overLapping.get());
                     new HashMap<>(trackers).forEach((trackerID, tracker) -> {
-                        if (tracker.getTrackedPlayer().equals(overLapping.get())) removeTracker(tracker);
+                        if (tracker.getTrackedPlayers().equals(overLapping.get())) removeTracker(tracker);
                     });
                 } else {
                     removeTrackedPlayer(trackedPlayer);
                     new HashMap<>(trackers).forEach((trackerID, tracker) -> {
-                        if (tracker.getTrackedPlayer().equals(trackedPlayer)) removeTracker(tracker);
+                        if (tracker.getTrackedPlayers().equals(trackedPlayer)) removeTracker(tracker);
                     });
                 }
             }
@@ -80,7 +80,7 @@ public class TrackingHandler implements IHandler {
         });
         new ArrayList<>(trackers.values()).forEach(tracker ->{
             tracker.onTick();
-            if (yesCom.handler != null) yesCom.handler.onTrackerUpdate(tracker);
+            if (yesCom.ycHandler != null) yesCom.ycHandler.onTrackerUpdate(tracker);
         });
 
         boolean serverDown = !yesCom.connectionHandler.isConnected();
@@ -113,7 +113,14 @@ public class TrackingHandler implements IHandler {
     public void onExit() {
     }
 
-    private void onRenderResolve(QuickResolver quickResolver) {
+    /* ----------------------------- Events ----------------------------- */
+
+    /**
+     * Called when a render distance has been resolved.
+     * @param quickResolver The resolver that resolved the render distance.
+     */
+    @Deprecated
+    public void onRenderResolve(QuickResolver quickResolver) {
         RenderDistance renderDistance = quickResolver.getRenderDistance();
         Dimension dimension = quickResolver.getDimension();
 
@@ -135,6 +142,10 @@ public class TrackingHandler implements IHandler {
         }
     }
 
+    /**
+     * Called when a player joins the game.
+     * @param uuid The UUID of the player that joined.
+     */
     public void onPlayerJoin(UUID uuid) {
         if (loggedPlayers.isEmpty()) return; // No one to check for
 
@@ -172,6 +183,11 @@ public class TrackingHandler implements IHandler {
         });
     }
 
+    /**
+     * Called when a loaded chunk is found.
+     * @param loadedChunk The position of the loaded chunk.
+     * @param dimension The dimension of the loaded chunk.
+     */
     public void onLoadedChunk(ChunkPosition loadedChunk, Dimension dimension) {
         boolean inPlayerRender = onlinePlayers.stream()
                 .anyMatch(trackedPlayer -> trackedPlayer.getDimension() == dimension && trackedPlayer.getRenderDistance().contains(loadedChunk));
@@ -189,6 +205,8 @@ public class TrackingHandler implements IHandler {
         }
     }
 
+    /* ----------------------------- Resolvers ----------------------------- */
+
     /**
      * Good for resolving render distances quickly.
      * @param initialLoaded The initial loaded position.
@@ -196,35 +214,39 @@ public class TrackingHandler implements IHandler {
      * @param maxPhase The maximum phase, less means it resolves faster but has more error.
      */
     public void quickResolve(ChunkPosition initialLoaded, Dimension dimension, int maxPhase) {
-        yesCom.logger.debug(String.format("Resolving quick for initial %s, dim %s, max phase: %d.", initialLoaded,
+        yesCom.logger.fine(String.format("Resolving quick for initial %s, dim %s, max phase: %d.", initialLoaded,
                 dimension, maxPhase));
         QuickResolver resolver = new QuickResolver(initialLoaded, dimension, maxPhase, this::onRenderResolve);
         resolvers.add(resolver);
     }
 
     public MultiResolver resolveMulti(ChunkPosition initialLoaded, Dimension dimension) {
-        yesCom.logger.debug(String.format("Resolving multi for initial %s, dim %s.", initialLoaded, dimension));
+        yesCom.logger.fine(String.format("Resolving multi for initial %s, dim %s.", initialLoaded, dimension));
         return null;
     }
 
+    /* ----------------------------- Trackers ----------------------------- */
+
     public synchronized void trackBasic(TrackedPlayer trackedPlayer) {
-        yesCom.logger.debug(String.format("Starting basic tracker for %s.", trackedPlayer));
+        yesCom.logger.fine(String.format("Starting basic tracker for %s.", trackedPlayer));
         new HashMap<>(trackers).forEach((trackerID, tracker) -> {
-            if (tracker.getTrackedPlayer().equals(trackedPlayer)) removeTracker(tracker);
+            if (tracker.getTrackedPlayers().equals(trackedPlayer)) removeTracker(tracker);
         });
         addTracker(new AdaptiveTracker(trackerID++, trackedPlayer));
     }
 
     public synchronized void trackPanic(TrackedPlayer trackedPlayer) {
-        yesCom.logger.debug(String.format("Starting panic tracker for %s.", trackedPlayer));
+        yesCom.logger.fine(String.format("Starting panic tracker for %s.", trackedPlayer));
         new HashMap<>(trackers).forEach((trackerID, tracker) -> {
-            if (tracker.getTrackedPlayer().equals(trackedPlayer)) removeTracker(tracker);
+            if (tracker.getTrackedPlayers().equals(trackedPlayer)) removeTracker(tracker);
         });
         addTracker(new PanicTracker(trackerID++, trackedPlayer));
         /*
         if (trackedPlayer.getCurrentTracker() != null) trackedPlayer.getCurrentTracker().onLost();
          */
     }
+
+    /* ----------------------------- Trackers and tracked players ----------------------------- */
 
     /**
      * Returns a tracker based on its tracker ID.
@@ -242,7 +264,7 @@ public class TrackingHandler implements IHandler {
      */
     public ITracker getTracker(TrackedPlayer trackedPlayer) {
         return trackers.entrySet().stream()
-                .filter(entry -> entry.getValue().getTrackedPlayer().equals(trackedPlayer))
+                .filter(entry -> entry.getValue().getTrackedPlayers().equals(trackedPlayer))
                 .findFirst()
                 .map(Map.Entry::getValue)
                 .orElse(null);
@@ -256,7 +278,7 @@ public class TrackingHandler implements IHandler {
         if (!trackers.containsKey(tracker.getTrackerID()) && !trackers.containsValue(tracker)) {
             trackers.put(tracker.getTrackerID(), tracker);
 
-            if (yesCom.handler != null) yesCom.handler.onTrackerAdded(tracker);
+            if (yesCom.ycHandler != null) yesCom.ycHandler.onTrackerAdded(tracker);
         }
     }
 
@@ -265,7 +287,20 @@ public class TrackingHandler implements IHandler {
             tracker.onLost();
             trackers.remove(tracker.getTrackerID());
 
-            if (yesCom.handler != null) yesCom.handler.onTrackerRemoved(tracker);
+            if (yesCom.ycHandler != null) yesCom.ycHandler.onTrackerRemoved(tracker);
+        }
+    }
+
+    /**
+     * Completely stops a tracker, without letting it know.
+     * @param tracker The tracker.
+     */
+    public void untrack(ITracker tracker) {
+        if (trackers.containsKey(tracker.getTrackerID())) {
+            // TODO: What should we do with the tracked players, just remove them if they aren't present in any other trackers?
+            trackers.remove(tracker.getTrackerID());
+
+            if (yesCom.ycHandler != null) yesCom.ycHandler.onTrackerRemoved(tracker);
         }
     }
 
@@ -281,16 +316,11 @@ public class TrackingHandler implements IHandler {
                 yesCom.logger.info(String.format("%s has logged out, most probable: %s.", trackedPlayer,
                         yesCom.connectionHandler.getNameForUUID(trackedPlayer.getBestPossiblePlayer())));
             } else {
-                yesCom.logger.warn(String.format("Lost tracked player %s, no probable logouts.", trackedPlayer));
+                yesCom.logger.warning(String.format("Lost tracked player %s, no probable logouts.", trackedPlayer));
             }
 
             recentLogouts.put(trackedPlayer, System.currentTimeMillis());
         }
-    }
-
-    public boolean isChunkKnown(ChunkPosition chunkPosition, Dimension dimension) {
-        return onlinePlayers.stream()
-                .anyMatch(trackedPlayer ->trackedPlayer.getDimension() == dimension && trackedPlayer.getRenderDistance().contains(chunkPosition));
     }
 
     public void addTrackedPlayer(TrackedPlayer trackedPlayer) {
@@ -308,5 +338,18 @@ public class TrackingHandler implements IHandler {
 
     public void removeLoggedPlayer(TrackedPlayer loggedPlayer) {
         loggedPlayers.remove(loggedPlayer);
+    }
+
+    /* ----------------------------- Other ----------------------------- */
+
+    /**
+     * Returns whether any of the tracked players' render distances contain a chunk position.
+     * @param chunkPosition The chunk position to check for.
+     * @param dimension The dimension to check in.
+     * @return Whether the chunk is known.
+     */
+    public boolean isChunkKnown(ChunkPosition chunkPosition, Dimension dimension) {
+        return onlinePlayers.stream()
+                .anyMatch(trackedPlayer ->trackedPlayer.getDimension() == dimension && trackedPlayer.getRenderDistance().contains(chunkPosition));
     }
 }

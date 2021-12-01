@@ -1,32 +1,22 @@
 package ez.pogdog.yescom;
 
-import ez.pogdog.yescom.handlers.AccountHandler;
-import ez.pogdog.yescom.handlers.ConfigHandler;
-import ez.pogdog.yescom.handlers.QueryHandler;
-import ez.pogdog.yescom.handlers.DataHandler;
+import ez.pogdog.yescom.handlers.*;
 import ez.pogdog.yescom.handlers.connection.ConnectionHandler;
 import ez.pogdog.yescom.handlers.invalidmove.InvalidMoveHandler;
-import ez.pogdog.yescom.handlers.TrackingHandler;
 import ez.pogdog.yescom.jclient.YCRegistry;
+import ez.pogdog.yescom.jclient.handlers.YCDataHandler;
 import ez.pogdog.yescom.jclient.handlers.YCHandler;
 import ez.pogdog.yescom.task.ITask;
-import ez.pogdog.yescom.logging.LogLevel;
-import ez.pogdog.yescom.logging.Logger;
-import me.iska.jclient.impl.user.Group;
-import me.iska.jclient.impl.user.User;
 import me.iska.jclient.network.Connection;
-import me.iska.jclient.network.handler.DefaultHandler;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
+import me.iska.jclient.network.handler.handlers.DefaultHandler;
+import me.iska.jclient.util.Colour;
+import org.apache.commons.cli.*;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
+import java.net.Socket;
+import java.util.*;
+import java.util.logging.*;
+import java.util.logging.Formatter;
 
 /**
  * PogDog Software Suite Presents:
@@ -34,7 +24,7 @@ import java.util.Locale;
  * Yescom© - Sequel to Nocom; a project carried out by NerdsInc
  * Nocom information found here: https://github.com/nerdsinspace/nocom-explanation/blob/main/README.md
  *
- * More info on this program: https://github.com/node3112/coordexploit/blob/main/README.md
+ * More info on this program: https://github.com/PogDogEZ/abrahack-rewrite/blob/main/README.md
  *
  * Project Credits:
  * Node - Wrote most of the client/server/viewer, as well as had the idea for the exploit originally.
@@ -49,18 +39,58 @@ public class YesCom {
 
     public static YesCom instance;
 
+    private static final Map<Level, String> LEVEL_COLOURS = new HashMap<>();
+
     public static YesCom getInstance() {
         return instance;
     }
 
     public static void main(String[] args) {
-        Logger tempLogger = new Logger("yescom", LogLevel.DEBUG);
-        tempLogger.setShowName(false);
+        // TODO: This colour stuff could prolly go in clinit
+        LEVEL_COLOURS.put(Level.SEVERE, Colour.Foreground.RED);
+        LEVEL_COLOURS.put(Level.WARNING, Colour.Foreground.YELLOW);
+        LEVEL_COLOURS.put(Level.INFO, Colour.RESET);
+        LEVEL_COLOURS.put(Level.CONFIG, Colour.RESET);
+        LEVEL_COLOURS.put(Level.FINE, Colour.Foreground.BLUE);
+        LEVEL_COLOURS.put(Level.FINER, Colour.Foreground.BLUE);
+        LEVEL_COLOURS.put(Level.FINEST, Colour.Foreground.BLUE);
+
+        // Set up the loggers
+        Logger tempLogger = Logger.getLogger("yescom");
+
+        ConsoleHandler consoleHandler = new ConsoleHandler();
+        consoleHandler.setLevel(Level.ALL);
+        consoleHandler.setFormatter(new Formatter() {
+            @Override
+            @SuppressWarnings("StringConcatenationInLoop")
+            public String format(LogRecord record) {
+                String message = String.format("%s[%tT] [%s] %s %s%n", LEVEL_COLOURS.get(record.getLevel()),
+                        record.getMillis(), record.getLevel(), record.getMessage(), Colour.RESET);
+
+                if (record.getThrown() != null) {
+                    message += String.format("%s%s %n", Colour.Foreground.RED, record.getThrown());
+                    for (StackTraceElement element : record.getThrown().getStackTrace())
+                        message += String.format("\tat %s.%s(%s:%d) %n", element.getClassName(), element.getMethodName(),
+                                element.getFileName(), element.getLineNumber());
+                    message += Colour.RESET;
+                }
+
+                return message;
+            }
+        });
+
+        tempLogger.setLevel(Level.ALL);
+        tempLogger.setUseParentHandlers(false);
+        tempLogger.addHandler(consoleHandler);
+
+        Logger.getLogger("jclient").setLevel(Level.ALL);
+        Logger.getLogger("jclient").setUseParentHandlers(false);
+        Logger.getLogger("jclient").addHandler(consoleHandler);
 
         Options options = new Options();
 
         Option logLevelOpt = new Option("l", "logLevel", true, "The log level.");
-        logLevelOpt.setType(LogLevel.class);
+        logLevelOpt.setType(Level.class);
         options.addOption(logLevelOpt);
 
         Option accountsFileOpt = new Option("af", "accountsFile", true, "The path to the accounts file.");
@@ -107,12 +137,16 @@ public class YesCom {
             String handlerName = cmd.getOptionValue("handler-name");
 
             try {
-                tempLogger.setLogLevel(LogLevel.valueOf(logLevel.toUpperCase(Locale.ROOT)));
+                Level level = Level.parse(logLevel.toUpperCase(Locale.ROOT));
+
+                tempLogger.setLevel(level);
+                consoleHandler.setLevel(level);
+                Logger.getLogger("jclient").setLevel(level);
+
             } catch (IllegalArgumentException | NullPointerException ignored) {
             }
 
-            instance = new YesCom(tempLogger.getLogLevel(),
-                    accountsFile == null ? "accounts.txt" : accountsFile,
+            instance = new YesCom(accountsFile == null ? "accounts.txt" : accountsFile,
                     configFile == null ? "config.yml" : configFile,
                     host, port == null ? 25565 : Integer.decode(port),
                     noYCConnection, handlerName == null ? "test" : handlerName);
@@ -120,8 +154,8 @@ public class YesCom {
             instance.run();
 
         } catch (ParseException error) {
-            tempLogger.fatal("Couldn't parse command line args.");
-            tempLogger.error(error.toString());
+            tempLogger.severe("Couldn't parse command line args.");
+            tempLogger.throwing(YesCom.class.getSimpleName(), "main", error);
 
             System.exit(1);
         }
@@ -142,7 +176,8 @@ public class YesCom {
     private final boolean noYCConnection;
 
     public Connection connection;
-    public YCHandler handler;
+    public YCHandler ycHandler;
+    public YCDataHandler ycDataHandler;
 
     private int reconnectAttempts;
 
@@ -151,18 +186,16 @@ public class YesCom {
 
     private long lastTaskUpdate;
 
-    public YesCom(LogLevel logLevel, String accountFilePath, String configFilePath, String host, int port,
-                  boolean noYCConnection, String handlerName) {
+    public YesCom(String accountFilePath, String configFilePath, String host, int port, boolean noYCConnection,
+                  String handlerName) {
         instance = this;
 
-        logger = new Logger("yescom", logLevel);
-        logger.setShowName(false);
-
+        logger = Logger.getLogger("yescom");
         logger.info("Initializing...");
 
-        logger.debug("Registering packets...");
+        logger.fine("Registering packets...");
         YCRegistry.registerPackets();
-        logger.debug("Done.");
+        logger.fine("Done.");
 
         configHandler = new ConfigHandler(configFilePath);
         accountHandler = new AccountHandler(accountFilePath);
@@ -176,7 +209,7 @@ public class YesCom {
         this.noYCConnection = noYCConnection;
 
         connection = null;
-        handler = null;
+        ycHandler = null;
 
         reconnectAttempts = 0;
 
@@ -184,40 +217,38 @@ public class YesCom {
         taskID = 0;
 
         lastTaskUpdate = System.currentTimeMillis();
+
+        if (!noYCConnection) restartConnection();
     }
 
-    private void onTick() {
-        if (!noYCConnection && (connection == null || (!connection.isConnected() && (!connection.isExited() || ++reconnectAttempts < 5)))) {
-            connection = new Connection(configHandler.HOST_NAME, configHandler.HOST_PORT, logger);
-            connection.setAuthSuppliers(
-                    () -> new User(configHandler.USERNAME, 1, 4,
-                            new Group(configHandler.GROUP_NAME, 1, 4)),
-                    () -> configHandler.PASSWORD);
-            handler = new YCHandler(connection, handlerName);
-            connection.addHandler(handler);
+    /* ----------------------------- Private methods ----------------------------- */
 
+    private void onTick() {
+        if (!noYCConnection && (!connection.isConnected() && (!connection.isExited() || ++reconnectAttempts < 5))) {
             try {
-                connection.connect();
+                connection.connect(new Socket());
             } catch (IOException ignored) {
                 // error.printStackTrace();
             }
             return; // Don't tick until we've connected
+
         } else if (connection != null && connection.isExited()) {
-            logger.fatal(String.format("Connection closed due to: %s", connection.getExitReason()));
+            logger.severe(String.format("Connection closed due to: %s", connection.getExitReason()));
             exit();
             return;
+
         } else {
             reconnectAttempts = 0;
         }
 
-        if (connection != null && handler != null && connection.getHandler() instanceof DefaultHandler &&
-                !handler.isInitialized()) {
-            handler.initConnection();
+        if (connection != null && ycHandler != null && connection.getPrimaryHandler() instanceof DefaultHandler &&
+                !ycHandler.isInitialized()) {
+            ycHandler.initConnection();
             return;
         }
 
         // Only down here so that the handler gets notified about the added task
-        if (currentTasks.isEmpty() && (handler == null || handler.isSynced()));
+        if (currentTasks.isEmpty() && (ycHandler == null || ycHandler.isSynced()));
 
         configHandler.onTick();
 
@@ -229,20 +260,20 @@ public class YesCom {
 
         new ArrayList<>(currentTasks).forEach(task -> {
             if (task.isFinished()) {
-                logger.debug(String.format("Finished task: %s.", task));
+                logger.fine(String.format("Finished task: %s.", task));
                 removeTask(task);
             } else {
                 task.onTick();
-                if (doTaskUpdate && handler != null) handler.onTaskUpdate(task);
+                if (doTaskUpdate && ycHandler != null) ycHandler.onTaskUpdate(task);
             }
         });
 
-        if (handler != null) {
+        if (ycHandler != null) {
             if (connectionHandler.isConnected()) {
-                handler.onInfoUpdate(queryHandler.getWaitingSize(), queryHandler.getTickingSize(), queryHandler.getQueriesPerSecond(),
-                        connectionHandler.getMeanTickRate(), connectionHandler.getTimeSinceLastPacket());
+                ycHandler.onInfoUpdate(queryHandler.getWaitingSize(), queryHandler.getTickingSize(), queryHandler.getQueriesPerSecond(),
+                        connectionHandler.getMeanTickRate(), connectionHandler.getMeanServerPing(), connectionHandler.getTimeSinceLastPacket());
             } else {
-                handler.onInfoUpdate(queryHandler.getWaitingSize(), queryHandler.getTickingSize(), queryHandler.getQueriesPerSecond());
+                ycHandler.onInfoUpdate(queryHandler.getWaitingSize(), queryHandler.getTickingSize(), queryHandler.getQueriesPerSecond());
             }
         }
 
@@ -253,8 +284,10 @@ public class YesCom {
 
         dataHandler.onTick();
 
-        if (handler != null) handler.onTick();
+        if (ycHandler != null) ycHandler.onTick();
     }
+
+    /* ----------------------------- Management stuff ----------------------------- */
 
     @SuppressWarnings("BusyWait")
     public void run() {
@@ -263,7 +296,7 @@ public class YesCom {
             onTick();
             long finishTime = System.currentTimeMillis();
 
-            if (finishTime - startTime < 50) {
+            if (finishTime - startTime < 50) { // 50ms is the Minecraft tick time
                 try {
                     Thread.sleep(50 - (finishTime - startTime));
                 } catch (InterruptedException ignored) {
@@ -272,6 +305,9 @@ public class YesCom {
         }
     }
 
+    /**
+     * Called on exit.
+     */
     public void exit() {
         if (alive) {
             logger.info("Exiting...");
@@ -293,30 +329,60 @@ public class YesCom {
         }
     }
 
+    /**
+     * Restarts the connection.
+     */
+    public void restartConnection() {
+        connection = new Connection(configHandler.HOST_NAME, configHandler.HOST_PORT);
+        connection.setAccountSupplier(() -> new Connection.Account(configHandler.USERNAME, configHandler.PASSWORD,
+                configHandler.GROUP_NAME));
+        ycHandler = new YCHandler(connection, handlerName);
+        ycDataHandler = new YCDataHandler(connection);
+        connection.addSecondaryHandler(ycHandler);
+        connection.addSecondaryHandler(ycDataHandler);
+    }
+
+    /* ----------------------------- Tasks ----------------------------- */
+
+    /**
+     * @return The currently active tasks.
+     */
     public List<ITask> getTasks() {
         return new ArrayList<>(currentTasks);
     }
 
+    /**
+     * Adds a task.
+     * @param task The task to add.
+     */
     public void addTask(ITask task) {
         if (!currentTasks.contains(task)) {
             currentTasks.add(task);
             task.setID(taskID++);
-            if (handler != null) handler.onTaskAdded(task);
+            if (ycHandler != null) ycHandler.onTaskAdded(task);
         }
     }
 
+    /**
+     * Removes a task.
+     * @param task The task to remove.
+     */
     public void removeTask(ITask task) {
         if (currentTasks.remove(task)) {
             task.onFinished();
-            if (handler != null) handler.onTaskRemoved(task);
+            if (ycHandler != null) ycHandler.onTaskRemoved(task);
         }
     }
 
+    /**
+     * Removes a task given the ID.
+     * @param taskID The task ID.
+     */
     public void removeTask(int taskID) {
         currentTasks.stream().filter(task -> task.getID() == taskID).findFirst().ifPresent(task -> {
             currentTasks.remove(task);
             task.onFinished();
-            if (handler != null) handler.onTaskRemoved(task);
+            if (ycHandler != null) ycHandler.onTaskRemoved(task);
         });
     }
 }

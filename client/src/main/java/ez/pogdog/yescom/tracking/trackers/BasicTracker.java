@@ -7,7 +7,9 @@ import ez.pogdog.yescom.tracking.ITracker;
 import ez.pogdog.yescom.data.serializable.TrackedPlayer;
 import ez.pogdog.yescom.util.ChunkPosition;
 
+import java.util.Collections;
 import java.util.Deque;
+import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
 public class BasicTracker implements ITracker {
@@ -83,9 +85,9 @@ public class BasicTracker implements ITracker {
                         updateTime = Math.max(100, Math.min(updateTime + updateTimeAddition, 3500));
 
                         double velocity = trackedPlayer.getTrackingData().getVelocity(System.currentTimeMillis() - 2000, System.currentTimeMillis());
-                        yesCom.logger.debug(String.format("%s has estimated velocity: %.2f.", trackedPlayer, velocity));
+                        yesCom.logger.finer(String.format("%s has estimated velocity: %.2f.", trackedPlayer, velocity));
 
-                        yesCom.logger.info(String.format("%s: %dms", trackedPlayer, updateTime));
+                        yesCom.logger.finer(String.format("%s: %dms", trackedPlayer, updateTime));
 
                         ChunkPosition shift = new ChunkPosition(
                                 (int)(centerOffset.getX() * 0.75 + lastCenterOffset.getX() * 0.25),
@@ -124,8 +126,8 @@ public class BasicTracker implements ITracker {
     }
 
     @Override
-    public TrackedPlayer getTrackedPlayer() {
-        return trackedPlayer;
+    public List<TrackedPlayer> getTrackedPlayers() {
+        return Collections.singletonList(trackedPlayer);
     }
 
     @Override
@@ -137,7 +139,7 @@ public class BasicTracker implements ITracker {
 
     private void doOnlineCheck() { // Could be used for something else, idk what yet tho
         if (trackedPlayer.getRenderDistance() == null) {
-            yesCom.logger.warn(String.format("Couldn't do online check for %s, no render distance data.", trackedPlayer));
+            yesCom.logger.warning(String.format("Couldn't do online check for %s, no render distance data.", trackedPlayer));
             return;
         }
 
@@ -147,7 +149,7 @@ public class BasicTracker implements ITracker {
             currentQueries.remove(query);
 
             if (result != IsLoadedQuery.Result.LOADED) {
-                yesCom.logger.debug(String.format("Failed online check for %s.", trackedPlayer));
+                yesCom.logger.fine(String.format("Failed online check for %s.", trackedPlayer));
                 if(yesCom.trackingHandler.getTracker(trackerID) != null){
                     yesCom.trackingHandler.trackPanic(trackedPlayer);
                 }

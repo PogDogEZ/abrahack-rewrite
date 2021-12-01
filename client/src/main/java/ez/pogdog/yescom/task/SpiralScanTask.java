@@ -47,9 +47,9 @@ public class SpiralScanTask implements ILoadedChunkTask {
 
         nextSpiral = new int[] {0,0};
 
-        yesCom.logger.debug("Starting spiral scan task.");
-        yesCom.logger.debug(String.format("Start: %s.", startPos));
-        yesCom.logger.debug("Dimension: " + dimension);
+        yesCom.logger.fine("Starting spiral scan task.");
+        yesCom.logger.fine(String.format("Start: %s.", startPos));
+        yesCom.logger.fine("Dimension: " + dimension);
 
         currentQueries = 0;
         currentIndex = 0;
@@ -84,9 +84,12 @@ public class SpiralScanTask implements ILoadedChunkTask {
                         }));
             }
         }
+
+        /*
         yesCom.logger.infoDisappearing(String.format("Scanning: %d, %d / %d, %d, %s, %dms.",
                 yesCom.queryHandler.getWaitingSize(), yesCom.queryHandler.getTickingSize(),
                 currentQueries, currentIndex, getNextSpiral(), yesCom.connectionHandler.getTimeSinceLastPacket()));
+         */
     }
 
     @Override
@@ -145,7 +148,7 @@ public class SpiralScanTask implements ILoadedChunkTask {
 
     private void onLoaded(ChunkPosition chunkPosition) {
         yesCom.logger.info(getFormattedResult(chunkPosition));
-        if (yesCom.handler != null) yesCom.handler.onTaskResult(this, getFormattedResult(chunkPosition));
+        if (yesCom.ycHandler != null) yesCom.ycHandler.onTaskResult(this, getFormattedResult(chunkPosition));
         onLoaded(chunkPosition, dimension);
 
         //TODO: Can remove me later, just for testing and felt like afking it

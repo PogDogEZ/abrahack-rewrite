@@ -1,6 +1,6 @@
 package me.iska.jclient.network.packet.packets;
 
-import me.iska.jclient.network.enums.EncryptionType;
+import me.iska.jclient.network.EncryptionType;
 import me.iska.jclient.network.packet.Packet;
 import me.iska.jclient.network.packet.Registry;
 import me.iska.jclient.network.packet.types.EnumType;
@@ -9,8 +9,19 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+/**
+ * This is sent by the server when the client first attempts to connect, it contains information that the client will
+ * need to connect to the server.
+ */
+@SuppressWarnings("FieldCanBeLocal")
 @Packet.Info(name="server_info", id=0, side=Packet.Side.SERVER)
 public class ServerInfoPacket extends Packet {
+
+    private final EnumType<EncryptionType> ENCRYPTION_TYPE = new EnumType<>(EncryptionType.class);
+
+    private final int COMPRESSION_BIT = 1;
+    private final int ENCRYPTION_BIT = 2;
+    private final int AUTHENTICATION_BIT = 3;
 
     private String serverName;
     private int protocolVer;
@@ -27,16 +38,20 @@ public class ServerInfoPacket extends Packet {
         this.bitmask = bitmask;
     }
 
+    public ServerInfoPacket(String serverName, int protocolVer, EncryptionType encryptionType, int compressionThreshold) {
+        this(serverName, protocolVer, encryptionType, compressionThreshold, (byte)0);
+    }
+
     public ServerInfoPacket() {
-        this("bruh", 4, EncryptionType.NONE, 0, (byte)0);
+        this("", 4, EncryptionType.NONE, 0, (byte)0);
     }
 
     @Override
     public void read(InputStream inputStream) throws IOException {
         serverName = Registry.STRING.read(inputStream);
         protocolVer = Registry.UNSIGNED_SHORT.read(inputStream);
-        encryptionType = new EnumType<>(EncryptionType.class).read(inputStream);
-        compressionThreshold = Registry.INT.read(inputStream);
+        encryptionType = ENCRYPTION_TYPE.read(inputStream);
+        compressionThreshold = Registry.INTEGER.read(inputStream);
         byte[] bitmaskBytes = new byte[1];
         inputStream.read(bitmaskBytes);
         bitmask = bitmaskBytes[0];
@@ -46,8 +61,8 @@ public class ServerInfoPacket extends Packet {
     public void write(OutputStream outputStream) throws IOException {
         Registry.STRING.write(serverName, outputStream);
         Registry.UNSIGNED_SHORT.write(protocolVer, outputStream);
-        new EnumType<>(EncryptionType.class).write(encryptionType, outputStream);
-        Registry.INT.write(compressionThreshold, outputStream);
+        ENCRYPTION_TYPE.write(encryptionType, outputStream);
+        Registry.INTEGER.write(compressionThreshold, outputStream);
         outputStream.write(new byte[] { bitmask });
     }
 
@@ -55,39 +70,67 @@ public class ServerInfoPacket extends Packet {
         return (bitmask & (int)Math.pow(2, bit - 1)) == (int)Math.pow(2, bit - 1);
     }
 
-    private void setBit(int bit) {
-        bitmask |= (int)Math.pow(2, bit - 1);
-    }
-
-    private void setCompressionEnabled() {
-        setBit(1);
-    }
-
-    private void setEncryptionEnabled() {
-        setBit(2);
+    private void setBit(int bit, boolean value) {
+        if (value) {
+            bitmask |= (int)Math.pow(2, bit - 1);
+        } else {
+            bitmask &= ~(int)Math.pow(2, bit - 1);
+        }
     }
 
     public String getServerName() {
         return serverName;
     }
 
+    public void setServerName(String serverName) {
+        this.serverName = serverName;
+    }
+
     public int getProtocolVer() {
         return protocolVer;
+    }
+
+    public void setProtocolVer(int protocolVer) {
+        this.protocolVer = protocolVer;
     }
 
     public EncryptionType getEncryptionType() {
         return encryptionType;
     }
 
+    public void setEncryptionType(EncryptionType encryptionType) {
+        this.encryptionType = encryptionType;
+    }
+
     public int getCompressionThreshold() {
         return compressionThreshold;
     }
 
+    public void setCompressionThreshold(int compressionThreshold) {
+        this.compressionThreshold = compressionThreshold;
+    }
+
     public boolean isCompressionEnabled() {
-        return isBitSet(1);
+        return isBitSet(COMPRESSION_BIT);
+    }
+
+    public void setCompressionEnabled(boolean compressionEnabled) {
+        setBit(COMPRESSION_BIT, compressionEnabled);
     }
 
     public boolean isEncryptionEnabled() {
-        return isBitSet(2);
+        return isBitSet(ENCRYPTION_BIT);
+    }
+
+    public void setEncryptionEnabled(boolean encryptionEnabled) {
+        setBit(ENCRYPTION_BIT, encryptionEnabled);
+    }
+
+    public boolean isAuthenticationEnabled() {
+        return isBitSet(AUTHENTICATION_BIT);
+    }
+
+    public void setAuthenticationEnabled(boolean authenticationEnabled) {
+        setBit(AUTHENTICATION_BIT, authenticationEnabled);
     }
 }

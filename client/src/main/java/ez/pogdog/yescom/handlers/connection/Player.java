@@ -1,6 +1,7 @@
 package ez.pogdog.yescom.handlers.connection;
 
 import com.github.steveice10.mc.auth.service.AuthenticationService;
+import com.github.steveice10.mc.protocol.packet.ingame.client.ClientChatPacket;
 import com.github.steveice10.mc.protocol.packet.ingame.client.world.ClientTeleportConfirmPacket;
 import com.github.steveice10.mc.protocol.packet.ingame.server.ServerChatPacket;
 import com.github.steveice10.mc.protocol.packet.ingame.server.ServerJoinGamePacket;
@@ -16,6 +17,7 @@ import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerUpdate
 import com.github.steveice10.packetlib.Session;
 import com.github.steveice10.packetlib.packet.Packet;
 import ez.pogdog.yescom.YesCom;
+import ez.pogdog.yescom.data.serializable.ChatMessage;
 import ez.pogdog.yescom.util.Angle;
 import ez.pogdog.yescom.util.Dimension;
 import ez.pogdog.yescom.util.Position;
@@ -35,6 +37,7 @@ public class Player {
     private final YesCom yesCom = YesCom.getInstance();
 
     private final Map<UUID, String> onlinePlayers = new ConcurrentHashMap<>();
+    private final Map<Long, Integer> timeToTPID = new HashMap<>();
     private final List<Float> tickValues = new ArrayList<>();
 
     private final Map<Integer, Consumer<Packet>> packetListeners = new ConcurrentHashMap<>();
@@ -62,6 +65,8 @@ public class Player {
 
     private int currentWindowID;
     private int estimatedWindowID;
+
+    private int serverPing; // TODO: Estimated ping as well
 
     private long lastLoginTime;
     private long lastPacketTime;
@@ -99,7 +104,7 @@ public class Player {
         return String.format("Player(name=%s)", authService.getSelectedProfile().getName());
     }
 
-    /* ------------------------ Private Methods ------------------------ */
+    /* ------------------------ Private methods ------------------------ */
 
     private void notifyPacketListeners(Packet packet) {
         packetListeners.forEach((listenerID, listener) -> listener.accept(packet));
@@ -112,17 +117,17 @@ public class Player {
     /* ------------------------ Events ------------------------ */
 
     public void onPacket(Packet packet) {
-        if (!(packet instanceof ServerChatPacket)) lastPacketTime = System.currentTimeMillis();
+        if (!(packet instanceof ServerChatPacket)) lastPacketTime = System.currentTimeMillis(); // Async chat on Paper
 
         if (packet instanceof ServerJoinGamePacket) {
             dimension = Dimension.fromMC(((ServerJoinGamePacket)packet).getDimension());
 
-            if (yesCom.handler != null) yesCom.handler.onDimensionChanged(this);
+            if (yesCom.ycHandler != null) yesCom.ycHandler.onDimensionChanged(this);
 
         } else if (packet instanceof ServerRespawnPacket) {
             dimension = Dimension.fromMC(((ServerRespawnPacket)packet).getDimension());
 
-            if (yesCom.handler != null) yesCom.handler.onDimensionChanged(this);
+            if (yesCom.ycHandler != null) yesCom.ycHandler.onDimensionChanged(this);
 
         } else if (packet instanceof ServerPlayerPositionRotationPacket) {
             ServerPlayerPositionRotationPacket positionRotation = (ServerPlayerPositionRotationPacket)packet;
@@ -132,7 +137,7 @@ public class Player {
 
             currentTP = positionRotation.getTeleportId();
 
-            if (yesCom.handler != null) yesCom.handler.onPositionChanged(this);
+            if (yesCom.ycHandler != null) yesCom.ycHandler.onPositionChanged(this);
 
         } else if (packet instanceof ServerOpenWindowPacket) {
             currentWindowID = ((ServerOpenWindowPacket)packet).getWindowId();
@@ -149,7 +154,7 @@ public class Player {
         } else if (packet instanceof ServerPlayerHealthPacket) {
             foodStats.update((ServerPlayerHealthPacket)packet);
 
-            if (yesCom.handler != null) yesCom.handler.onHealthChanged(this);
+            if (yesCom.ycHandler != null) yesCom.ycHandler.onHealthChanged(this);
 
         } else if (packet instanceof ServerPlayerListEntryPacket) {
             ServerPlayerListEntryPacket serverListEntry = (ServerPlayerListEntryPacket)packet;
@@ -176,6 +181,13 @@ public class Player {
                     });
                     break;
                 }
+                case UPDATE_LATENCY: {
+                    Arrays.stream(serverListEntry.getEntries()).forEach(entry -> {
+                        if (entry.getProfile().getId().equals(authService.getSelectedProfile().getId()))
+                            serverPing = entry.getPing();
+                    });
+                    break;
+                }
             }
 
         } else if (packet instanceof ServerUpdateTimePacket) {
@@ -192,13 +204,17 @@ public class Player {
                 lastTimeUpdate = System.currentTimeMillis();
                 lastWorldTicks = updateTime.getWorldAge();
             }
+
+        } else if (packet instanceof ServerChatPacket) {
+            yesCom.logger.finest(String.format("Chat from %s: %s", this, ((ServerChatPacket)packet).getMessage().getFullText()));
+            yesCom.dataHandler.newChatMessage(authService.getUsername(), ((ServerChatPacket)packet).getMessage().getFullText(),
+                    System.currentTimeMillis());
         }
 
         notifyPacketListeners(packet);
     }
 
     public void onTick() {
-
     }
 
     public void onExit() {
@@ -241,7 +257,7 @@ public class Player {
         joinLeaveListeners.remove(ID);
     }
 
-    /* ------------------------ MCProtocolLib Stuff ------------------------ */
+    /* ------------------------ MCProtocolLib stuff and more ------------------------ */
 
     public AuthenticationService getAuthService() {
         return authService;
@@ -320,7 +336,12 @@ public class Player {
         return (int)(System.currentTimeMillis() - lastPacketTime);
     }
 
-    /* ------------------------ Position and Angle Stuff ------------------------ */
+    public void sendChatMessage(String chatMessage) {
+        yesCom.logger.fine(String.format("%s sending chat message: %s", this, chatMessage));
+        sendPacket(new ClientChatPacket(chatMessage));
+    }
+
+    /* ------------------------ Position and angle stuff ------------------------ */
 
     public double getX() {
         return position.getX();
@@ -366,7 +387,7 @@ public class Player {
         this.dimension = dimension;
     }
 
-    /* ------------------------ TP and Window ID ------------------------ */
+    /* ------------------------ TP and window ID ------------------------ */
 
     public int getCurrentTP() {
         return currentTP;
@@ -396,7 +417,11 @@ public class Player {
         this.estimatedWindowID = estimatedWindowID;
     }
 
-    /* ------------------------ Other Setters and Getters ------------------------ */
+    /* ------------------------ Other setters and getters ------------------------ */
+
+    public int getServerPing() {
+        return serverPing;
+    }
 
     public FoodStats getFoodStats() {
         return foodStats;

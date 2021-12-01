@@ -12,14 +12,14 @@ public class ChunkPositionType extends Type<ChunkPosition> {
 
     @Override
     public ChunkPosition read(InputStream inputStream) throws IOException {
-        int x = Registry.INT.read(inputStream);
-        int z = Registry.INT.read(inputStream);
+        int x = Registry.INTEGER.read(inputStream);
+        int z = Registry.INTEGER.read(inputStream);
         return new ChunkPosition(x, z);
     }
 
     @Override
     public void write(ChunkPosition value, OutputStream outputStream) throws IOException {
-        Registry.INT.write(value.getX(), outputStream);
-        Registry.INT.write(value.getZ(), outputStream);
+        Registry.INTEGER.write(value.getX(), outputStream);
+        Registry.INTEGER.write(value.getZ(), outputStream);
     }
 }
