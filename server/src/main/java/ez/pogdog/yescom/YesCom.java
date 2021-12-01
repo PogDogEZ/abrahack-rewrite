@@ -4,8 +4,6 @@ import ez.pogdog.yescom.managers.HandlersManager;
 import ez.pogdog.yescom.managers.TrustedManager;
 import ez.pogdog.yescom.network.YCRegistry;
 import ez.pogdog.yescom.network.handlers.YCHandler;
-import ez.pogdog.yescom.network.handlers.YCListener;
-import ez.pogdog.yescom.network.handlers.YCReporter;
 import me.iska.jserver.JServer;
 import me.iska.jserver.event.Listener;
 import me.iska.jserver.event.events.connection.CapabilitiesEvent;
@@ -14,8 +12,7 @@ import me.iska.jserver.network.packet.Packet;
 import me.iska.jserver.network.packet.packets.ClientCapabilitiesPacket;
 import me.iska.jserver.plugin.IPlugin;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.logging.Logger;
 
 /**
@@ -33,8 +30,8 @@ public class YesCom implements IPlugin {
     private final JServer jServer = JServer.getInstance();
     private final Logger logger = JServer.getLogger();
 
-    private final List<YCListener> listeners = new ArrayList<>();
-    private final List<YCReporter> reporters = new ArrayList<>();
+    private final Map<UUID, String> UUIDToNameCache = new HashMap<>();
+    private final Map<String, UUID> nameToUUIDCache = new HashMap<>();
 
     public final HandlersManager handlersManager = new HandlersManager();
     public final TrustedManager trustedManager = new TrustedManager();
@@ -51,6 +48,7 @@ public class YesCom implements IPlugin {
 
     @Override
     public void unload() throws PluginException {
+        jServer.eventBus.unregister(this);
     }
 
     @Listener
@@ -85,5 +83,28 @@ public class YesCom implements IPlugin {
             event.setCancelled(true);
             event.setRejected(false);
         }
+    }
+
+    public void putUUIDToName(UUID uuid, String name) {
+        UUIDToNameCache.put(uuid, name);
+        nameToUUIDCache.put(name, uuid);
+    }
+
+    /**
+     * Get the name of the player with the specified UUID.
+     * @param uuid The UUID of the player.
+     * @return The name of the player, null if not found.
+     */
+    public String getName(UUID uuid) {
+        return UUIDToNameCache.get(uuid);
+    }
+
+    /**
+     * Get the UUID of the player with the specified name.
+     * @param name The name of the player.
+     * @return The UUID of the player, null if not found.
+     */
+    public UUID getUUID(String name) {
+        return nameToUUIDCache.get(name);
     }
 }

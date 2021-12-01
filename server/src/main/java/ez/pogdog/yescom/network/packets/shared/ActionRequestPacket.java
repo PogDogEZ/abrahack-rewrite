@@ -13,7 +13,7 @@ import java.io.OutputStream;
  * A general action request packet, used to request more basic actions than things like adding accounts, such as sending
  * a chat message.
  */
-@Packet.Info(name="action_request", id=YCRegistry.ID_OFFSET + 10, side=Packet.Side.BOTH)
+@Packet.Info(name="action_request", id=YCRegistry.ID_OFFSET + 11, side=Packet.Side.BOTH)
 public class ActionRequestPacket extends Packet {
 
     private final EnumType<Action> ACTION = new EnumType<>(Action.class);

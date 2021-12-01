@@ -762,13 +762,72 @@ class InfoUpdatePacket(Packet):
             UnsignedShort.write(self.time_since_last_packet, fileobj)
 
 
+class OnlinePlayersActionPacket(Packet):
+
+    ID = ID_OFFSET + 10
+    NAME = "online_players_action"
+    SIDE = Side.SERVER
+
+    def __init__(self, action=0) -> None:
+        super().__init__()
+
+        self.action = action
+        self._online_players = {}
+
+    def read(self, fileobj: IO) -> None:
+        self._online_players.clear()
+
+        self.action = OnlinePlayersActionPacket.Action.read(fileobj)
+
+        online_players_to_read = UnsignedShort.read(fileobj)
+        for index in range(online_players_to_read):
+            uuid = UUID(bytes=Bytes.read(fileobj))
+            if self.action == OnlinePlayersActionPacket.Action.ADD:
+                name = String.read(fileobj)
+            else:
+                name = ""
+            self._online_players[uuid] = name
+
+    def write(self, fileobj: IO) -> None:
+        OnlinePlayersActionPacket.Action.write(self.action, fileobj)
+
+        UnsignedShort.write(len(self._online_players), fileobj)
+        for uuid in self._online_players:
+            Bytes.write(uuid.bytes, fileobj)
+            if self.action == OnlinePlayersActionPacket.Action.ADD:
+                String.write(self._online_players[uuid], fileobj)
+
+    def get_online_players(self) -> Dict[UUID, str]:
+        return self._online_players.copy()
+
+    def get_online_player(self, uuid: UUID) -> str:
+        return self._online_players[uuid]
+
+    def put_online_player(self, uuid: UUID, display_name: str) -> None:
+        self._online_players[uuid] = display_name
+
+    def set_online_players(self, online_players: Dict[UUID, str]) -> None:
+        self._online_players.clear()
+        self._online_players.update(online_players)
+
+    def put_online_players(self, online_players: Dict[UUID, str]) -> None:
+        self._online_players.update(online_players)
+
+    def remove_online_player(self, uuid: UUID) -> None:
+        del self._online_players[uuid]
+
+    class Action(Enum):
+        ADD = 0
+        REMOVE = 1
+
+
 class ActionRequestPacket(Packet):
     """
     This is a general action request packet, it is used to perform actions that require less data, such as sending a
     chat message.
     """
 
-    ID = ID_OFFSET + 10
+    ID = ID_OFFSET + 11
     NAME = "action_request"
     SIDE = Side.BOTH
 
@@ -799,7 +858,7 @@ class ActionResponsePacket(Packet):
     an additional message, could be an error or other.
     """
 
-    ID = ID_OFFSET + 11
+    ID = ID_OFFSET + 12
     NAME = "action_response"
     SIDE = Side.BOTH
 
@@ -827,7 +886,7 @@ class ReporterActionPacket(Packet):
     current reporter, or deselect the reporter.
     """
 
-    ID = ID_OFFSET + 12
+    ID = ID_OFFSET + 13
     NAME = "reporter_action"
     SIDE = Side.BOTH
 
@@ -863,7 +922,7 @@ class ReporterSyncPacket(Packet):
     Sent by the server to synchronize a selected reporter with the client.
     """
 
-    ID = ID_OFFSET + 13
+    ID = ID_OFFSET + 14
     NAME = "reporter_sync"
     SIDE = Side.SERVER
 
@@ -1083,6 +1142,7 @@ packets = (
     AccountActionPacket,
     TrackerActionPacket,
     InfoUpdatePacket,
+    OnlinePlayersActionPacket,
     ActionRequestPacket,
     ActionResponsePacket,
 

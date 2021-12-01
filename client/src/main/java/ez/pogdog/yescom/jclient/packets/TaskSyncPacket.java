@@ -12,7 +12,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-@Packet.Info(name="task_sync", id=YCRegistry.ID_OFFSET + 13, side=Packet.Side.CLIENT)
+@Packet.Info(name="task_sync", id=YCRegistry.ID_OFFSET + 14, side=Packet.Side.CLIENT)
 public class TaskSyncPacket extends Packet {
 
     private final List<TaskRegistry.RegisteredTask> registeredTasks = new ArrayList<>();

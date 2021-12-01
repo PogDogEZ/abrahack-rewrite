@@ -147,11 +147,9 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
                 yesCom.trackingHandler.getTrackers().forEach(this::onTrackerAdded);
                 yesCom.logger.finer("Done.");
 
-                /*
                 yesCom.logger.finer("Syncing online players...");
                 yesCom.connectionHandler.getOnlinePlayers().forEach(this::onPlayerJoin);
                 yesCom.logger.finer("Done.");
-                 */
 
                 synced = true;
 
@@ -317,12 +315,15 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
                 queuedChunkStates.clear();
             }
 
-            // TODO: Leaves and joins
-            if (!queuedJoins.isEmpty()); // connection.sendPacket(new OnlinePlayersActionPacket(OnlinePlayersActionPacket.Action.ADD, queuedJoins));
-            queuedJoins.clear();
+            if (!queuedJoins.isEmpty()) {
+                connection.sendPacket(new OnlinePlayersActionPacket(OnlinePlayersActionPacket.Action.ADD, queuedJoins));
+                queuedJoins.clear();
+            }
 
-            if (!queuedLeaves.isEmpty()); // connection.sendPacket(new OnlinePlayersActionPacket(queuedLeaves));
-            queuedLeaves.clear();
+            if (!queuedLeaves.isEmpty()) {
+                connection.sendPacket(new OnlinePlayersActionPacket(queuedLeaves));
+                queuedLeaves.clear();
+            }
         }
     }
 

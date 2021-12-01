@@ -55,6 +55,7 @@ public class YCRegistry {
         SHARED_PACKETS.add(PlayerActionPacket.class);
         SHARED_PACKETS.add(TrackerActionPacket.class);
         SHARED_PACKETS.add(InfoUpdatePacket.class);
+        SHARED_PACKETS.add(OnlinePlayersActionPacket.class);
         SHARED_PACKETS.add(ActionRequestPacket.class);
         SHARED_PACKETS.add(ActionResponsePacket.class);
 

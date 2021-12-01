@@ -14,7 +14,7 @@ import java.io.OutputStream;
  * Sent by the server to inform the client of available reporters, as well as allowing the client to select a current
  * reporter.
  */
-@Packet.Info(name="reporter_action", id=YCRegistry.ID_OFFSET + 12, side=Packet.Side.BOTH)
+@Packet.Info(name="reporter_action", id=YCRegistry.ID_OFFSET + 13, side=Packet.Side.BOTH)
 public class ReporterActionPacket extends Packet {
 
     private final EnumType<Action> ACTION = new EnumType<>(Action.class);

@@ -23,7 +23,7 @@ import java.util.Map;
 /**
  * Sent by the server to synchronise a selected reporter.
  */
-@Packet.Info(name="reporter_sync", id=YCRegistry.ID_OFFSET + 13, side=Packet.Side.SERVER)
+@Packet.Info(name="reporter_sync", id=YCRegistry.ID_OFFSET + 14, side=Packet.Side.SERVER)
 public class ReporterSyncPacket extends Packet {
 
     private final Map<ConfigRule, Object> configRules = new HashMap<>();

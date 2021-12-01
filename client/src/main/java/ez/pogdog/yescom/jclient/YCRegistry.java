@@ -43,6 +43,7 @@ public class YCRegistry {
         Registry.KNOWN_PACKETS.add(PlayerActionPacket.class);
         Registry.KNOWN_PACKETS.add(TrackerActionPacket.class);
         Registry.KNOWN_PACKETS.add(InfoUpdatePacket.class);
+        Registry.KNOWN_PACKETS.add(OnlinePlayersActionPacket.class);
         Registry.KNOWN_PACKETS.add(ActionRequestPacket.class);
         Registry.KNOWN_PACKETS.add(ActionResponsePacket.class);
         Registry.KNOWN_PACKETS.add(ConfigSyncPacket.class);

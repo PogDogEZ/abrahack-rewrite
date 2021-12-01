@@ -12,7 +12,7 @@ import java.io.OutputStream;
  * General action response packet sent by the client, used to indicate if an action was successful + an additional
  * message.
  */
-@Packet.Info(name="action_response", id=YCRegistry.ID_OFFSET + 11, side=Packet.Side.BOTH)
+@Packet.Info(name="action_response", id=YCRegistry.ID_OFFSET + 12, side=Packet.Side.BOTH)
 public class ActionResponsePacket extends Packet {
 
     private long actionID;

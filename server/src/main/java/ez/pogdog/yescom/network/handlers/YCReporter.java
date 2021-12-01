@@ -23,12 +23,12 @@ import ez.pogdog.yescom.util.task.RegisteredTask;
 import ez.pogdog.yescom.util.task.parameter.Parameter;
 import me.iska.jserver.network.Connection;
 import me.iska.jserver.network.packet.Packet;
+import me.iska.jserver.network.packet.Registry;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class YCReporter extends YCHandler {
 
@@ -40,6 +40,7 @@ public class YCReporter extends YCHandler {
     private final List<RegisteredTask> registeredTasks = new ArrayList<>();
     private final List<Player> players = new ArrayList<>();
     private final List<Tracker> trackers = new ArrayList<>();
+    private final List<UUID> onlinePlayers = new ArrayList<>();
 
     private final String handlerName;
 
@@ -357,10 +358,27 @@ public class YCReporter extends YCHandler {
                     infoUpdate.getQueriesPerSecond(), infoUpdate.getIsConnected(), infoUpdate.getTickRate(), infoUpdate.getServerPing(),
                     infoUpdate.getTimeSinceLastPacket()));
 
+        } else if (packet instanceof OnlinePlayersActionPacket) {
+            OnlinePlayersActionPacket onlinePlayersAction = (OnlinePlayersActionPacket)packet;
+
+            switch (onlinePlayersAction.getAction()) {
+                case ADD: {
+                    onlinePlayersAction.getOnlinePlayers().forEach((uuid, displayName) -> {
+                        yesCom.putUUIDToName(uuid, displayName);
+                        if (!onlinePlayers.contains(uuid)) onlinePlayers.add(uuid);
+                    });
+                    break;
+                }
+                case REMOVE: {
+                    onlinePlayersAction.getOnlinePlayers().forEach((uuid, displayName) -> onlinePlayers.remove(uuid));
+                    break;
+                }
+            }
+
         } else if (packet instanceof ActionResponsePacket) {
             ActionResponsePacket actionResponse = (ActionResponsePacket)packet;
 
-            if (!actions.containsKey(actionResponse.getActionID())) {
+            if (!actions.containsKey(actionResponse.getActionID()) && actionResponse.getActionID() != -1) {
                 logger.warning(String.format("Received action response packet for unknown action ID %d.", actionResponse.getActionID()));
                 connection.exit("Invalid action ID.");
                 return;
@@ -399,6 +417,24 @@ public class YCReporter extends YCHandler {
         connection.sendPacket(new ActionRequestPacket(action, actionID, data));
 
         if (++actionID == Long.MAX_VALUE) actionID = 0; // FIXME: If we're just gonna reset it why have it as a long?
+    }
+
+    /**
+     * Sends a chat message given the username and message.
+     * @param originatorID The handler ID of the originator of the request.
+     * @param username The username to send the chat message on.
+     * @param message The message to send.
+     */
+    public void sendChatMessage(int originatorID, String username, String message) {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+
+        try {
+            Registry.STRING.write(username, outputStream);
+            Registry.STRING.write(message, outputStream);
+        } catch (IOException ignored) {
+        }
+
+        requestAction(originatorID, ActionRequestPacket.Action.SEND_CHAT_MESSAGE, outputStream.toByteArray());
     }
 
     /* ----------------------------- Config ----------------------------- */
@@ -552,6 +588,12 @@ public class YCReporter extends YCHandler {
      */
     public void untrackTracker(long trackerID) {
         connection.sendPacket(new TrackerActionPacket(TrackerActionPacket.Action.UNTRACK, trackerID));
+    }
+
+    /* ----------------------------- Online players ----------------------------- */
+
+    public List<UUID> getOnlinePlayers() {
+        return new ArrayList<>(onlinePlayers);
     }
 
     /* ----------------------------- Setters and getters ----------------------------- */

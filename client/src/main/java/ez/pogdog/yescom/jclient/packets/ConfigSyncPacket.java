@@ -16,7 +16,7 @@ import java.util.Map;
 /**
  * Sent by the client to synchronise all the config rules.
  */
-@Packet.Info(name="config_sync", id=YCRegistry.ID_OFFSET + 12, side=Packet.Side.CLIENT)
+@Packet.Info(name="config_sync", id=YCRegistry.ID_OFFSET + 13, side=Packet.Side.CLIENT)
 public class ConfigSyncPacket extends Packet {
 
     private final Map<ConfigHandler.ConfigRule, Object> rules = new HashMap<>();
