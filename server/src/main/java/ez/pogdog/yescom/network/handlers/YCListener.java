@@ -35,6 +35,7 @@ public class YCListener extends YCHandler {
     private YCReporter currentReporter;
     private boolean accountAction;
     private boolean configAction;
+    private boolean taskAction;
     private ActionRequestPacket.Action otherAction;
 
     public YCListener(Connection connection, int handlerID, String handlerName) {
@@ -47,6 +48,7 @@ public class YCListener extends YCHandler {
         currentReporter = null;
         accountAction = false;
         configAction = false;
+        taskAction = false;
         otherAction = null;
 
         syncReporters();
@@ -76,6 +78,7 @@ public class YCListener extends YCHandler {
                     currentReporter = null;
                     accountAction = false; // Don't want to think we still have actions pending
                     configAction = false;
+                    taskAction = false;
                     otherAction = null;
 
                     resyncCurrentReporter();
@@ -93,6 +96,7 @@ public class YCListener extends YCHandler {
                         currentReporter = (YCReporter)selectedHandler;
                         accountAction = false;
                         configAction = false;
+                        taskAction = false;
                         otherAction = null;
 
                         logger.fine(String.format("%s selected reporter %s.", this, currentReporter));
@@ -104,7 +108,7 @@ public class YCListener extends YCHandler {
         } else if (packet instanceof ConfigActionPacket) {
             ConfigActionPacket configAction = (ConfigActionPacket)packet;
 
-            if (accountAction || this.configAction || otherAction != null) {
+            if (accountAction || this.configAction || taskAction || otherAction != null) {
                 connection.sendPacket(new ActionResponsePacket(-1, false, "Action already in progress."));
                 return;
 
@@ -135,25 +139,26 @@ public class YCListener extends YCHandler {
         } else if (packet instanceof TaskActionPacket) {
             TaskActionPacket taskAction = (TaskActionPacket)packet;
 
+            if (accountAction || configAction || this.taskAction || otherAction != null) {
+                connection.sendPacket(new ActionResponsePacket(-1, false, "Action already in progress."));
+                return;
+
+            } else if (currentReporter == null) {
+                logger.fine(String.format("%s attempted account action with no reporter.", this));
+                connection.sendPacket(new ActionResponsePacket(-1, false, "No current reporter."));
+                resyncCurrentReporter();
+                return;
+            }
+
             switch (taskAction.getAction()) {
                 case START: {
-                    if (currentReporter == null) {
-                        logger.fine(String.format("%s attempted to start task with no reporter.", this));
-                        resyncCurrentReporter();
-
-                    } else {
-                        currentReporter.startTask(taskAction.getTaskName(), taskAction.getTaskParameters());
-                    }
+                    this.taskAction = true;
+                    currentReporter.startTask(getID(), taskAction.getTaskName(), taskAction.getTaskParameters());
                     break;
                 }
                 case STOP: {
-                    if (currentReporter == null) {
-                        logger.fine(String.format("%s attempted to stop task with no reporter.", this));
-                        resyncCurrentReporter();
-
-                    } else {
-                        currentReporter.stopTask(taskAction.getTaskID());
-                    }
+                    this.taskAction = true;
+                    currentReporter.stopTask(getID(), taskAction.getTaskID());
                     break;
                 }
             }
@@ -161,7 +166,7 @@ public class YCListener extends YCHandler {
         } else if (packet instanceof AccountActionPacket) {
             AccountActionPacket accountAction = (AccountActionPacket)packet;
 
-            if (this.accountAction || configAction || otherAction != null) {
+            if (this.accountAction || configAction || taskAction || otherAction != null) {
                 connection.sendPacket(new ActionResponsePacket(-1, false, "Action already in progress."));
                 return;
 
@@ -206,7 +211,7 @@ public class YCListener extends YCHandler {
         } else if (packet instanceof ActionRequestPacket) {
             ActionRequestPacket actionRequest = (ActionRequestPacket)packet;
 
-            if (accountAction || configAction || otherAction != null) {
+            if (accountAction || configAction || taskAction || otherAction != null) {
                 connection.sendPacket(new ActionResponsePacket(-1, false, "Action already in progress."));
                 return;
 
@@ -400,9 +405,10 @@ public class YCListener extends YCHandler {
     /* ----------------------------- Other ----------------------------- */
 
     public void onActionResponse(boolean successful, String message) {
-        if (accountAction || configAction || otherAction != null) {
+        if (accountAction || configAction || taskAction || otherAction != null) {
             accountAction = false;
             configAction = false;
+            taskAction = false;
             otherAction = null;
 
             connection.sendPacket(new ActionResponsePacket(-1, successful, message));

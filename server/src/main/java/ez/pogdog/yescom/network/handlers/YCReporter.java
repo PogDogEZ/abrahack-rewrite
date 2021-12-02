@@ -142,6 +142,7 @@ public class YCReporter extends YCHandler {
                         // Don't remove the action as we should get an action response after this packet
                         // actions.remove(configAction.getActionID());
 
+                        if (action.getOriginatorID() == -1) return;
                         YCHandler originator = yesCom.handlersManager.getHandler(action.getOriginatorID());
 
                         if (!(originator instanceof YCListener) || ((YCListener)originator).getCurrentReporter() != this) {
@@ -270,7 +271,7 @@ public class YCReporter extends YCHandler {
                         return;
                     }
 
-                    logger.finer(String.format("Updating player position: %s", player));
+                    // logger.finer(String.format("Updating player position: %s", player));
 
                     jServer.eventBus.post(new PlayerUpdatedEvent(this, player, playerAction.getNewPosition(), playerAction.getNewAngle()));
 
@@ -346,7 +347,7 @@ public class YCReporter extends YCHandler {
                         return;
                     }
 
-                    logger.finer(String.format("Updating tracker: %s", tracker));
+                    // logger.finer(String.format("Updating tracker: %s", tracker));
                     tracker.setTrackedPlayerIDs(trackerAction.getTrackedPlayerIDs());
 
                     jServer.eventBus.post(new TrackerUpdatedEvent(this, tracker));
@@ -397,6 +398,7 @@ public class YCReporter extends YCHandler {
             Action action = actions.get(actionResponse.getActionID());
             actions.remove(actionResponse.getActionID());
 
+            if (action.getOriginatorID() == -1) return;
             YCHandler originator = yesCom.handlersManager.getHandler(action.getOriginatorID());
 
             if (!(originator instanceof YCListener) || ((YCListener)originator).getCurrentReporter() != this) {
@@ -511,16 +513,22 @@ public class YCReporter extends YCHandler {
      * @param taskName The name of the registered task.
      * @param parameters The parameters for the task.
      */
-    public void startTask(String taskName, List<Parameter> parameters) {
-        connection.sendPacket(new TaskActionPacket(taskName, parameters));
+    public synchronized void startTask(int originatorID, String taskName, List<Parameter> parameters) {
+        actions.put(actionID, new Action(actionID, originatorID));
+        connection.sendPacket(new TaskActionPacket(actionID, taskName, parameters));
+
+        if (++actionID == Long.MAX_VALUE) actionID = 0;
     }
 
     /**
      * Requests that a task, given by ID, is stopped.
      * @param taskID The ID of the task to stop.
      */
-    public void stopTask(int taskID) {
-        connection.sendPacket(new TaskActionPacket(TaskActionPacket.Action.REMOVE, taskID));
+    public synchronized void stopTask(int originatorID, int taskID) {
+        actions.put(actionID, new Action(actionID, originatorID));
+        connection.sendPacket(new TaskActionPacket(TaskActionPacket.Action.STOP, actionID, taskID));
+
+        if (++actionID == Long.MAX_VALUE) actionID = 0;
     }
 
     /* ----------------------------- Players ----------------------------- */

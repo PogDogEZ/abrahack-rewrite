@@ -71,6 +71,7 @@ class Viewer(Handler):
 
         self._account_action = False  # Reset actions
         self._config_action = False
+        self._task_action = False
         self._other_action = None
 
     def __init__(self, connection: Connection, name: str = "test") -> None:
@@ -94,6 +95,7 @@ class Viewer(Handler):
 
         self._account_action = False
         self._config_action = False
+        self._task_action = False
         self._other_action = None
 
         self._action_success = False
@@ -136,6 +138,7 @@ class Viewer(Handler):
 
                 self._account_action = False
                 self._config_action = False
+                self._task_action = False
                 self._other_action = None
 
             else:
@@ -143,6 +146,7 @@ class Viewer(Handler):
 
                 self._account_action = False
                 self._config_action = False
+                self._task_action = False
                 self._other_action = None
 
                 current_reporter = self.current_reporter
@@ -247,7 +251,7 @@ class Viewer(Handler):
                         current_reporter.remove_online_player(uuid)
 
         elif isinstance(packet, ActionResponsePacket):
-            if not self._account_action and not self._config_action and self._other_action is None:
+            if not self._account_action and not self._config_action and not self._task_action and self._other_action is None:
                 logging.warning("Action response with no known action.")
                 return
 
@@ -256,6 +260,7 @@ class Viewer(Handler):
 
             self._account_action = False
             self._config_action = False
+            self._task_action = False
             self._other_action = None
 
     # ----------------------------- Management stuff ----------------------------- #
@@ -297,7 +302,7 @@ class Viewer(Handler):
         if self._initializing or not self._initialized:
             raise Exception("Not initialized.")
 
-        if self._account_action or self._config_action or self._other_action is not None:
+        if self._account_action or self._config_action or self._task_action or self._other_action is not None:
             raise Exception("Already performing an action.")
 
         if self.current_reporter is None:
@@ -330,7 +335,7 @@ class Viewer(Handler):
         if self._initializing or not self._initialized:
             raise Exception("Not initialized.")
 
-        if self._account_action or self._config_action or self._other_action is not None:
+        if self._account_action or self._config_action or self._task_action or self._other_action is not None:
             raise Exception("Already performing an action.")
 
         current_reporter = self.current_reporter
@@ -376,7 +381,7 @@ class Viewer(Handler):
         if not self._initialized or self._initializing:
             raise Exception("Not initialized.")
 
-        if self._account_action or self._config_action or self._other_action is not None:
+        if self._account_action or self._config_action or self._task_action or self._other_action is not None:
             raise Exception("Already waiting for an action to complete.")
 
         if self.current_reporter is None:
@@ -411,7 +416,7 @@ class Viewer(Handler):
         if not self._initialized or self._initializing:
             raise Exception("Not initialized.")
 
-        if self._account_action or self._config_action or self._other_action is not None:
+        if self._account_action or self._config_action or self._task_action or self._other_action is not None:
             raise Exception("Already waiting for an action to complete.")
 
         if self.current_reporter is None:
@@ -432,6 +437,81 @@ class Viewer(Handler):
         else:
             raise Exception(self._action_message)
 
+    def start_task(self, task_name: str, **parameters) -> str:
+        """
+        Starts a task given the name of the task, and some parameters.
+
+        :param task_name: The name of the task to start.
+        :param parameters: The parameters required for the task.
+        :return: The success message.
+        """
+
+        if not self._initialized or self._initializing:
+            raise Exception("Not initialized.")
+
+        if self._account_action or self._config_action or self._task_action or self._other_action is not None:
+            raise Exception("Already waiting for an action to complete.")
+
+        current_reporter = self.current_reporter
+        if current_reporter is None:
+            raise Exception("No current reporter.")
+
+        registered_task = current_reporter.get_registered_task(task_name)
+
+        serializable_params = []
+        for param_name in parameters:
+            param_description = registered_task.get_param_description(param_name)
+            serializable_params.append(ActiveTask.Parameter(param_description, parameters[param_name]))
+
+        self._task_action = True
+        try:
+            task_action = TaskActionPacket(action=TaskActionPacket.Action.START, task_name=task_name)
+            task_action.set_task_params(serializable_params)
+            self.connection.send_packet(task_action)
+        except Exception as error:
+            self._task_action = False
+            raise error
+
+        while self._task_action:
+            time.sleep(0.1)
+
+        if self._action_success:
+            return self._action_message
+        else:
+            raise Exception(self._action_message)
+
+    def stop_task(self, task_id: int) -> str:
+        """
+        Stops a task given its task ID.
+
+        :param task_id: The task ID to stop.
+        :return: The success message.
+        """
+
+        if not self._initialized or self._initializing:
+            raise Exception("Not initialized.")
+
+        if self._account_action or self._config_action or self._task_action or self._other_action is not None:
+            raise Exception("Already waiting for an action to complete.")
+
+        if self.current_reporter is None:
+            raise Exception("No current reporter.")
+
+        self._task_action = True
+        try:
+            self.connection.send_packet(TaskActionPacket(action=TaskActionPacket.Action.STOP, task_id=task_id))
+        except Exception as error:
+            self._task_action = False
+            raise error
+
+        while self._task_action:
+            time.sleep(0.1)
+
+        if self._action_success:
+            return self._action_message
+        else:
+            raise Exception(self._action_message)
+
     def send_chat_message(self, username: str, message: str) -> str:
         """
         Sends a chat message to the server.
@@ -444,7 +524,7 @@ class Viewer(Handler):
         if not self._initialized or self._initializing:
             raise Exception("Not initialized.")
 
-        if self._account_action or self._config_action or self._other_action is not None:
+        if self._account_action or self._config_action or self._task_action or self._other_action is not None:
             raise Exception("Already waiting for an action to complete.")
 
         if self.current_reporter is None:
@@ -522,26 +602,6 @@ class Viewer(Handler):
         """
 
         return self._reporters.copy()
-
-    # ----------------------------- Tasks ----------------------------- #
-
-    def start_task(self, registered_task: RegisteredTask, parameters: List[ActiveTask.Parameter]) -> None:
-        if self._current_reporter != -1:
-            logging.debug("Starting new task %r." % registered_task)
-            self._handler.start_task(registered_task, parameters)
-
-    def stop_task(self, task_id: int) -> None:
-        if self._current_reporter != -1:
-            logging.debug("Stopping task with id %i." % task_id)
-            self._handler.stop_task(task_id)
-
-    def add_legacy_account(self, username: str, password: str, callback) -> None:  # FIXME: Maybe don't do this here
-        if self._current_reporter != -1:
-            self._handler.add_legacy_account(username, password, callback)
-
-    def remove_account(self, username: str) -> None:
-        if self._current_reporter != -1:
-            self._handler.remove_account(username)
 
     # ----------------------------- UUID to name cache ----------------------------- #
 

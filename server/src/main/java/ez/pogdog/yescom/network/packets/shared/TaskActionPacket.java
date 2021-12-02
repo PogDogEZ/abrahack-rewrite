@@ -4,8 +4,8 @@ import ez.pogdog.yescom.network.YCRegistry;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.task.ActiveTask;
 import ez.pogdog.yescom.util.task.parameter.Parameter;
-import me.iska.jserver.network.packet.Packet;
 import me.iska.jserver.network.packet.Registry;
+import me.iska.jserver.network.packet.Packet;
 import me.iska.jserver.network.packet.types.EnumType;
 
 import java.io.IOException;
@@ -20,9 +20,12 @@ import java.util.List;
 @Packet.Info(name="task_action", id=YCRegistry.ID_OFFSET + 5, side=Packet.Side.BOTH)
 public class TaskActionPacket extends Packet {
 
+    private final EnumType<Action> ACTION = new EnumType<>(Action.class);
+
     private final List<Parameter> taskParameters = new ArrayList<>();
 
     private Action action;
+    private long actionID;
     private String taskName;
     private int taskID;
     private boolean loadedChunkTask;
@@ -32,9 +35,11 @@ public class TaskActionPacket extends Packet {
     private ChunkPosition currentPosition;
     private String result;
 
-    public TaskActionPacket(Action action, String taskName, int taskID, List<Parameter> taskParameters, boolean loadedChunkTask,
-                            float progress, int timeElapsed, ChunkPosition currentPosition, String result) {
+    public TaskActionPacket(Action action, long actionID, String taskName, int taskID, List<Parameter> taskParameters,
+                            boolean loadedChunkTask, float progress, int timeElapsed, ChunkPosition currentPosition,
+                            String result) {
         this.action = action;
+        this.actionID = actionID;
         this.taskName = taskName;
         this.taskID = taskID;
         this.loadedChunkTask = loadedChunkTask;
@@ -45,27 +50,48 @@ public class TaskActionPacket extends Packet {
         this.taskParameters.addAll(taskParameters);
     }
 
-    public TaskActionPacket(String taskName, List<Parameter> taskParameters) {
-        this(Action.START, taskName, 0, taskParameters, false, 0.0f, 0,
+    public TaskActionPacket(long actionID, String taskName, List<Parameter> taskParameters) {
+        this(Action.START, actionID, taskName, 0, taskParameters, false, 0.0f, 0,
                 new ChunkPosition(0, 0), "");
+    }
+
+    public TaskActionPacket(String taskName, List<Parameter> taskParameters) {
+        this(-1, taskName, taskParameters);
+    }
+
+    public TaskActionPacket(Action action, long actionID, ActiveTask task) {
+        this(action, actionID, task.getRegisteredTask().getName(), task.getID(), task.getParameters(), false,
+                0.0f, 0, new ChunkPosition(0, 0), "");
     }
 
     public TaskActionPacket(Action action, ActiveTask task) {
-        this(action, task.getRegisteredTask().getName(), task.getID(), task.getParameters(), task.isLoadedChunkTask(),
-                task.getProgress(), task.getTimeElapsed(), task.getCurrentPosition(), "");
+        this(action, -1, task);
     }
 
-    public TaskActionPacket(Action action, int taskID, List<Parameter> taskParameters) {
-        this(action, "", taskID, taskParameters, false, 0.0f, 0,
+    public TaskActionPacket(Action action, long actionID, ActiveTask task, boolean loadedChunkTask, ChunkPosition currentPosition) {
+        this(action, actionID, task.getRegisteredTask().getName(), task.getID(), task.getParameters(), loadedChunkTask,
+                task.getProgress(), task.getTimeElapsed(), currentPosition, "");
+    }
+
+    public TaskActionPacket(Action action, ActiveTask task, boolean loadedChunkTask, ChunkPosition currentPosition) {
+        this(action, -1, task, loadedChunkTask, currentPosition);
+    }
+
+    public TaskActionPacket(Action action, long actionID, int taskID, List<Parameter> taskParameters) {
+        this(action, actionID, "", taskID, taskParameters, false, 0.0f, 0,
                 new ChunkPosition(0, 0), "");
     }
 
+    public TaskActionPacket(Action action, long actionID, int taskID) {
+        this(action, actionID, taskID, new ArrayList<>());
+    }
+
     public TaskActionPacket(Action action, int taskID) {
-        this(action, taskID, new ArrayList<>());
+        this(action, -1, taskID);
     }
 
     public TaskActionPacket(int taskID, boolean loadedChunkTask, float progress, int timeElapsed, ChunkPosition currentPosition) {
-        this(Action.UPDATE, "", taskID, new ArrayList<>(), loadedChunkTask, progress, timeElapsed, currentPosition, "");
+        this(Action.UPDATE, -1, "", taskID, new ArrayList<>(), loadedChunkTask, progress, timeElapsed, currentPosition, "");
     }
 
     public TaskActionPacket(int taskID, float progress, int timeElapsed, ChunkPosition currentPosition) {
@@ -80,8 +106,12 @@ public class TaskActionPacket extends Packet {
         this(taskID, false, progress, timeElapsed, new ChunkPosition(0, 0));
     }
 
+    public TaskActionPacket(ActiveTask task, float progress, int timeElapsed) {
+        this(task.getID(), progress, timeElapsed, new ChunkPosition(0, 0));
+    }
+
     public TaskActionPacket(int taskID, String result) {
-        this(Action.RESULT, "", taskID, new ArrayList<>(), false, 0.0f, 0,
+        this(Action.RESULT, -1, "", taskID, new ArrayList<>(), false, 0.0f, 0,
                 new ChunkPosition(0, 0), result);
     }
 
@@ -90,13 +120,14 @@ public class TaskActionPacket extends Packet {
     }
 
     public TaskActionPacket() {
-        this(Action.ADD, "", 0, new ArrayList<>(), false, 0.0f, 0,
+        this(Action.ADD, -1, "", 0, new ArrayList<>(), false, 0.0f, 0,
                 new ChunkPosition(0, 0), "");
     }
 
     @Override
     public void read(InputStream inputStream) throws IOException {
-        action = new EnumType<>(Action.class).read(inputStream);
+        action = ACTION.read(inputStream);
+        actionID = Registry.LONG.read(inputStream);
 
         switch (action) {
             case START: {
@@ -140,7 +171,8 @@ public class TaskActionPacket extends Packet {
 
     @Override
     public void write(OutputStream outputStream) throws IOException {
-        new EnumType<>(Action.class).write(action, outputStream);
+        ACTION.write(action, outputStream);
+        Registry.LONG.write(actionID, outputStream);
 
         switch (action) {
             case START: {
@@ -213,6 +245,17 @@ public class TaskActionPacket extends Packet {
 
     public void setAction(Action action) {
         this.action = action;
+    }
+
+    /**
+     * @return The ID of the action being performed.
+     */
+    public long getActionID() {
+        return actionID;
+    }
+
+    public void setActionID(long actionID) {
+        this.actionID = actionID;
     }
 
     /**

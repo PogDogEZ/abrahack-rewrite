@@ -230,7 +230,9 @@ public class YesCom {
             } catch (IOException ignored) {
                 // error.printStackTrace();
             }
-            return; // Don't tick until we've connected
+
+            // Edit: WHAT?? Of course tick if we're not connected we don't want to lose the trackers due to internet issues
+            // return; // Don't tick until we've connected
 
         } else if (connection != null && connection.isExited()) {
             logger.severe(String.format("Connection closed due to: %s", connection.getExitReason()));
@@ -349,6 +351,10 @@ public class YesCom {
      */
     public List<ITask> getTasks() {
         return new ArrayList<>(currentTasks);
+    }
+
+    public ITask getTask(int taskID) {
+        return currentTasks.stream().filter(task -> task.getID() == taskID).findFirst().orElse(null);
     }
 
     /**

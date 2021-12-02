@@ -18,6 +18,11 @@ public class Tracker {
         this.trackedPlayerIDs.addAll(trackedPlayerIDs);
     }
 
+    @Override
+    public String toString() {
+        return String.format("Tracker(ID=%d, trackedPlayerIDs=%s)", trackerID, trackedPlayerIDs);
+    }
+
     public List<BigInteger> getTrackedPlayerIDs() {
         return new ArrayList<>(trackedPlayerIDs);
     }
