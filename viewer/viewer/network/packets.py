@@ -384,12 +384,13 @@ class TaskActionPacket(Packet):
     NAME = "task_action"
     SIDE = Side.BOTH
 
-    def __init__(self, action=0, task_name: str = "", task_id: int = 0, loaded_chunk_task: bool = False,
-                 progress: float = 0, time_elapsed: int = 0, current_position: ChunkPosition = ChunkPosition(0, 0),
-                 result: str = "") -> None:
+    def __init__(self, action=0, action_id: int = -1, task_name: str = "", task_id: int = 0,
+                 loaded_chunk_task: bool = False, progress: float = 0, time_elapsed: int = 0,
+                 current_position: ChunkPosition = ChunkPosition(0, 0), result: str = "") -> None:
         super().__init__()
 
         self.action = action
+        self.action_id = action_id
         self.task_name = task_name
         self._task_params = []
         self.task_id = task_id
@@ -405,6 +406,7 @@ class TaskActionPacket(Packet):
         self._task_params.clear()
 
         self.action = TaskActionPacket.Action.read(fileobj)
+        self.action_id = Long.read(fileobj)
 
         if self.action == TaskActionPacket.Action.START:
             self.task_name = String.read(fileobj)
@@ -413,36 +415,31 @@ class TaskActionPacket(Packet):
             for index in range(params_to_read):
                 self._task_params.append(ParameterSpec.read(fileobj))
 
-        elif self.action == TaskActionPacket.Action.STOP:
+        else:
             self.task_id = UnsignedShort.read(fileobj)
 
-        elif self.action == TaskActionPacket.Action.ADD:
-            self.task_id = UnsignedShort.read(fileobj)
-            self.task_name = String.read(fileobj)
+            if self.action == TaskActionPacket.Action.ADD:
+                self.task_name = String.read(fileobj)
 
-            params_to_read = UnsignedShort.read(fileobj)
-            for index in range(params_to_read):
-                self._task_params.append(ParameterSpec.read(fileobj))
+                params_to_read = UnsignedShort.read(fileobj)
+                for index in range(params_to_read):
+                    self._task_params.append(ParameterSpec.read(fileobj))
 
-        elif self.action == TaskActionPacket.Action.REMOVE:
-            self.task_id = UnsignedShort.read(fileobj)
+            elif self.action == TaskActionPacket.Action.UPDATE:
+                self.loaded_chunk_task = Boolean.read(fileobj)
 
-        elif self.action == TaskActionPacket.Action.UPDATE:
-            self.task_id = UnsignedShort.read(fileobj)
+                self.progress = Float.read(fileobj)
+                self.time_elapsed = Integer.read(fileobj)
 
-            self.loaded_chunk_task = Boolean.read(fileobj)
+                if self.loaded_chunk_task:
+                    self.current_position = ChunkPositionSpec.read(fileobj)
 
-            self.progress = Float.read(fileobj)
-            self.time_elapsed = Integer.read(fileobj)
-
-            if self.loaded_chunk_task:
-                self.current_position = ChunkPositionSpec.read(fileobj)
-
-        elif self.action == TaskActionPacket.Action.RESULT:
-            self.result = String.read(fileobj)
+            elif self.action == TaskActionPacket.Action.RESULT:
+                self.result = String.read(fileobj)
 
     def write(self, fileobj: IO) -> None:
         TaskActionPacket.Action.write(self.action, fileobj)
+        Long.write(self.action_id, fileobj)
 
         if self.action == TaskActionPacket.Action.START:
             String.write(self.task_name, fileobj)
@@ -451,33 +448,27 @@ class TaskActionPacket(Packet):
             for parameter in self._task_params:
                 ParameterSpec.write(parameter, fileobj)
 
-        elif self.action == TaskActionPacket.Action.STOP:
+        else:
             UnsignedShort.write(self.task_id, fileobj)
 
-        elif self.action == TaskActionPacket.Action.ADD:
-            UnsignedShort.write(self.task_id, fileobj)
-            String.write(self.task_name, fileobj)
+            if self.action == TaskActionPacket.Action.ADD:
+                String.write(self.task_name, fileobj)
 
-            UnsignedShort.write(len(self._task_params), fileobj)
-            for parameter in self._task_params:
-                ParameterSpec.write(parameter, fileobj)
+                UnsignedShort.write(len(self._task_params), fileobj)
+                for parameter in self._task_params:
+                    ParameterSpec.write(parameter, fileobj)
 
-        elif self.action == TaskActionPacket.Action.REMOVE:
-            UnsignedShort.write(self.task_id, fileobj)
+            elif self.action == TaskActionPacket.Action.UPDATE:
+                Boolean.write(self.loaded_chunk_task, fileobj)
 
-        elif self.action == TaskActionPacket.Action.UPDATE:
-            UnsignedShort.write(self.task_id, fileobj)
+                Float.write(self.progress, fileobj)
+                Integer.write(self.time_elapsed, fileobj)
 
-            Boolean.write(self.loaded_chunk_task, fileobj)
+                if self.loaded_chunk_task:
+                    ChunkPositionSpec.write(self.current_position, fileobj)
 
-            Float.write(self.progress, fileobj)
-            Integer.write(self.time_elapsed, fileobj)
-
-            if self.loaded_chunk_task:
-                ChunkPositionSpec.write(self.current_position, fileobj)
-
-        elif self.action == TaskActionPacket.Action.RESULT:
-            String.write(self.result, fileobj)
+            elif self.action == TaskActionPacket.Action.RESULT:
+                String.write(self.result, fileobj)
 
     def get_task_params(self) -> List[ActiveTask.Parameter]:
         return self._task_params
@@ -656,16 +647,18 @@ class TrackerActionPacket(Packet):
     NAME = "tracker_action"
     SIDE = Side.BOTH
 
-    def __init__(self, action=0, tracker: Tracker = None, tracker_id: int = 0) -> None:
+    def __init__(self, action=0, action_id: int = -1, tracker: Tracker = None, tracker_id: int = 0) -> None:
         super().__init__()
 
         self.action = action
+        self.action_id = action_id
         self.tracker = tracker
         self.tracker_id = tracker_id
         self._tracked_player_ids = []
 
     def read(self, fileobj: IO) -> None:
         self.action = TrackerActionPacket.Action.read(fileobj)
+        self.action_id = Long.read(fileobj)
 
         if self.action == TrackerActionPacket.Action.ADD:
             self.tracker = TrackerSpec.read(fileobj)
@@ -681,6 +674,7 @@ class TrackerActionPacket(Packet):
 
     def write(self, fileobj: IO) -> None:
         TrackerActionPacket.Action.write(self.action, fileobj)
+        Long.write(self.action_id, fileobj)
 
         if self.action == TrackerActionPacket.Action.ADD:
             TrackerSpec.write(self.tracker, fileobj)
@@ -712,7 +706,7 @@ class TrackerActionPacket(Packet):
         ADD = 0
         REMOVE = 1
         UPDATE = 2
-        UNTRACK = 4
+        UNTRACK = 3
 
 
 class InfoUpdatePacket(Packet):

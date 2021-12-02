@@ -604,8 +604,11 @@ public class YCReporter extends YCHandler {
      * Untracks (immediately stops) a tracker.
      * @param trackerID The ID of the tracker to untrack.
      */
-    public void untrackTracker(long trackerID) {
-        connection.sendPacket(new TrackerActionPacket(TrackerActionPacket.Action.UNTRACK, trackerID));
+    public synchronized void untrackTracker(int originatorID, long trackerID) {
+        actions.put(actionID, new Action(actionID, originatorID));
+        connection.sendPacket(new TrackerActionPacket(TrackerActionPacket.Action.UNTRACK, actionID, trackerID));
+
+        if (++actionID == Long.MAX_VALUE) actionID = 0;
     }
 
     /* ----------------------------- Online players ----------------------------- */

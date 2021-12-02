@@ -325,7 +325,7 @@ class TrackerSpec(Type):
 
     @classmethod
     def write(cls, tracker: Tracker, fileobj: IO) -> None:
-        Long.write(tracker.tracked_id, fileobj)
+        Long.write(tracker.tracker_id, fileobj)
 
         UnsignedShort.write(len(tracker.get_tracked_player_ids()), fileobj)
         for tracked_player_id in tracker.get_tracked_player_ids():

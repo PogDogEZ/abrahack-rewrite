@@ -323,11 +323,15 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
             if (trackerAction.getAction() == TrackerActionPacket.Action.UNTRACK) {
                 ITracker tracker = yesCom.trackingHandler.getTracker(trackerAction.getTrackerID());
-
-                if (tracker != null) {
-                    yesCom.logger.fine(String.format("Untracking %s.", tracker));
-                    yesCom.trackingHandler.untrack(tracker);
+                if (tracker == null) {
+                    connection.sendPacket(new ActionResponsePacket(trackerAction.getActionID(), false, "Tracker not found."));
+                    return;
                 }
+
+                yesCom.logger.fine(String.format("Untracking %s.", tracker));
+                yesCom.trackingHandler.untrack(tracker);
+                // Lol great message copilot
+                connection.sendPacket(new ActionResponsePacket(trackerAction.getActionID(), true, "Tracker untracked."));
             }
 
         } else if (packet instanceof ActionRequestPacket) {

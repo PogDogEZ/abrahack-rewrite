@@ -72,6 +72,7 @@ class Viewer(Handler):
         self._account_action = False  # Reset actions
         self._config_action = False
         self._task_action = False
+        self._tracker_action = False
         self._other_action = None
 
     def __init__(self, connection: Connection, name: str = "test") -> None:
@@ -96,6 +97,7 @@ class Viewer(Handler):
         self._account_action = False
         self._config_action = False
         self._task_action = False
+        self._tracker_action = False
         self._other_action = None
 
         self._action_success = False
@@ -139,6 +141,7 @@ class Viewer(Handler):
                 self._account_action = False
                 self._config_action = False
                 self._task_action = False
+                self._tracker_action = False
                 self._other_action = None
 
             else:
@@ -147,6 +150,7 @@ class Viewer(Handler):
                 self._account_action = False
                 self._config_action = False
                 self._task_action = False
+                self._tracker_action = False
                 self._other_action = None
 
                 current_reporter = self.current_reporter
@@ -251,7 +255,8 @@ class Viewer(Handler):
                         current_reporter.remove_online_player(uuid)
 
         elif isinstance(packet, ActionResponsePacket):
-            if not self._account_action and not self._config_action and not self._task_action and self._other_action is None:
+            if not self._account_action and not self._config_action and not self._task_action and \
+                    not self._tracker_action and self._other_action is None:
                 logging.warning("Action response with no known action.")
                 return
 
@@ -261,6 +266,7 @@ class Viewer(Handler):
             self._account_action = False
             self._config_action = False
             self._task_action = False
+            self._tracker_action = False
             self._other_action = None
 
     # ----------------------------- Management stuff ----------------------------- #
@@ -302,7 +308,8 @@ class Viewer(Handler):
         if self._initializing or not self._initialized:
             raise Exception("Not initialized.")
 
-        if self._account_action or self._config_action or self._task_action or self._other_action is not None:
+        if self._account_action or self._config_action or self._task_action or self._tracker_action or \
+                self._other_action is not None:
             raise Exception("Already performing an action.")
 
         if self.current_reporter is None:
@@ -335,7 +342,8 @@ class Viewer(Handler):
         if self._initializing or not self._initialized:
             raise Exception("Not initialized.")
 
-        if self._account_action or self._config_action or self._task_action or self._other_action is not None:
+        if self._account_action or self._config_action or self._task_action or self._tracker_action or \
+                self._other_action is not None:
             raise Exception("Already performing an action.")
 
         current_reporter = self.current_reporter
@@ -381,7 +389,8 @@ class Viewer(Handler):
         if not self._initialized or self._initializing:
             raise Exception("Not initialized.")
 
-        if self._account_action or self._config_action or self._task_action or self._other_action is not None:
+        if self._account_action or self._config_action or self._task_action or self._tracker_action or \
+                self._other_action is not None:
             raise Exception("Already waiting for an action to complete.")
 
         if self.current_reporter is None:
@@ -416,7 +425,8 @@ class Viewer(Handler):
         if not self._initialized or self._initializing:
             raise Exception("Not initialized.")
 
-        if self._account_action or self._config_action or self._task_action or self._other_action is not None:
+        if self._account_action or self._config_action or self._task_action or self._tracker_action or \
+                self._other_action is not None:
             raise Exception("Already waiting for an action to complete.")
 
         if self.current_reporter is None:
@@ -449,7 +459,8 @@ class Viewer(Handler):
         if not self._initialized or self._initializing:
             raise Exception("Not initialized.")
 
-        if self._account_action or self._config_action or self._task_action or self._other_action is not None:
+        if self._account_action or self._config_action or self._task_action or self._tracker_action or \
+                self._other_action is not None:
             raise Exception("Already waiting for an action to complete.")
 
         current_reporter = self.current_reporter
@@ -491,7 +502,8 @@ class Viewer(Handler):
         if not self._initialized or self._initializing:
             raise Exception("Not initialized.")
 
-        if self._account_action or self._config_action or self._task_action or self._other_action is not None:
+        if self._account_action or self._config_action or self._task_action or self._tracker_action or \
+                self._other_action is not None:
             raise Exception("Already waiting for an action to complete.")
 
         if self.current_reporter is None:
@@ -512,6 +524,40 @@ class Viewer(Handler):
         else:
             raise Exception(self._action_message)
 
+    def untrack_tracker(self, tracker_id: int) -> str:
+        """
+        Untracks a tracker given its tracker ID.
+
+        :param tracker_id: The tracker ID to untrack.
+        :return: The success message.
+        """
+
+        if not self._initialized or self._initializing:
+            raise Exception("Not initialized.")
+
+        if self._account_action or self._config_action or self._task_action or self._tracker_action or \
+                self._other_action is not None:
+            raise Exception("Already waiting for an action to complete.")
+
+        if self.current_reporter is None:
+            raise Exception("No current reporter.")
+
+        self._tracker_action = True
+        try:
+            self.connection.send_packet(TrackerActionPacket(action=TrackerActionPacket.Action.UNTRACK,
+                                                            tracker_id=tracker_id))
+        except Exception as error:
+            self._tracker_action = False
+            raise error
+
+        while self._tracker_action:
+            time.sleep(0.1)
+
+        if self._action_success:
+            return self._action_message
+        else:
+            raise Exception(self._action_message)
+
     def send_chat_message(self, username: str, message: str) -> str:
         """
         Sends a chat message to the server.
@@ -524,7 +570,8 @@ class Viewer(Handler):
         if not self._initialized or self._initializing:
             raise Exception("Not initialized.")
 
-        if self._account_action or self._config_action or self._task_action or self._other_action is not None:
+        if self._account_action or self._config_action or self._task_action or self._tracker_action or \
+                self._other_action is not None:
             raise Exception("Already waiting for an action to complete.")
 
         if self.current_reporter is None:

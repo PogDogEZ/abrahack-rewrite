@@ -318,6 +318,9 @@ class RegisteredTask:
         else:
             return other._name == self._name and other._description == self._description
 
+    def get_param_descriptions(self) -> List:  # -> List[ParamDescription]:
+        return self._param_descriptions.copy()
+
     def get_param_description(self, param_name: str):  # -> ParamDescription
         """
         :param param_name: The name of the parameter to get the description for.
@@ -727,7 +730,7 @@ class Tracker:
     """
 
     @property
-    def tracked_id(self) -> int:
+    def tracker_id(self) -> int:
         return self._tracker_id
 
     def __init__(self, tracker_id: int, tracked_player_ids: List[int]) -> None:
