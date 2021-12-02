@@ -212,6 +212,7 @@ public class YCListener extends YCHandler {
                 return;
             }
 
+            otherAction = actionRequest.getAction();
             currentReporter.requestAction(getID(), actionRequest.getAction(), actionRequest.getData());
         }
     }
@@ -364,9 +365,10 @@ public class YCListener extends YCHandler {
     /* ----------------------------- Other ----------------------------- */
 
     public void onActionResponse(boolean successful, String message) {
-        if (accountAction || configAction) {
+        if (accountAction || configAction || otherAction != null) {
             accountAction = false;
             configAction = false;
+            otherAction = null;
 
             connection.sendPacket(new ActionResponsePacket(-1, successful, message));
         }

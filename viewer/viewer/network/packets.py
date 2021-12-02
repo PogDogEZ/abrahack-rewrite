@@ -766,7 +766,7 @@ class OnlinePlayersActionPacket(Packet):
 
     ID = ID_OFFSET + 10
     NAME = "online_players_action"
-    SIDE = Side.SERVER
+    SIDE = Side.BOTH
 
     def __init__(self, action=0) -> None:
         super().__init__()

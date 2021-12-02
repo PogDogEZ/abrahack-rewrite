@@ -280,6 +280,8 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
                     }
 
                     player.sendChatMessage(message);
+                    connection.sendPacket(new ActionResponsePacket(actionRequest.getActionID(), true,
+                            "Successfully sent chat message."));
                     break;
                 }
             }

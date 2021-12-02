@@ -378,6 +378,7 @@ public class YCReporter extends YCHandler {
         } else if (packet instanceof ActionResponsePacket) {
             ActionResponsePacket actionResponse = (ActionResponsePacket)packet;
 
+            logger.finer(String.format("%s got action response.", this));
             if (!actions.containsKey(actionResponse.getActionID()) && actionResponse.getActionID() != -1) {
                 logger.warning(String.format("Received action response packet for unknown action ID %d.", actionResponse.getActionID()));
                 connection.exit("Invalid action ID.");

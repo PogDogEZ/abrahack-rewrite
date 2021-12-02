@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import io
 import logging
 import time
 from typing import List, Union
@@ -8,9 +8,10 @@ from uuid import UUID
 from pyclient.networking.connection import Connection
 from pyclient.networking.handlers import Handler
 from pyclient.networking.packets import Packet
+from pyclient.networking.types.basic import String
 from viewer.network.packets import ReporterActionPacket, YCInitRequestPacket, YCInitResponsePacket, ReporterSyncPacket, \
     DataExchangePacket, ConfigActionPacket, TaskActionPacket, PlayerActionPacket, TrackerActionPacket, InfoUpdatePacket, \
-    ActionResponsePacket, AccountActionPacket
+    ActionResponsePacket, AccountActionPacket, OnlinePlayersActionPacket, ActionRequestPacket
 from viewer.reporter import Reporter
 from viewer.util import ActiveTask, RegisteredTask
 
@@ -133,18 +134,28 @@ class Viewer(Handler):
                 logging.debug("Unselecting current reporter.")
                 self._current_reporter = -1
 
+                self._account_action = False
+                self._config_action = False
+                self._other_action = None
+
             else:
                 self._current_reporter = packet.reporter_id
+
+                self._account_action = False
+                self._config_action = False
+                self._other_action = None
+
                 current_reporter = self.current_reporter
 
-                current_reporter.reset()
-                current_reporter.set_config_rules(packet.get_rules())
-                current_reporter.set_registered_tasks(packet.get_registered_tasks())
-                current_reporter.set_active_tasks(packet.get_active_tasks())
-                current_reporter.set_players(packet.get_players())
-                current_reporter.set_trackers(packet.get_trackers())
+                if current_reporter is not None:
+                    current_reporter.reset()
+                    current_reporter.set_config_rules(packet.get_rules())
+                    current_reporter.set_registered_tasks(packet.get_registered_tasks())
+                    current_reporter.set_active_tasks(packet.get_active_tasks())
+                    current_reporter.set_players(packet.get_players())
+                    current_reporter.set_trackers(packet.get_trackers())
 
-                logging.debug("Current reporter: %r." % current_reporter)
+                    logging.debug("Current reporter: %r." % current_reporter)
 
         elif isinstance(packet, ConfigActionPacket):
             current_reporter = self.current_reporter
@@ -222,6 +233,18 @@ class Viewer(Handler):
                 current_reporter.update_info(packet.waiting_queries, packet.ticking_queries, packet.queries_per_second,
                                              packet.connected, packet.tick_rate, packet.server_ping,
                                              packet.time_since_last_packet)
+
+        elif isinstance(packet, OnlinePlayersActionPacket):
+            current_reporter = self.current_reporter
+
+            if current_reporter is not None:
+                if packet.action == OnlinePlayersActionPacket.Action.ADD:
+                    self._uuid_to_username_cache.update(packet.get_online_players())
+                    current_reporter.put_online_players(packet.get_online_players())
+
+                else:
+                    for uuid in packet.get_online_players():
+                        current_reporter.remove_online_player(uuid)
 
         elif isinstance(packet, ActionResponsePacket):
             if not self._account_action and not self._config_action and self._other_action is None:
@@ -323,6 +346,41 @@ class Viewer(Handler):
             raise error
 
         while self._account_action:
+            time.sleep(0.1)
+
+        if self._action_success:
+            return self._action_message
+        else:
+            raise Exception(self._action_message)
+
+    def send_chat_message(self, username: str, message: str) -> str:
+        """
+        Sends a chat message to the server.
+
+        :param username: The USERNAME of the account.
+        :param message: The message to send.
+        :return: The success message.
+        """
+
+        if not self._initialized or self._initializing:
+            raise Exception("Not initialized.")
+
+        if self._account_action or self._config_action or self._other_action is not None:
+            raise Exception("Already waiting for an action to complete.")
+
+        self._other_action = ActionRequestPacket.Action.SEND_CHAT_MESSAGE
+        fileobj = io.BytesIO()
+        try:
+            String.write(username, fileobj)
+            String.write(message, fileobj)
+
+            self.connection.send_packet(ActionRequestPacket(action=ActionRequestPacket.Action.SEND_CHAT_MESSAGE,
+                                                            data=fileobj.getvalue()))
+        except Exception as error:
+            self._other_action = None
+            raise error
+
+        while self._other_action is not None:
             time.sleep(0.1)
 
         if self._action_success:

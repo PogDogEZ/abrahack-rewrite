@@ -286,12 +286,13 @@ public class ConnectionHandler implements IHandler {
 
     /**
      * Gets a player via their in game display name.
-     * @param name Their in game display name (not case sensitive).
+     * @param name Their username or in game display name (not case-sensitive).
      * @return The player, null if no matching player was found.
      */
     public synchronized Player getPlayer(String name) {
         return players.stream()
-                .filter(player -> player.getAuthService().getSelectedProfile().getName().equalsIgnoreCase(name))
+                .filter(player -> player.getAuthService().getUsername().equalsIgnoreCase(name) ||
+                        player.getAuthService().getSelectedProfile().getName().equalsIgnoreCase(name))
                 .findFirst()
                 .orElse(null);
     }
@@ -364,6 +365,11 @@ public class ConnectionHandler implements IHandler {
 
         @Override
         public void disconnected(DisconnectedEvent event) {
+            if (event.getCause() != null) {
+                yesCom.logger.warning(event.getReason());
+                yesCom.logger.throwing(SessionReactionAdapter.class.getSimpleName(), "disconnected", event.getCause());
+            }
+
             if (yesCom.ycHandler != null) yesCom.ycHandler.onPlayerRemoved(player, event.getReason());
             yesCom.logger.info(String.format("%s was disconnected for: %s",
                     player.getAuthService().getSelectedProfile().getName(), event.getReason()));
