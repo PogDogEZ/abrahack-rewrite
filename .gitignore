@@ -1,7 +1,7 @@
-*/__pycache__/
-*/.gradle/
-*/.idea/
-*/build/
+**/__pycache__/
+**/.gradle/
+**/.idea/
+**/build/
 
 /venv/
 
