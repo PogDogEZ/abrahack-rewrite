@@ -3,6 +3,8 @@ package ez.pogdog.yescom.network.handlers;
 import ez.pogdog.yescom.events.data.DataBroadcastEvent;
 import ez.pogdog.yescom.events.InfoUpdateEvent;
 import ez.pogdog.yescom.events.config.SyncConfigRuleEvent;
+import ez.pogdog.yescom.events.online.PlayerLoginEvent;
+import ez.pogdog.yescom.events.online.PlayerLogoutEvent;
 import ez.pogdog.yescom.events.player.PlayerAddedEvent;
 import ez.pogdog.yescom.events.player.PlayerRemovedEvent;
 import ez.pogdog.yescom.events.player.PlayerUpdatedEvent;
@@ -37,10 +39,10 @@ public class YCReporter extends YCHandler {
 
     private final Map<ConfigRule, Object> config = new HashMap<>();
     private final Map<Integer, ActiveTask> activeTasks = new HashMap<>();
+    private final Map<UUID, String> onlinePlayers = new HashMap<>();
     private final List<RegisteredTask> registeredTasks = new ArrayList<>();
     private final List<Player> players = new ArrayList<>();
     private final List<Tracker> trackers = new ArrayList<>();
-    private final List<UUID> onlinePlayers = new ArrayList<>();
 
     private final String handlerName;
 
@@ -364,13 +366,19 @@ public class YCReporter extends YCHandler {
             switch (onlinePlayersAction.getAction()) {
                 case ADD: {
                     onlinePlayersAction.getOnlinePlayers().forEach((uuid, displayName) -> {
+                        jServer.eventBus.post(new PlayerLoginEvent(this, uuid, displayName));
+
                         yesCom.putUUIDToName(uuid, displayName);
-                        if (!onlinePlayers.contains(uuid)) onlinePlayers.add(uuid);
+                        onlinePlayers.put(uuid, displayName);
                     });
                     break;
                 }
                 case REMOVE: {
-                    onlinePlayersAction.getOnlinePlayers().forEach((uuid, displayName) -> onlinePlayers.remove(uuid));
+                    onlinePlayersAction.getOnlinePlayers().forEach((uuid, displayName) -> {
+                        jServer.eventBus.post(new PlayerLogoutEvent(this, uuid));
+
+                        onlinePlayers.remove(uuid);
+                    });
                     break;
                 }
             }
@@ -593,8 +601,8 @@ public class YCReporter extends YCHandler {
 
     /* ----------------------------- Online players ----------------------------- */
 
-    public List<UUID> getOnlinePlayers() {
-        return new ArrayList<>(onlinePlayers);
+    public Map<UUID, String> getOnlinePlayers() {
+        return new HashMap<>(onlinePlayers);
     }
 
     /* ----------------------------- Setters and getters ----------------------------- */

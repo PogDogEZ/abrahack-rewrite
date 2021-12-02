@@ -299,33 +299,38 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
     @Override
     public synchronized void onTick() {
-        if (connection.isConnected() && initialized && synced) {
-            while (!queuedPackets.isEmpty()) connection.sendPacket(queuedPackets.pop());
+        if (!connection.isConnected() || !initialized || !synced) return;
 
-            if (!queuedChatMessages.isEmpty()) {
-                connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.CHAT, queuedChatMessages,
-                        new ArrayList<>()));
-                queuedChatMessages.clear();
-            }
+        if (!syncedOnlinePlayers.isEmpty() && !yesCom.connectionHandler.isConnected()) {
+            new ArrayList<>(syncedOnlinePlayers).forEach(this::onPlayerLeave);
+            syncedOnlinePlayers.clear();
+        }
 
-            if (System.currentTimeMillis() - lastChunkStatesUpdate > 500) {
-                lastChunkStatesUpdate = System.currentTimeMillis();
+        while (!queuedPackets.isEmpty()) connection.sendPacket(queuedPackets.pop());
 
-                if (!queuedChunkStates.isEmpty())
-                    connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.CHUNK_STATE,
-                            queuedChunkStates, new ArrayList<>()));
-                queuedChunkStates.clear();
-            }
+        if (!queuedChatMessages.isEmpty()) {
+            connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.CHAT, queuedChatMessages,
+                    new ArrayList<>()));
+            queuedChatMessages.clear();
+        }
 
-            if (!queuedJoins.isEmpty()) {
-                connection.sendPacket(new OnlinePlayersActionPacket(OnlinePlayersActionPacket.Action.ADD, queuedJoins));
-                queuedJoins.clear();
-            }
+        if (System.currentTimeMillis() - lastChunkStatesUpdate > 500) {
+            lastChunkStatesUpdate = System.currentTimeMillis();
 
-            if (!queuedLeaves.isEmpty()) {
-                connection.sendPacket(new OnlinePlayersActionPacket(queuedLeaves));
-                queuedLeaves.clear();
-            }
+            if (!queuedChunkStates.isEmpty())
+                connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.CHUNK_STATE,
+                        queuedChunkStates, new ArrayList<>()));
+            queuedChunkStates.clear();
+        }
+
+        if (!queuedJoins.isEmpty()) {
+            connection.sendPacket(new OnlinePlayersActionPacket(OnlinePlayersActionPacket.Action.ADD, queuedJoins));
+            queuedJoins.clear();
+        }
+
+        if (!queuedLeaves.isEmpty()) {
+            connection.sendPacket(new OnlinePlayersActionPacket(queuedLeaves));
+            queuedLeaves.clear();
         }
     }
 
@@ -601,6 +606,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
         if (!syncedOnlinePlayers.contains(uuid)) {
             syncedOnlinePlayers.add(uuid);
             queuedJoins.put(uuid, name);
+            queuedLeaves.remove(uuid);
         }
     }
 
@@ -608,6 +614,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
         if (syncedOnlinePlayers.contains(uuid)) {
             syncedOnlinePlayers.remove(uuid);
             if (!queuedLeaves.contains(uuid)) queuedLeaves.add(uuid);
+            queuedJoins.remove(uuid);
         }
     }
 

@@ -152,7 +152,7 @@ public class AccountHandler implements IHandler {
         if (authService.isLoggedIn()) {
             yesCom.logger.fine(String.format("Successfully authenticated account with username: %s.",
                     authService.getSelectedProfile().getName()));
-            userMap.put(username, accessToken);
+            // userMap.put(username, accessToken);
             accountCache.add(authService);
         }
     }

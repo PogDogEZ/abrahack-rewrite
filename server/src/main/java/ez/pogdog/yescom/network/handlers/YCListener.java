@@ -5,6 +5,8 @@ import ez.pogdog.yescom.events.ReporterAddedEvent;
 import ez.pogdog.yescom.events.ReporterRemovedEvent;
 import ez.pogdog.yescom.events.config.SyncConfigRuleEvent;
 import ez.pogdog.yescom.events.data.DataBroadcastEvent;
+import ez.pogdog.yescom.events.online.PlayerLoginEvent;
+import ez.pogdog.yescom.events.online.PlayerLogoutEvent;
 import ez.pogdog.yescom.events.player.PlayerAddedEvent;
 import ez.pogdog.yescom.events.player.PlayerRemovedEvent;
 import ez.pogdog.yescom.events.player.PlayerUpdatedEvent;
@@ -21,9 +23,12 @@ import me.iska.jserver.event.Listener;
 import me.iska.jserver.network.Connection;
 import me.iska.jserver.network.packet.Packet;
 
-import java.util.ArrayList;
+import java.util.*;
 
 public class YCListener extends YCHandler {
+
+    private final Map<UUID, String> playerLogins = new HashMap<>();
+    private final List<UUID> playerLogouts = new ArrayList<>();
 
     private final String handlerName;
 
@@ -218,6 +223,19 @@ public class YCListener extends YCHandler {
     }
 
     @Override
+    public synchronized void update() {
+        if (!playerLogins.isEmpty()) {
+            connection.sendPacket(new OnlinePlayersActionPacket(playerLogins));
+            playerLogins.clear();
+        }
+
+        if (!playerLogouts.isEmpty()) {
+            connection.sendPacket(new OnlinePlayersActionPacket(playerLogouts));
+            playerLogouts.clear();
+        }
+    }
+
+    @Override
     public void exit(String reason) {
         jServer.eventBus.unregister(this);
     }
@@ -337,6 +355,22 @@ public class YCListener extends YCHandler {
                     event.getTimeSinceLastPacket()));
     }
 
+    @Listener
+    public synchronized void onPlayerLogin(PlayerLoginEvent event) {
+        if (event.getReporter() == currentReporter) {
+            playerLogins.put(event.getUUID(), event.getDisplayName());
+            playerLogouts.remove(event.getUUID());
+        }
+    }
+
+    @Listener
+    public synchronized void onPlayerLogout(PlayerLogoutEvent event) {
+        if (event.getReporter() == currentReporter) {
+            playerLogouts.add(event.getUUID());
+            playerLogins.remove(event.getUUID());
+        }
+    }
+
     /* ----------------------------- Sync stuff ----------------------------- */
 
     /**
@@ -357,6 +391,7 @@ public class YCListener extends YCHandler {
             connection.sendPacket(new ReporterSyncPacket(currentReporter.getID(), currentReporter.getName(),
                     currentReporter.getConfigRules(), currentReporter.getRegisteredTasks(), currentReporter.getActiveTasks(),
                     currentReporter.getPlayers(), currentReporter.getTrackers()));
+            connection.sendPacket(new OnlinePlayersActionPacket(currentReporter.getOnlinePlayers()));
         } else {
             connection.sendPacket(new ReporterSyncPacket());
         }
