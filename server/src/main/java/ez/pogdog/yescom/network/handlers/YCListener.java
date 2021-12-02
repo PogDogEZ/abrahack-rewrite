@@ -179,8 +179,8 @@ public class YCListener extends YCHandler {
                     if (accountAction.isLegacy()) {
                         currentReporter.loginAccount(getID(), accountAction.getUsername(), accountAction.getPassword());
                     } else {
-                        currentReporter.loginAccount(getID(), accountAction.getUsername(), accountAction.getClientToken(),
-                                accountAction.getAccessToken());
+                        currentReporter.loginAccount(getID(), accountAction.getUsername(), accountAction.getAccessToken(),
+                                accountAction.getClientToken());
                     }
                     break;
                 }
