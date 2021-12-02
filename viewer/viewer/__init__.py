@@ -286,6 +286,79 @@ class Viewer(Handler):
 
     # ----------------------------- Actions ----------------------------- #
 
+    def sync_config_rule(self, name: str) -> str:
+        """
+        Requests that a config rule with the provided name is synced, throws an exception if something is invalid.
+
+        :param name: The name of the config rule.
+        :return: The success message.
+        """
+
+        if self._initializing or not self._initialized:
+            raise Exception("Not initialized.")
+
+        if self._account_action or self._config_action or self._other_action is not None:
+            raise Exception("Already performing an action.")
+
+        if self.current_reporter is None:
+            raise Exception("No current reporter.")
+
+        self._config_action = True
+        try:
+            self.connection.send_packet(ConfigActionPacket(action=ConfigActionPacket.Action.GET_RULE, rule_name=name))
+        except Exception as error:
+            self._config_action = False
+            raise error
+
+        while self._config_action:
+            time.sleep(0.1)
+
+        if self._action_success:
+            return self._action_message
+        else:
+            raise Exception(self._action_message)
+
+    def set_config_rule(self, name: str, value: object) -> str:
+        """
+        Sets a config rule to a certain value, given the name of it, throws an exception if something is invalid.
+
+        :param name: The name of the config rule.
+        :param value: The
+        :return: The success message.
+        """
+
+        if self._initializing or not self._initialized:
+            raise Exception("Not initialized.")
+
+        if self._account_action or self._config_action or self._other_action is not None:
+            raise Exception("Already performing an action.")
+
+        current_reporter = self.current_reporter
+        if current_reporter is None:
+            raise Exception("No current reporter.")
+
+        for config_rule in current_reporter.get_config_rules():
+            if config_rule.name.lower() == name.lower():
+                break
+        else:
+            raise Exception("Config rule by name %r not found." % name)
+
+        self._config_action = True
+        try:
+            self.connection.send_packet(ConfigActionPacket(action=ConfigActionPacket.Action.SET_RULE, rule=config_rule,
+                                                           value=value))
+        except Exception as error:
+            self._config_action = False
+            raise error
+
+        while self._config_action:
+            time.sleep(0.1)
+
+        if self._action_success:
+            return self._action_message
+        else:
+            raise Exception(self._action_message)
+
     def login_account(self, username: str, legacy: bool = False, password: str = None, client_token: str = None,
                       access_token: str = None) -> str:
         """
@@ -305,6 +378,9 @@ class Viewer(Handler):
 
         if self._account_action or self._config_action or self._other_action is not None:
             raise Exception("Already waiting for an action to complete.")
+
+        if self.current_reporter is None:
+            raise Exception("No current reporter.")
 
         self._account_action = True
         try:
@@ -338,6 +414,9 @@ class Viewer(Handler):
         if self._account_action or self._config_action or self._other_action is not None:
             raise Exception("Already waiting for an action to complete.")
 
+        if self.current_reporter is None:
+            raise Exception("No current reporter.")
+
         self._account_action = True
         try:
             self.connection.send_packet(AccountActionPacket(action=AccountActionPacket.Action.LOGOUT, username=username))
@@ -367,6 +446,9 @@ class Viewer(Handler):
 
         if self._account_action or self._config_action or self._other_action is not None:
             raise Exception("Already waiting for an action to complete.")
+
+        if self.current_reporter is None:
+            raise Exception("No current reporter.")
 
         self._other_action = ActionRequestPacket.Action.SEND_CHAT_MESSAGE
         fileobj = io.BytesIO()

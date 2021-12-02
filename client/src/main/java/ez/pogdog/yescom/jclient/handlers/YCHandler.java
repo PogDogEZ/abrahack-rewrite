@@ -161,15 +161,47 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
             yesCom.logger.fine("Got config action.");
 
-            switch (configAction.getAction()) { // TODO: Config action
+            switch (configAction.getAction()) {
                 case SET_RULE: {
+                    // Sneaky mfs tryna crash the server with differently typed config rules
+                    ConfigHandler.ConfigRule rule = yesCom.configHandler.getConfigRule(configAction.getRule().getName());
+                    Object value = configAction.getValue();
+
+                    if (rule == null) {
+                        connection.sendPacket(new ActionResponsePacket(configAction.getActionID(), false, "Rule not found."));
+                        return;
+                    }
+
+                    yesCom.logger.fine(String.format("Setting rule %s to %s.", rule, value));
+
+                    try {
+                        yesCom.configHandler.setConfigRuleValue(rule, value);
+                    } catch (IllegalArgumentException error) {
+                        connection.sendPacket(new ActionResponsePacket(configAction.getActionID(), false, error.getMessage()));
+                        return;
+                    }
+
+                    // Broadcast to everyone that the rule has been updated
+                    connection.sendPacket(new ConfigActionPacket(ConfigActionPacket.Action.SYNC_RULE, rule, value));
+                    connection.sendPacket(new ActionResponsePacket(configAction.getActionID(), true, "Rule updated."));
                     break;
                 }
                 case GET_RULE: {
-                    ConfigHandler.ConfigRule rule = null;
-                    Object value = null;
+                    ConfigHandler.ConfigRule rule = yesCom.configHandler.getConfigRule(configAction.getRuleName());
+                    if (rule == null) {
+                        connection.sendPacket(new ActionResponsePacket(configAction.getActionID(), false, "Rule not found."));
+                        return;
+                    }
+
+                    Object value = yesCom.configHandler.getConfigRuleValue(rule);
+                    if (value == null) { // Yeah what why would this happen except error on my behalf
+                        connection.sendPacket(new ActionResponsePacket(configAction.getActionID(), false,
+                                "Rule value is null for some reason lol, I guess I messed something up."));
+                        return;
+                    }
+
                     connection.sendPacket(new ConfigActionPacket(ConfigActionPacket.Action.SYNC_RULE, configAction.getActionID(), rule, value));
-                    // TODO: Send action response
+                    connection.sendPacket(new ActionResponsePacket(configAction.getActionID(), true, "Rule synced."));
                     break;
                 }
             }

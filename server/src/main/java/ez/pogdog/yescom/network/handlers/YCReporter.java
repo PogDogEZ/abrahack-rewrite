@@ -139,7 +139,8 @@ public class YCReporter extends YCHandler {
                         }
 
                         Action action = actions.get(configAction.getActionID());
-                        actions.remove(configAction.getActionID());
+                        // Don't remove the action as we should get an action response after this packet
+                        // actions.remove(configAction.getActionID());
 
                         YCHandler originator = yesCom.handlersManager.getHandler(action.getOriginatorID());
 
