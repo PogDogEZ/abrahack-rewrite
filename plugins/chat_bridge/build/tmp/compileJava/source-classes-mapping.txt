@@ -1,0 +1,16 @@
+tech/futureclient/message/MessageHandler.java
+ tech.futureclient.message.MessageHandler
+ tech.futureclient.message.MessageHandler$1
+tech/futureclient/message/MessageType.java
+ tech.futureclient.message.MessageType
+tech/futureclient/message/impl/FromMinecraft.java
+ tech.futureclient.message.impl.FromMinecraft
+tech/futureclient/TEMP_CONSTANTS.java
+ tech.futureclient.TEMP_CONSTANTS
+tech/futureclient/plugin/Hook.java
+ tech.futureclient.plugin.Hook
+tech/futureclient/message/impl/FromDiscord.java
+ tech.futureclient.message.impl.FromDiscord
+tech/futureclient/ChatBridge.java
+ tech.futureclient.ChatBridge
+ tech.futureclient.ChatBridge$MessageThread

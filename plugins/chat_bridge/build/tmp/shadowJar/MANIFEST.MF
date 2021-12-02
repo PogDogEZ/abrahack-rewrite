@@ -1,0 +1,3 @@
+Manifest-Version: 1.0
+Plugin-Main-Class: tech.futureclient.plugin.Hook
+

@@ -1,0 +1,34 @@
+apply plugin: "java"
+apply plugin: "idea"
+
+repositories {
+    maven {
+        name = "jitpack"
+        url = "https://jitpack.io"
+    }
+    mavenCentral()
+}
+
+dependencies {
+    implementation project(":api")
+    implementation project(":jserver")
+    implementation project(":yescom")
+
+    compile group: "com.discord4j", name: "discord4j-core", version: "3.1.7"
+    compile group: 'commons-io', name: 'commons-io', version: '2.6'
+    compile group: 'org.json', name: 'json', version: '20210307'
+    compile group: 'com.googlecode.json-simple', name: 'json-simple', version: '1.1'
+}
+
+jar {
+    manifest {
+        attributes("Plugin-Main-Class": "tech.futureclient.plugin.Hook")
+    }
+
+    from configurations.compile.collect {
+        it.isDirectory() ? it : zipTree(it)
+    }
+
+    baseName = "chatbridge"
+}
+
