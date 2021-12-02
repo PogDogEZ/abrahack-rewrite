@@ -1,23 +1,16 @@
-/venv/
-/__pycache__/
+*/__pycache__/
+*/.gradle/
+*/.idea/
+*/build/
 
-/client/.idea/
-/client/.gradle/
-/client/build/
+/venv/
+
 /client/identity/
 /client/accounts.txt
 /client/config.yml
 
-/api/.idea/
-/api/.gradle/
-/api/build/
-
-/viewer/.idea/
 /viewer/previous_servers.json
 
-/server/.idea/
-/server/.gradle/
-/server/build/
 /server/jserver/build
 /server/plugins/
 /server/trusted.txt

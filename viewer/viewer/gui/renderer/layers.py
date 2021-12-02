@@ -247,3 +247,4 @@ class CursorLayer(Layer):
         return self.renderer.draw_rect(image, mouse_pos[0], mouse_pos[1], mouse_pos[0] + 1, mouse_pos[1] + 1,
                                        ((0, 0, 255) if not self.renderer.main_frame.mouse_grabbed else (0, 255, 0)),
                                        min(255, self.renderer.scaled_line_width(*scale, 1)))
+

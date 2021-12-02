@@ -75,3 +75,4 @@ class Renderer:
             image = layer.draw(image)
 
         return image
+
