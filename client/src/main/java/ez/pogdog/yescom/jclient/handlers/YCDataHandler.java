@@ -33,21 +33,30 @@ public class YCDataHandler implements IHandler {
                 case DOWNLOAD: {
                     switch (dataExchange.getDataType()) {
                         case TICK_DATA: {
+                            long startTime = yesCom.dataHandler.clampStatStartTime(dataExchange.getStartTime()) * yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL;
+                            long endTime = yesCom.dataHandler.clampStatEndTime(dataExchange.getEndTime()) * yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL;
+
                             connection.sendPacket(new DataExchangePacket(dataExchange.getDataType(), dataExchange.getRequestID(),
-                                    yesCom.dataHandler.getTickData(dataExchange.getStartTime(), dataExchange.getEndTime()),
-                                    dataExchange.getStartTime(), dataExchange.getEndTime(), yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL));
+                                    yesCom.dataHandler.getTickData(startTime, endTime), startTime, endTime,
+                                    yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL));
                             break;
                         }
                         case PING_DATA: {
+                            long startTime = yesCom.dataHandler.clampStatStartTime(dataExchange.getStartTime()) * yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL;
+                            long endTime = yesCom.dataHandler.clampStatEndTime(dataExchange.getEndTime()) * yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL;
+
                             connection.sendPacket(new DataExchangePacket(dataExchange.getDataType(), dataExchange.getRequestID(),
-                                    yesCom.dataHandler.getPingData(dataExchange.getStartTime(), dataExchange.getEndTime()),
-                                    dataExchange.getStartTime(), dataExchange.getEndTime(), yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL));
+                                    yesCom.dataHandler.getPingData(startTime, endTime), startTime, endTime,
+                                    yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL));
                             break;
                         }
                         case TSLP_DATA: {
+                            long startTime = yesCom.dataHandler.clampStatStartTime(dataExchange.getStartTime()) * yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL;
+                            long endTime = yesCom.dataHandler.clampStatEndTime(dataExchange.getEndTime()) * yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL;
+
                             connection.sendPacket(new DataExchangePacket(dataExchange.getDataType(), dataExchange.getRequestID(),
-                                    yesCom.dataHandler.getTSLPData(dataExchange.getStartTime(), dataExchange.getEndTime()),
-                                    dataExchange.getStartTime(), dataExchange.getEndTime(), yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL));
+                                    yesCom.dataHandler.getTSLPData(startTime, endTime), startTime, endTime,
+                                    yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL));
                             break;
                         }
                         case ONLINE_PLAYER: {

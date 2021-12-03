@@ -98,7 +98,8 @@ public class YCReporter extends YCHandler {
                             return;
                         }
 
-                        originator.provideData(dataExchange.getDataType(), dataExchange.getData(), dataExchange.getInvalidDataIDs());
+                        originator.provideData(dataExchange.getDataType(), dataExchange.getData(), dataExchange.getInvalidDataIDs(),
+                                dataExchange.getStartTime(), dataExchange.getEndTime(), dataExchange.getUpdateInterval());
                     }
                     break;
                 }
@@ -413,15 +414,18 @@ public class YCReporter extends YCHandler {
     /* ----------------------------- Requests and actions ----------------------------- */
 
     @Override
-    public void provideData(DataExchangePacket.DataType dataType, List<Object> data, List<BigInteger> invalidDataIDs) {
+    public void provideData(DataExchangePacket.DataType dataType, List<Object> data, List<BigInteger> invalidDataIDs,
+                            long startTime, long endTime, int updateInterval) {
+        // TODO: Will reporters need data? Prolly not but should be able to upload data to them anyway
     }
 
     @Override
-    public synchronized void requestData(int originatorID, DataExchangePacket.DataType dataType, List<BigInteger> dataIDs) {
+    public synchronized void requestData(int originatorID, DataExchangePacket.DataType dataType, List<BigInteger> dataIDs,
+                                         long startTime, long endTime) {
         requests.put(requestID, new Request(requestID, originatorID));
-        connection.sendPacket(new DataExchangePacket(dataType, requestID, dataIDs));
+        connection.sendPacket(new DataExchangePacket(dataType, requestID, dataIDs, startTime, endTime));
 
-        ++requestID;
+        if (++requestID == Integer.MAX_VALUE) requestID = 0;
     }
 
     public synchronized void requestAction(int originatorID, ActionRequestPacket.Action action, byte[] data) {

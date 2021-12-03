@@ -288,6 +288,22 @@ class DataExchangePacket(Packet):
     def remove_data(self, data: object) -> None:
         self._data.remove(data)
 
+    def get_invalid_data_ids(self) -> List[int]:
+        return self._invalid_data_ids.copy()
+
+    def add_invalid_data_id(self, invalid_data_id: int) -> None:
+        self._invalid_data_ids.append(invalid_data_id)
+
+    def set_invalid_data_ids(self, invalid_data_ids: List[int]) -> None:
+        self._invalid_data_ids.clear()
+        self._invalid_data_ids.extend(invalid_data_ids)
+
+    def extend_invalid_data_ids(self, invalid_data_ids: List[int]) -> None:
+        self._invalid_data_ids.extend(invalid_data_ids)
+
+    def remove_invalid_data_id(self, invalid_data_id: int) -> None:
+        self._invalid_data_ids.remove(invalid_data_id)
+
     def get_data_ids(self) -> List[int]:
         return self._data_ids.copy()
 

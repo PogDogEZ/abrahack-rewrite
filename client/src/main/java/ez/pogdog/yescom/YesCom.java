@@ -223,7 +223,7 @@ public class YesCom {
 
     /* ----------------------------- Private methods ----------------------------- */
 
-    private void onTick() {
+    private synchronized void onTick() {
         if (!noYCConnection && (!connection.isConnected() && (!connection.isExited() || ++reconnectAttempts < 5))) {
             try {
                 connection.connect(new Socket());
@@ -349,11 +349,11 @@ public class YesCom {
     /**
      * @return The currently active tasks.
      */
-    public List<ITask> getTasks() {
+    public synchronized List<ITask> getTasks() {
         return new ArrayList<>(currentTasks);
     }
 
-    public ITask getTask(int taskID) {
+    public synchronized ITask getTask(int taskID) {
         return currentTasks.stream().filter(task -> task.getID() == taskID).findFirst().orElse(null);
     }
 
@@ -361,10 +361,12 @@ public class YesCom {
      * Adds a task.
      * @param task The task to add.
      */
-    public void addTask(ITask task) {
+    public synchronized void addTask(ITask task) {
         if (!currentTasks.contains(task)) {
+            task.setID(taskID);
+            if (++taskID >= Short.MAX_VALUE * 2) taskID = 0;
+
             currentTasks.add(task);
-            task.setID(taskID++);
             if (ycHandler != null) ycHandler.onTaskAdded(task);
         }
     }
@@ -373,7 +375,7 @@ public class YesCom {
      * Removes a task.
      * @param task The task to remove.
      */
-    public void removeTask(ITask task) {
+    public synchronized void removeTask(ITask task) {
         if (currentTasks.remove(task)) {
             task.onFinished();
             if (ycHandler != null) ycHandler.onTaskRemoved(task);

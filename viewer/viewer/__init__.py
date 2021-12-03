@@ -2,7 +2,7 @@
 import io
 import logging
 import time
-from typing import List, Union
+from typing import List, Union, Tuple
 from uuid import UUID
 
 from pyclient.networking.connection import Connection
@@ -69,6 +69,8 @@ class Viewer(Handler):
 
         self.connection.send_packet(reporter_action)
 
+        self._downloading_data = False
+
         self._account_action = False  # Reset actions
         self._config_action = False
         self._task_action = False
@@ -94,11 +96,19 @@ class Viewer(Handler):
         self._initializing = False
         self._initialized = False
 
-        self._account_action = False
+        self._downloading_data = False
+
+        self._account_action = False  # FIXME: Is this really even appropriate anymore given how many actions there are?
         self._config_action = False
         self._task_action = False
         self._tracker_action = False
         self._other_action = None
+
+        self._data = []
+        self._invalid_data_ids = []
+        self._data_start_time = 0
+        self._data_end_time = 0
+        self._data_update_interval = 0
 
         self._action_success = False
         self._action_message = ""
@@ -125,7 +135,20 @@ class Viewer(Handler):
 
         elif isinstance(packet, DataExchangePacket):
             if packet.request_type == DataExchangePacket.RequestType.UPLOAD:
-                print(packet.get_data())
+                if packet.request_id == -1:  # Broadcast data
+                    print(packet.get_data())
+
+                else:
+                    self._data.clear()
+                    self._data.extend(packet.get_data())
+                    self._invalid_data_ids.clear()
+                    self._invalid_data_ids.extend(packet.get_invalid_data_ids())
+
+                    self._data_start_time = packet.start_time
+                    self._data_end_time = packet.end_time
+                    self._data_update_interval = packet.update_interval
+
+                    self._downloading_data = False
 
         elif isinstance(packet, ReporterActionPacket):
             if packet.action == ReporterActionPacket.Action.ADD:
@@ -138,6 +161,8 @@ class Viewer(Handler):
                 logging.debug("Unselecting current reporter.")
                 self._current_reporter = -1
 
+                self._downloading_data = False
+
                 self._account_action = False
                 self._config_action = False
                 self._task_action = False
@@ -146,6 +171,8 @@ class Viewer(Handler):
 
             else:
                 self._current_reporter = packet.reporter_id
+
+                self._downloading_data = False
 
                 self._account_action = False
                 self._config_action = False
@@ -296,6 +323,81 @@ class Viewer(Handler):
                                                         handler_name=self._name))
 
     # ----------------------------- Actions ----------------------------- #
+
+    def request_numeric_data(self, data_type: DataExchangePacket.DataType, start_time: int,
+                             end_time: int) -> Tuple[int, int, int, List[float]]:
+        """
+        Requests numeric data from the current reporter, this can be tickrate, ping or TSLP data.
+
+        :param data_type: The type of data (should be numeric).
+        :param start_time: The start time to request the data from, in unix milliseconds.
+        :param end_time: The end time to request the data from, in unix milliseconds.
+        :return: The start time, end time, update interval and data itself.
+        """
+
+        if not self._initialized or self._initializing:
+            raise Exception("Not initialized.")
+
+        if self._downloading_data:
+            raise Exception("Already downloading data.")
+
+        if self.current_reporter is None:
+            raise Exception("No reporter selected.")
+
+        if not data_type in (DataExchangePacket.DataType.TICK_DATA, DataExchangePacket.DataType.PING_DATA,
+                             DataExchangePacket.DataType.TSLP_DATA):
+            raise Exception("Invalid data type requested.")
+
+        self._downloading_data = True
+        try:
+            self.connection.send_packet(DataExchangePacket(request_type=DataExchangePacket.RequestType.DOWNLOAD,
+                                                           data_type=data_type, start_time=start_time, end_time=end_time))
+        except Exception as error:
+            self._downloading_data = False
+            raise error
+
+        while self._downloading_data:
+            time.sleep(0.1)
+
+        return self._data_start_time, self._data_end_time, self._data_update_interval, self._data.copy()
+
+    def request_data(self, data_type: DataExchangePacket.DataType, data_ids: List[int]) -> Tuple[List[object], List[int]]:
+        """
+        Requests non-numeric data from the current reporter.
+
+        :param data_type: The type of data to request.
+        :param data_ids: The data IDs to request.
+        :return: The data, as well as the invalidated IDs.
+        """
+
+        if not self._initialized or self._initializing:
+            raise Exception("Not initialized.")
+
+        if self._downloading_data:
+            raise Exception("Already downloading data.")
+
+        if self.current_reporter is None:
+            raise Exception("No reporter selected.")
+
+        if data_type in (DataExchangePacket.DataType.TICK_DATA, DataExchangePacket.DataType.PING_DATA,
+                         DataExchangePacket.DataType.TSLP_DATA):
+            raise Exception("Invalid data type requested.")
+
+        self._downloading_data = True
+        try:
+            data_exchange = DataExchangePacket(request_type=DataExchangePacket.RequestType.DOWNLOAD,
+                                               data_type=data_type)
+            data_exchange.set_data_ids(data_ids)
+
+            self.connection.send_packet(data_exchange)
+        except Exception as error:
+            self._downloading_data = False
+            raise error
+
+        while self._downloading_data:
+            time.sleep(0.1)
+
+        return self._data.copy(), self._invalid_data_ids.copy()
 
     def sync_config_rule(self, name: str) -> str:
         """

@@ -23,6 +23,7 @@ import me.iska.jserver.event.Listener;
 import me.iska.jserver.network.Connection;
 import me.iska.jserver.network.packet.Packet;
 
+import java.math.BigInteger;
 import java.util.*;
 
 public class YCListener extends YCHandler {
@@ -33,6 +34,9 @@ public class YCListener extends YCHandler {
     private final String handlerName;
 
     private YCReporter currentReporter;
+
+    private boolean downloadingData;
+
     private boolean accountAction;
     private boolean configAction;
     private boolean taskAction;
@@ -47,6 +51,9 @@ public class YCListener extends YCHandler {
         this.handlerName = handlerName;
 
         currentReporter = null;
+
+        downloadingData = false;
+
         accountAction = false;
         configAction = false;
         taskAction = false;
@@ -63,6 +70,20 @@ public class YCListener extends YCHandler {
 
             switch (dataExchange.getRequestType()) {
                 case DOWNLOAD: {
+                    if (downloadingData) {
+                        connection.sendPacket(new ActionResponsePacket(-1, false, "Already downloading data."));
+                        return;
+
+                    } else if (currentReporter == null) {
+                        logger.fine(String.format("%s attempted to download data with no reporter.", this));
+                        connection.sendPacket(new ActionResponsePacket(-1, false, "No current reporter."));
+                        resyncCurrentReporter();
+                        return;
+                    }
+
+                    downloadingData = true;
+                    currentReporter.requestData(getID(), dataExchange.getDataType(), dataExchange.getDataIDs(),
+                            dataExchange.getStartTime(), dataExchange.getEndTime());
                     break;
                 }
                 case UPLOAD: {
@@ -117,7 +138,7 @@ public class YCListener extends YCHandler {
                 return;
 
             } else if (currentReporter == null) {
-                logger.fine(String.format("%s attempted account action with no reporter.", this));
+                logger.fine(String.format("%s attempted config action with no reporter.", this));
                 connection.sendPacket(new ActionResponsePacket(-1, false, "No current reporter."));
                 resyncCurrentReporter();
                 return;
@@ -149,7 +170,7 @@ public class YCListener extends YCHandler {
                     return;
 
                 } else if (currentReporter == null) {
-                    logger.fine(String.format("%s attempted account action with no reporter.", this));
+                    logger.fine(String.format("%s attempted task action with no reporter.", this));
                     connection.sendPacket(new ActionResponsePacket(-1, false, "No current reporter."));
                     resyncCurrentReporter();
                     return;
@@ -210,7 +231,7 @@ public class YCListener extends YCHandler {
                     return;
 
                 } else if (currentReporter == null) {
-                    logger.fine(String.format("%s attempted action with no reporter.", this));
+                    logger.fine(String.format("%s attempted tracker action with no reporter.", this));
                     connection.sendPacket(new ActionResponsePacket(-1, false, "No current reporter."));
                     resyncCurrentReporter();
                     return;
@@ -255,6 +276,22 @@ public class YCListener extends YCHandler {
     @Override
     public void exit(String reason) {
         jServer.eventBus.unregister(this);
+    }
+
+    @Override
+    public void provideData(DataExchangePacket.DataType dataType, List<Object> data, List<BigInteger> invalidDataIDs,
+                            long startTime, long endTime, int updateInterval) {
+        downloadingData = false;
+        // Request ID 0 as the data has not been broadcast, we don't want to confuse the listener
+        connection.sendPacket(new DataExchangePacket(dataType, 0, data, invalidDataIDs, startTime, endTime, updateInterval));
+    }
+
+    @Override
+    public void requestData(int originatorID, DataExchangePacket.DataType dataType, List<BigInteger> dataIDs,
+                            long startTime, long endTime) {
+        YCHandler handler = yesCom.handlersManager.getHandler(originatorID);
+        // Say all requested were invalid
+        if (handler != null) handler.provideData(dataType, new ArrayList<>(), dataIDs, startTime, endTime, 0);
     }
 
     /* ----------------------------- Listeners ----------------------------- */
