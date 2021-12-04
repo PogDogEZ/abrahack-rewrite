@@ -37,7 +37,7 @@ public class ServerStatsSerializer implements ISerializer {
     @SuppressWarnings("ResultOfMethodCallIgnored")
     public void read() throws IOException {
         if (!currentFile.exists())
-            throw new IOException("Current file does not exist or is not a directory.");
+            throw new IOException("Current file does not exist.");
 
         InputStream inputStream = Files.newInputStream(currentFile.toPath());
         checkHeader(inputStream);
