@@ -24,31 +24,42 @@ public class TrackerActionPacket extends Packet {
     private final List<BigInteger> trackedPlayerIDs = new ArrayList<>();
 
     private Action action;
+    private long actionID;
     private Tracker tracker;
     private long trackerID;
 
-    public TrackerActionPacket(Action action, Tracker tracker, long trackerID, List<BigInteger> trackedPlayerIDs) {
+    public TrackerActionPacket(Action action, long actionID, Tracker tracker, long trackerID, List<BigInteger> trackedPlayerIDs) {
         this.action = action;
+        this.actionID = actionID;
         this.tracker = tracker;
         this.trackerID = trackerID;
         this.trackedPlayerIDs.addAll(trackedPlayerIDs);
     }
 
+    public TrackerActionPacket(Action action, long actionID, Tracker tracker) {
+        this(action, actionID, tracker, tracker.getTrackerID(), tracker.getTrackedPlayerIDs());
+    }
+
     public TrackerActionPacket(Action action, Tracker tracker) {
-        this(action, tracker, tracker.getTrackerID(), tracker.getTrackedPlayerIDs());
+        this(action, -1, tracker);
+    }
+
+    public TrackerActionPacket(Action action, long actionID, long trackerID) {
+        this(action, actionID, null, trackerID, new ArrayList<>());
     }
 
     public TrackerActionPacket(Action action, long trackerID) {
-        this(action, null, trackerID, new ArrayList<>());
+        this(action, -1, trackerID);
     }
 
     public TrackerActionPacket() {
-        this(Action.ADD, null, 0L, new ArrayList<>());
+        this(Action.ADD, -1, null, 0, new ArrayList<>());
     }
 
     @Override
     public void read(InputStream inputStream) throws IOException {
         action = ACTION.read(inputStream);
+        actionID = Registry.LONG.read(inputStream);
 
         switch (action) {
             case ADD: {
@@ -74,6 +85,7 @@ public class TrackerActionPacket extends Packet {
     @Override
     public void write(OutputStream outputStream) throws IOException {
         ACTION.write(action, outputStream);
+        Registry.LONG.write(actionID, outputStream);
 
         switch (action) {
             case ADD: {
@@ -125,6 +137,14 @@ public class TrackerActionPacket extends Packet {
 
     public void setAction(Action action) {
         this.action = action;
+    }
+
+    public long getActionID() {
+        return actionID;
+    }
+
+    public void setActionID(long actionID) {
+        this.actionID = actionID;
     }
 
     public Tracker getTracker() {

@@ -25,8 +25,13 @@ import java.util.Map;
 @Packet.Info(name="task_action", id=YCRegistry.ID_OFFSET + 5, side=Packet.Side.BOTH)
 public class TaskActionPacket extends Packet {
 
+    private final EnumType<Action> ACTION = new EnumType<>(Action.class);
+
+    private final List<TaskRegistry.Parameter> taskParameters = new ArrayList<>();
+
     private Action action;
-    private ITask task;
+    private long actionID;
+    private String taskName;
     private int taskID;
     private boolean loadedChunkTask;
 
@@ -35,32 +40,63 @@ public class TaskActionPacket extends Packet {
     private ChunkPosition currentPosition;
     private String result;
 
-    public TaskActionPacket(Action action, ITask task, int taskID, boolean loadedChunkTask, float progress, int timeElapsed,
-                            ChunkPosition currentPosition, String result) {
+    public TaskActionPacket(Action action, long actionID, String taskName, int taskID, List<TaskRegistry.Parameter> taskParameters,
+                            boolean loadedChunkTask, float progress, int timeElapsed, ChunkPosition currentPosition,
+                            String result) {
         this.action = action;
-        this.task = task;
+        this.actionID = actionID;
+        this.taskName = taskName;
         this.taskID = taskID;
         this.loadedChunkTask = loadedChunkTask;
         this.progress = progress;
         this.timeElapsed = timeElapsed;
         this.currentPosition = currentPosition;
         this.result = result;
+        this.taskParameters.addAll(taskParameters);
     }
 
-    public TaskActionPacket(ITask task, int taskID) {
-        this(Action.ADD, task, taskID, false, task.getProgress(), task.getTimeElapsed(), new ChunkPosition(0, 0), "");
+    public TaskActionPacket(long actionID, String taskName, List<TaskRegistry.Parameter> taskParameters) {
+        this(Action.START, actionID, taskName, 0, taskParameters, false, 0.0f, 0,
+                new ChunkPosition(0, 0), "");
     }
 
-    public TaskActionPacket(ITask task) {
-        this(task, task.getID());
+    public TaskActionPacket(String taskName, List<TaskRegistry.Parameter> taskParameters) {
+        this(-1, taskName, taskParameters);
     }
 
-    public TaskActionPacket(int taskID) {
-        this(Action.REMOVE, null, taskID, false, 0.0f, 0, new ChunkPosition(0, 0), "");
+    public TaskActionPacket(Action action, long actionID, ITask task) {
+        this(action, actionID, task.getRegisteredTask().getName(), task.getID(), task.getParameters(), false,
+                0.0f, 0, new ChunkPosition(0, 0), "");
+    }
+
+    public TaskActionPacket(Action action, ITask task) {
+        this(action, -1, task);
+    }
+
+    public TaskActionPacket(Action action, long actionID, ITask task, boolean loadedChunkTask, ChunkPosition currentPosition) {
+        this(action, actionID, task.getRegisteredTask().getName(), task.getID(), task.getParameters(), loadedChunkTask,
+                task.getProgress(), task.getTimeElapsed(), currentPosition, "");
+    }
+
+    public TaskActionPacket(Action action, ITask task, boolean loadedChunkTask, ChunkPosition currentPosition) {
+        this(action, -1, task, loadedChunkTask, currentPosition);
+    }
+
+    public TaskActionPacket(Action action, long actionID, int taskID, List<TaskRegistry.Parameter> taskParameters) {
+        this(action, actionID, "", taskID, taskParameters, false, 0.0f, 0,
+                new ChunkPosition(0, 0), "");
+    }
+
+    public TaskActionPacket(Action action, long actionID, int taskID) {
+        this(action, actionID, taskID, new ArrayList<>());
+    }
+
+    public TaskActionPacket(Action action, int taskID) {
+        this(action, -1, taskID);
     }
 
     public TaskActionPacket(int taskID, boolean loadedChunkTask, float progress, int timeElapsed, ChunkPosition currentPosition) {
-        this(Action.UPDATE, null, taskID, loadedChunkTask, progress, timeElapsed, currentPosition, "");
+        this(Action.UPDATE, -1, "", taskID, new ArrayList<>(), loadedChunkTask, progress, timeElapsed, currentPosition, "");
     }
 
     public TaskActionPacket(int taskID, float progress, int timeElapsed, ChunkPosition currentPosition) {
@@ -76,11 +112,12 @@ public class TaskActionPacket extends Packet {
     }
 
     public TaskActionPacket(ITask task, float progress, int timeElapsed) {
-        this(task.getID(), progress, timeElapsed);
+        this(task.getID(), progress, timeElapsed, new ChunkPosition(0, 0));
     }
 
     public TaskActionPacket(int taskID, String result) {
-        this(Action.RESULT, null, taskID, false, 0.0f, 0, new ChunkPosition(0, 0), result);
+        this(Action.RESULT, -1, "", taskID, new ArrayList<>(), false, 0.0f, 0,
+                new ChunkPosition(0, 0), result);
     }
 
     public TaskActionPacket(ITask task, String result) {
@@ -88,86 +125,31 @@ public class TaskActionPacket extends Packet {
     }
 
     public TaskActionPacket() {
-        this(Action.ADD, null, 0, false, 0.0f, 0, new ChunkPosition(0, 0), "");
+        this(Action.ADD, -1, "", 0, new ArrayList<>(), false, 0.0f, 0,
+                new ChunkPosition(0, 0), "");
     }
 
     @Override
     public void read(InputStream inputStream) throws IOException {
-        action = new EnumType<>(Action.class).read(inputStream);
+        action = ACTION.read(inputStream);
+        actionID = Registry.LONG.read(inputStream);
 
         switch (action) {
             case START: {
-                TaskRegistry.RegisteredTask registeredTask = TaskRegistry.getTask(Registry.STRING.read(inputStream));
-                List<TaskRegistry.Parameter> parameters = new ArrayList<>();
+                taskName = Registry.STRING.read(inputStream);
 
+                taskParameters.clear();
                 int paramsToRead = Registry.UNSIGNED_SHORT.read(inputStream);
-                for (int index = 0; index < paramsToRead; ++index) parameters.add(YCRegistry.PARAMETER.read(inputStream));
-
-                if (registeredTask != null) {
-                    try {
-                        Constructor<? extends ITask> constructor = registeredTask.getTaskClazz().getConstructor(
-                                registeredTask.getParamDescriptions().stream()
-                                        .map(paramDescription -> {
-                                            switch (paramDescription.getInputType()) {
-                                                default:
-                                                case SINGULAR: {
-                                                    return paramDescription.getDataType().getClazz();
-                                                }
-                                                case ARRAY: {
-                                                    return List.class;
-                                                }
-                                            }
-                                        })
-                                        .toArray(Class[]::new));
-                        task = constructor.newInstance(parameters.stream().map(parameter -> {
-                            switch (parameter.getParamDescription().getInputType()) {
-                                default:
-                                case SINGULAR: {
-                                    return parameter.getValue();
-                                }
-                                case ARRAY: {
-                                    return parameter.getValues();
-                                }
-                            }
-                        }).toArray());
-
-                    } catch (NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException error) {
-                        error.printStackTrace();
-                    }
-                }
-
+                for (int index = 0; index < paramsToRead; ++index) taskParameters.add(YCRegistry.PARAMETER.read(inputStream));
                 break;
             }
             case ADD: {
                 taskID = Registry.UNSIGNED_SHORT.read(inputStream);
-                TaskRegistry.RegisteredTask registeredTask = TaskRegistry.getTask(Registry.STRING.read(inputStream));
-                List<TaskRegistry.Parameter> parameters = new ArrayList<>();
+                taskName = Registry.STRING.read(inputStream);
 
+                taskParameters.clear();
                 int paramsToRead = Registry.UNSIGNED_SHORT.read(inputStream);
-                for (int index = 0; index < paramsToRead; ++index) parameters.add(YCRegistry.PARAMETER.read(inputStream));
-
-                if (registeredTask != null) {
-                    try {
-                        Constructor<? extends ITask> constructor = registeredTask.getTaskClazz().getConstructor(
-                                (Class<?>[])registeredTask.getParamDescriptions().stream()
-                                        .map(paramDescription -> paramDescription.getDataType().getClazz())
-                                        .toArray());
-                        task = constructor.newInstance(parameters.stream().map(parameter -> {
-                            switch (parameter.getParamDescription().getInputType()) {
-                                default:
-                                case SINGULAR: {
-                                    return parameter.getValue();
-                                }
-                                case ARRAY: {
-                                    return parameter.getValues();
-                                }
-                            }
-                        }).toArray());
-                        task.setID(taskID);
-
-                    } catch (NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException ignored) {
-                    }
-                }
+                for (int index = 0; index < paramsToRead; ++index) taskParameters.add(YCRegistry.PARAMETER.read(inputStream));
                 break;
             }
             case STOP:
@@ -194,24 +176,23 @@ public class TaskActionPacket extends Packet {
 
     @Override
     public void write(OutputStream outputStream) throws IOException {
-        new EnumType<>(Action.class).write(action, outputStream);
+        ACTION.write(action, outputStream);
+        Registry.LONG.write(actionID, outputStream);
 
         switch (action) {
             case START: {
-                Registry.STRING.write(TaskRegistry.getTask(task.getClass()).getName(), outputStream);
+                Registry.STRING.write(taskName, outputStream);
 
-                Registry.UNSIGNED_SHORT.write(task.getParameters().size(), outputStream);
-                for (TaskRegistry.Parameter parameter : task.getParameters())
-                    YCRegistry.PARAMETER.write(parameter, outputStream);
+                Registry.UNSIGNED_SHORT.write(taskParameters.size(), outputStream);
+                for (TaskRegistry.Parameter parameter : taskParameters) YCRegistry.PARAMETER.write(parameter, outputStream);
                 break;
             }
             case ADD: {
-                Registry.UNSIGNED_SHORT.write(task.getID(), outputStream);
-                Registry.STRING.write(TaskRegistry.getTask(task.getClass()).getName(), outputStream);
+                Registry.UNSIGNED_SHORT.write(taskID, outputStream);
+                Registry.STRING.write(taskName, outputStream);
 
-                Registry.UNSIGNED_SHORT.write(task.getParameters().size(), outputStream);
-                for (TaskRegistry.Parameter parameter : task.getParameters())
-                    YCRegistry.PARAMETER.write(parameter, outputStream);
+                Registry.UNSIGNED_SHORT.write(taskParameters.size(), outputStream);
+                for (TaskRegistry.Parameter parameter : taskParameters) YCRegistry.PARAMETER.write(parameter, outputStream);
                 break;
             }
             case STOP:
@@ -236,6 +217,33 @@ public class TaskActionPacket extends Packet {
         }
     }
 
+    /**
+     * @return The parameters used to start the task.
+     */
+    public List<TaskRegistry.Parameter> getTaskParameters() {
+        return new ArrayList<>(taskParameters);
+    }
+
+    public void addTaskParameter(TaskRegistry.Parameter parameter) {
+        taskParameters.add(parameter);
+    }
+
+    public void setTaskParameters(List<TaskRegistry.Parameter> parameters) {
+        taskParameters.clear();
+        taskParameters.addAll(parameters);
+    }
+
+    public void addTaskParameters(List<TaskRegistry.Parameter> parameters) {
+        taskParameters.addAll(parameters);
+    }
+
+    public void removeTaskParameter(TaskRegistry.Parameter parameter) {
+        taskParameters.remove(parameter);
+    }
+
+    /**
+     * @return The action being performed.
+     */
     public Action getAction() {
         return action;
     }
@@ -244,14 +252,31 @@ public class TaskActionPacket extends Packet {
         this.action = action;
     }
 
-    public ITask getTask() {
-        return task;
+    /**
+     * @return The ID of the action being performed.
+     */
+    public long getActionID() {
+        return actionID;
     }
 
-    public void setTask(ITask task) {
-        this.task = task;
+    public void setActionID(long actionID) {
+        this.actionID = actionID;
     }
 
+    /**
+     * @return The name of the registered task.
+     */
+    public String getTaskName() {
+        return taskName;
+    }
+
+    public void setTaskName(String taskName) {
+        this.taskName = taskName;
+    }
+
+    /**
+     * @return The unique ID of the task.
+     */
     public int getTaskID() {
         return taskID;
     }
@@ -260,6 +285,9 @@ public class TaskActionPacket extends Packet {
         this.taskID = taskID;
     }
 
+    /**
+     * @return Whether or not the task is a loaded chunk task.
+     */
     public boolean isLoadedChunkTask() {
         return loadedChunkTask;
     }
@@ -268,6 +296,9 @@ public class TaskActionPacket extends Packet {
         this.loadedChunkTask = loadedChunkTask;
     }
 
+    /**
+     * @return The progress of the task.
+     */
     public float getProgress() {
         return progress;
     }
@@ -276,6 +307,9 @@ public class TaskActionPacket extends Packet {
         this.progress = progress;
     }
 
+    /**
+     * @return The time elapsed since the task started.
+     */
     public int getTimeElapsed() {
         return timeElapsed;
     }
@@ -284,6 +318,9 @@ public class TaskActionPacket extends Packet {
         this.timeElapsed = timeElapsed;
     }
 
+    /**
+     * @return The current position of the task, only applicable if the task is a loaded chunk task.
+     */
     public ChunkPosition getCurrentPosition() {
         return currentPosition;
     }
@@ -292,6 +329,9 @@ public class TaskActionPacket extends Packet {
         this.currentPosition = currentPosition;
     }
 
+    /**
+     * @return A formatted result of the task.
+     */
     public String getResult() {
         return result;
     }

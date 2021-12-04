@@ -2,10 +2,7 @@ package ez.pogdog.yescom.handlers;
 
 import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.data.*;
-import ez.pogdog.yescom.data.serializable.ChunkState;
-import ez.pogdog.yescom.data.serializable.RenderDistance;
-import ez.pogdog.yescom.data.serializable.TrackedPlayer;
-import ez.pogdog.yescom.data.serializable.ChatMessage;
+import ez.pogdog.yescom.data.serializable.*;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
 
@@ -18,10 +15,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class DataHandler implements IDataProvider, IHandler {
 
     private final YesCom yesCom = YesCom.getInstance();
+
+    private final Map<Long, ServerStats> serverStats = new HashMap<>();
 
     private final Map<BigInteger, ChunkState> chunkStates = new HashMap<>();
     private final Map<BigInteger, RenderDistance> renderDistances = new HashMap<>();
@@ -30,9 +30,8 @@ public class DataHandler implements IDataProvider, IHandler {
     private final Map<BigInteger, String> logData = new HashMap<>();
     private final Map<BigInteger, ChatMessage> chatData = new HashMap<>();
 
-    private final List<Float> tickData = new ArrayList<>();
-    private final List<Float> pingData = new ArrayList<>();
-    private final List<Float> TSLPData = new ArrayList<>();
+    private long earliestStatData;
+    private long latestStatData;
 
     private BigInteger chunkStateID;
     private BigInteger renderDistanceID;
@@ -44,6 +43,9 @@ public class DataHandler implements IDataProvider, IHandler {
     private long lastUpdate;
 
     public DataHandler() {
+        earliestStatData = Long.MAX_VALUE;
+        latestStatData = Long.MIN_VALUE;
+
         chunkStateID = BigInteger.ZERO;
         renderDistanceID = BigInteger.ZERO;
         trackedPlayerID = BigInteger.ZERO;
@@ -95,9 +97,12 @@ public class DataHandler implements IDataProvider, IHandler {
         if (System.currentTimeMillis() - lastUpdate > yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL) {
             lastUpdate = System.currentTimeMillis();
 
-            tickData.add(yesCom.connectionHandler.getMeanTickRate());
-            pingData.add(yesCom.connectionHandler.getMeanServerPing());
-            TSLPData.add((float)yesCom.connectionHandler.getTimeSinceLastPacket());
+            if (lastUpdate < earliestStatData) earliestStatData = lastUpdate;
+            if (lastUpdate > latestStatData) latestStatData = lastUpdate;
+
+            serverStats.put(System.currentTimeMillis() / yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL,
+                    new ServerStats(System.currentTimeMillis(), yesCom.connectionHandler.getMeanTickRate(),
+                            yesCom.connectionHandler.getMeanServerPing(), yesCom.connectionHandler.getTimeSinceLastPacket()));
         }
     }
 
@@ -161,19 +166,37 @@ public class DataHandler implements IDataProvider, IHandler {
         return chatMessage;
     }
 
-    public List<Float> getTickData(long startTime, long endTime) { // FIXME: Fix all numeric data
-        return new ArrayList<>(); // return tickData.subList(Math.max(0, tickData.size() - (int)(System.currentTimeMillis() - startTime) / yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL), tickData.size());
+    /* ------------------------ Lookup ------------------------ */
+
+    public long clampStatStartTime(long startTime) {
+        return Math.min(Math.max(earliestStatData, startTime), latestStatData) / yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL;
+    }
+
+    public long clampStatEndTime(long endTime) {
+        return Math.min(Math.max(earliestStatData, endTime), latestStatData) / yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL;
+    }
+
+    public List<ServerStats> getServerStats(long startTime, long endTime) {
+        startTime = clampStatStartTime(startTime);
+        endTime = clampStatEndTime(endTime);
+
+        List<ServerStats> stats = new ArrayList<>();
+        for (long index = startTime; index < endTime; ++index) stats.add(serverStats.get(index));
+
+        return stats;
+    }
+
+    public List<Float> getTickData(long startTime, long endTime) {
+        return getServerStats(startTime, endTime).stream().map(ServerStats::getTPS).collect(Collectors.toList());
     }
 
     public List<Float> getPingData(long startTime, long endTime) {
-        return new ArrayList<>(); // return pingData.subList(Math.max(0, pingData.size() - (int)(System.currentTimeMillis() - startTime) / yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL), pingData.size());
+        return getServerStats(startTime, endTime).stream().map(ServerStats::getPING).collect(Collectors.toList());
     }
 
     public List<Float> getTSLPData(long startTime, long endTime) {
-        return new ArrayList<>(); // return TSLPData.subList(Math.max(0, TSLPData.size() - (int)(System.currentTimeMillis() - startTime) / yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL), TSLPData.size());
+        return getServerStats(startTime, endTime).stream().map(ServerStats::getTSLP).collect(Collectors.toList());
     }
-
-    /* ------------------------ Lookup ------------------------ */
 
     /**
      * Whether this client has the given chunk state locally stored.

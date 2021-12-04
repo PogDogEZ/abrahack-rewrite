@@ -2,7 +2,7 @@
 import io
 import logging
 import time
-from typing import List, Union
+from typing import List, Union, Tuple
 from uuid import UUID
 
 from pyclient.networking.connection import Connection
@@ -69,8 +69,12 @@ class Viewer(Handler):
 
         self.connection.send_packet(reporter_action)
 
+        self._downloading_data = False
+
         self._account_action = False  # Reset actions
         self._config_action = False
+        self._task_action = False
+        self._tracker_action = False
         self._other_action = None
 
     def __init__(self, connection: Connection, name: str = "test") -> None:
@@ -92,9 +96,19 @@ class Viewer(Handler):
         self._initializing = False
         self._initialized = False
 
-        self._account_action = False
+        self._downloading_data = False
+
+        self._account_action = False  # FIXME: Is this really even appropriate anymore given how many actions there are?
         self._config_action = False
+        self._task_action = False
+        self._tracker_action = False
         self._other_action = None
+
+        self._data = []
+        self._invalid_data_ids = []
+        self._data_start_time = 0
+        self._data_end_time = 0
+        self._data_update_interval = 0
 
         self._action_success = False
         self._action_message = ""
@@ -121,7 +135,20 @@ class Viewer(Handler):
 
         elif isinstance(packet, DataExchangePacket):
             if packet.request_type == DataExchangePacket.RequestType.UPLOAD:
-                print(packet.get_data())
+                if packet.request_id == -1:  # Broadcast data
+                    print(packet.get_data())
+
+                else:
+                    self._data.clear()
+                    self._data.extend(packet.get_data())
+                    self._invalid_data_ids.clear()
+                    self._invalid_data_ids.extend(packet.get_invalid_data_ids())
+
+                    self._data_start_time = packet.start_time
+                    self._data_end_time = packet.end_time
+                    self._data_update_interval = packet.update_interval
+
+                    self._downloading_data = False
 
         elif isinstance(packet, ReporterActionPacket):
             if packet.action == ReporterActionPacket.Action.ADD:
@@ -134,15 +161,23 @@ class Viewer(Handler):
                 logging.debug("Unselecting current reporter.")
                 self._current_reporter = -1
 
+                self._downloading_data = False
+
                 self._account_action = False
                 self._config_action = False
+                self._task_action = False
+                self._tracker_action = False
                 self._other_action = None
 
             else:
                 self._current_reporter = packet.reporter_id
 
+                self._downloading_data = False
+
                 self._account_action = False
                 self._config_action = False
+                self._task_action = False
+                self._tracker_action = False
                 self._other_action = None
 
                 current_reporter = self.current_reporter
@@ -247,7 +282,8 @@ class Viewer(Handler):
                         current_reporter.remove_online_player(uuid)
 
         elif isinstance(packet, ActionResponsePacket):
-            if not self._account_action and not self._config_action and self._other_action is None:
+            if not self._account_action and not self._config_action and not self._task_action and \
+                    not self._tracker_action and self._other_action is None:
                 logging.warning("Action response with no known action.")
                 return
 
@@ -256,6 +292,8 @@ class Viewer(Handler):
 
             self._account_action = False
             self._config_action = False
+            self._task_action = False
+            self._tracker_action = False
             self._other_action = None
 
     # ----------------------------- Management stuff ----------------------------- #
@@ -286,6 +324,156 @@ class Viewer(Handler):
 
     # ----------------------------- Actions ----------------------------- #
 
+    def request_numeric_data(self, data_type: DataExchangePacket.DataType, start_time: int,
+                             end_time: int) -> Tuple[int, int, int, List[float]]:
+        """
+        Requests numeric data from the current reporter, this can be tickrate, ping or TSLP data.
+
+        :param data_type: The type of data (should be numeric).
+        :param start_time: The start time to request the data from, in unix milliseconds.
+        :param end_time: The end time to request the data from, in unix milliseconds.
+        :return: The start time, end time, update interval and data itself.
+        """
+
+        if not self._initialized or self._initializing:
+            raise Exception("Not initialized.")
+
+        if self._downloading_data:
+            raise Exception("Already downloading data.")
+
+        if self.current_reporter is None:
+            raise Exception("No reporter selected.")
+
+        if not data_type in (DataExchangePacket.DataType.TICK_DATA, DataExchangePacket.DataType.PING_DATA,
+                             DataExchangePacket.DataType.TSLP_DATA):
+            raise Exception("Invalid data type requested.")
+
+        self._downloading_data = True
+        try:
+            self.connection.send_packet(DataExchangePacket(request_type=DataExchangePacket.RequestType.DOWNLOAD,
+                                                           data_type=data_type, start_time=start_time, end_time=end_time))
+        except Exception as error:
+            self._downloading_data = False
+            raise error
+
+        while self._downloading_data:
+            time.sleep(0.1)
+
+        return self._data_start_time, self._data_end_time, self._data_update_interval, self._data.copy()
+
+    def request_data(self, data_type: DataExchangePacket.DataType, data_ids: List[int]) -> Tuple[List[object], List[int]]:
+        """
+        Requests non-numeric data from the current reporter.
+
+        :param data_type: The type of data to request.
+        :param data_ids: The data IDs to request.
+        :return: The data, as well as the invalidated IDs.
+        """
+
+        if not self._initialized or self._initializing:
+            raise Exception("Not initialized.")
+
+        if self._downloading_data:
+            raise Exception("Already downloading data.")
+
+        if self.current_reporter is None:
+            raise Exception("No reporter selected.")
+
+        if data_type in (DataExchangePacket.DataType.TICK_DATA, DataExchangePacket.DataType.PING_DATA,
+                         DataExchangePacket.DataType.TSLP_DATA):
+            raise Exception("Invalid data type requested.")
+
+        self._downloading_data = True
+        try:
+            data_exchange = DataExchangePacket(request_type=DataExchangePacket.RequestType.DOWNLOAD,
+                                               data_type=data_type)
+            data_exchange.set_data_ids(data_ids)
+
+            self.connection.send_packet(data_exchange)
+        except Exception as error:
+            self._downloading_data = False
+            raise error
+
+        while self._downloading_data:
+            time.sleep(0.1)
+
+        return self._data.copy(), self._invalid_data_ids.copy()
+
+    def sync_config_rule(self, name: str) -> str:
+        """
+        Requests that a config rule with the provided name is synced, throws an exception if something is invalid.
+
+        :param name: The name of the config rule.
+        :return: The success message.
+        """
+
+        if self._initializing or not self._initialized:
+            raise Exception("Not initialized.")
+
+        if self._account_action or self._config_action or self._task_action or self._tracker_action or \
+                self._other_action is not None:
+            raise Exception("Already performing an action.")
+
+        if self.current_reporter is None:
+            raise Exception("No current reporter.")
+
+        self._config_action = True
+        try:
+            self.connection.send_packet(ConfigActionPacket(action=ConfigActionPacket.Action.GET_RULE, rule_name=name))
+        except Exception as error:
+            self._config_action = False
+            raise error
+
+        while self._config_action:
+            time.sleep(0.1)
+
+        if self._action_success:
+            return self._action_message
+        else:
+            raise Exception(self._action_message)
+
+    def set_config_rule(self, name: str, value: object) -> str:
+        """
+        Sets a config rule to a certain value, given the name of it, throws an exception if something is invalid.
+
+        :param name: The name of the config rule.
+        :param value: The
+        :return: The success message.
+        """
+
+        if self._initializing or not self._initialized:
+            raise Exception("Not initialized.")
+
+        if self._account_action or self._config_action or self._task_action or self._tracker_action or \
+                self._other_action is not None:
+            raise Exception("Already performing an action.")
+
+        current_reporter = self.current_reporter
+        if current_reporter is None:
+            raise Exception("No current reporter.")
+
+        for config_rule in current_reporter.get_config_rules():
+            if config_rule.name.lower() == name.lower():
+                break
+        else:
+            raise Exception("Config rule by name %r not found." % name)
+
+        self._config_action = True
+        try:
+            self.connection.send_packet(ConfigActionPacket(action=ConfigActionPacket.Action.SET_RULE, rule=config_rule,
+                                                           value=value))
+        except Exception as error:
+            self._config_action = False
+            raise error
+
+        while self._config_action:
+            time.sleep(0.1)
+
+        if self._action_success:
+            return self._action_message
+        else:
+            raise Exception(self._action_message)
+
     def login_account(self, username: str, legacy: bool = False, password: str = None, client_token: str = None,
                       access_token: str = None) -> str:
         """
@@ -303,8 +491,12 @@ class Viewer(Handler):
         if not self._initialized or self._initializing:
             raise Exception("Not initialized.")
 
-        if self._account_action or self._config_action or self._other_action is not None:
+        if self._account_action or self._config_action or self._task_action or self._tracker_action or \
+                self._other_action is not None:
             raise Exception("Already waiting for an action to complete.")
+
+        if self.current_reporter is None:
+            raise Exception("No current reporter.")
 
         self._account_action = True
         try:
@@ -335,8 +527,12 @@ class Viewer(Handler):
         if not self._initialized or self._initializing:
             raise Exception("Not initialized.")
 
-        if self._account_action or self._config_action or self._other_action is not None:
+        if self._account_action or self._config_action or self._task_action or self._tracker_action or \
+                self._other_action is not None:
             raise Exception("Already waiting for an action to complete.")
+
+        if self.current_reporter is None:
+            raise Exception("No current reporter.")
 
         self._account_action = True
         try:
@@ -346,6 +542,117 @@ class Viewer(Handler):
             raise error
 
         while self._account_action:
+            time.sleep(0.1)
+
+        if self._action_success:
+            return self._action_message
+        else:
+            raise Exception(self._action_message)
+
+    def start_task(self, task_name: str, **parameters) -> str:
+        """
+        Starts a task given the name of the task, and some parameters.
+
+        :param task_name: The name of the task to start.
+        :param parameters: The parameters required for the task.
+        :return: The success message.
+        """
+
+        if not self._initialized or self._initializing:
+            raise Exception("Not initialized.")
+
+        if self._account_action or self._config_action or self._task_action or self._tracker_action or \
+                self._other_action is not None:
+            raise Exception("Already waiting for an action to complete.")
+
+        current_reporter = self.current_reporter
+        if current_reporter is None:
+            raise Exception("No current reporter.")
+
+        registered_task = current_reporter.get_registered_task(task_name)
+
+        serializable_params = []
+        for param_name in parameters:
+            param_description = registered_task.get_param_description(param_name)
+            serializable_params.append(ActiveTask.Parameter(param_description, parameters[param_name]))
+
+        self._task_action = True
+        try:
+            task_action = TaskActionPacket(action=TaskActionPacket.Action.START, task_name=task_name)
+            task_action.set_task_params(serializable_params)
+            self.connection.send_packet(task_action)
+        except Exception as error:
+            self._task_action = False
+            raise error
+
+        while self._task_action:
+            time.sleep(0.1)
+
+        if self._action_success:
+            return self._action_message
+        else:
+            raise Exception(self._action_message)
+
+    def stop_task(self, task_id: int) -> str:
+        """
+        Stops a task given its task ID.
+
+        :param task_id: The task ID to stop.
+        :return: The success message.
+        """
+
+        if not self._initialized or self._initializing:
+            raise Exception("Not initialized.")
+
+        if self._account_action or self._config_action or self._task_action or self._tracker_action or \
+                self._other_action is not None:
+            raise Exception("Already waiting for an action to complete.")
+
+        if self.current_reporter is None:
+            raise Exception("No current reporter.")
+
+        self._task_action = True
+        try:
+            self.connection.send_packet(TaskActionPacket(action=TaskActionPacket.Action.STOP, task_id=task_id))
+        except Exception as error:
+            self._task_action = False
+            raise error
+
+        while self._task_action:
+            time.sleep(0.1)
+
+        if self._action_success:
+            return self._action_message
+        else:
+            raise Exception(self._action_message)
+
+    def untrack_tracker(self, tracker_id: int) -> str:
+        """
+        Untracks a tracker given its tracker ID.
+
+        :param tracker_id: The tracker ID to untrack.
+        :return: The success message.
+        """
+
+        if not self._initialized or self._initializing:
+            raise Exception("Not initialized.")
+
+        if self._account_action or self._config_action or self._task_action or self._tracker_action or \
+                self._other_action is not None:
+            raise Exception("Already waiting for an action to complete.")
+
+        if self.current_reporter is None:
+            raise Exception("No current reporter.")
+
+        self._tracker_action = True
+        try:
+            self.connection.send_packet(TrackerActionPacket(action=TrackerActionPacket.Action.UNTRACK,
+                                                            tracker_id=tracker_id))
+        except Exception as error:
+            self._tracker_action = False
+            raise error
+
+        while self._tracker_action:
             time.sleep(0.1)
 
         if self._action_success:
@@ -365,8 +672,12 @@ class Viewer(Handler):
         if not self._initialized or self._initializing:
             raise Exception("Not initialized.")
 
-        if self._account_action or self._config_action or self._other_action is not None:
+        if self._account_action or self._config_action or self._task_action or self._tracker_action or \
+                self._other_action is not None:
             raise Exception("Already waiting for an action to complete.")
+
+        if self.current_reporter is None:
+            raise Exception("No current reporter.")
 
         self._other_action = ActionRequestPacket.Action.SEND_CHAT_MESSAGE
         fileobj = io.BytesIO()
@@ -440,26 +751,6 @@ class Viewer(Handler):
         """
 
         return self._reporters.copy()
-
-    # ----------------------------- Tasks ----------------------------- #
-
-    def start_task(self, registered_task: RegisteredTask, parameters: List[ActiveTask.Parameter]) -> None:
-        if self._current_reporter != -1:
-            logging.debug("Starting new task %r." % registered_task)
-            self._handler.start_task(registered_task, parameters)
-
-    def stop_task(self, task_id: int) -> None:
-        if self._current_reporter != -1:
-            logging.debug("Stopping task with id %i." % task_id)
-            self._handler.stop_task(task_id)
-
-    def add_legacy_account(self, username: str, password: str, callback) -> None:  # FIXME: Maybe don't do this here
-        if self._current_reporter != -1:
-            self._handler.add_legacy_account(username, password, callback)
-
-    def remove_account(self, username: str) -> None:
-        if self._current_reporter != -1:
-            self._handler.remove_account(username)
 
     # ----------------------------- UUID to name cache ----------------------------- #
 

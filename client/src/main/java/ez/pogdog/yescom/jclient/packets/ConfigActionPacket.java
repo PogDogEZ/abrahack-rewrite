@@ -37,7 +37,23 @@ public class ConfigActionPacket extends Packet {
     }
 
     public ConfigActionPacket(Action action, long actionID, ConfigHandler.ConfigRule rule, Object value) {
-        this(action, actionID, rule, value, "");
+        this(action, actionID, rule, value, rule.getName());
+    }
+
+    public ConfigActionPacket(Action action, ConfigHandler.ConfigRule rule, Object value) {
+        this(action, -1, rule, value, rule.getName());
+    }
+
+    public ConfigActionPacket(Action action, long actionID, ConfigHandler.ConfigRule rule) {
+        this(action, actionID, rule, null, rule.getName());
+    }
+
+    public ConfigActionPacket(Action action, ConfigHandler.ConfigRule rule) {
+        this(action, -1, rule, null, rule.getName());
+    }
+
+    public ConfigActionPacket(long actionID, String ruleName) {
+        this(Action.GET_RULE, actionID, null, null, ruleName);
     }
 
     public ConfigActionPacket() {
@@ -48,7 +64,7 @@ public class ConfigActionPacket extends Packet {
     @SuppressWarnings("unchecked")
     public void read(InputStream inputStream) throws IOException {
         action = ACTION.read(inputStream);
-        actionID = Registry.UNSIGNED_INTEGER.read(inputStream);
+        actionID = Registry.LONG.read(inputStream);
 
         switch (action) {
             case SET_RULE:
@@ -78,7 +94,7 @@ public class ConfigActionPacket extends Packet {
     @SuppressWarnings("unchecked")
     public void write(OutputStream outputStream) throws IOException {
         ACTION.write(action, outputStream);
-        Registry.UNSIGNED_INTEGER.write(actionID, outputStream);
+        Registry.LONG.write(actionID, outputStream);
 
         switch (action) {
             case SET_RULE:

@@ -26,27 +26,35 @@ public class TrackerActionPacket extends Packet {
     private final List<BigInteger> trackedPlayerIDs = new ArrayList<>();
 
     private Action action;
+    private long actionID;
     private ITracker tracker;
     private long trackerID;
 
-    public TrackerActionPacket(Action action, ITracker tracker, long trackerID, List<BigInteger> trackedPlayerIDs) {
+    public TrackerActionPacket(Action action, long actionID, ITracker tracker, long trackerID, List<BigInteger> trackedPlayerIDs) {
         this.action = action;
+        this.actionID = actionID;
         this.tracker = tracker;
         this.trackerID = trackerID;
         this.trackedPlayerIDs.addAll(trackedPlayerIDs);
     }
 
+    public TrackerActionPacket(Action action, long actionID, ITracker tracker) {
+        this(action, actionID, tracker, tracker.getTrackerID(),
+                tracker.getTrackedPlayers().stream().map(TrackedPlayer::getID).collect(Collectors.toList()));
+    }
+
     public TrackerActionPacket(Action action, ITracker tracker) {
-        this(action, tracker, tracker.getTrackerID(), tracker.getTrackedPlayers().stream().map(TrackedPlayer::getID).collect(Collectors.toList()));
+        this(action, -1, tracker);
     }
 
     public TrackerActionPacket() {
-        this(Action.ADD, null, 0L, new ArrayList<>());
+        this(Action.ADD, -1, null, 0, new ArrayList<>());
     }
 
     @Override
     public void read(InputStream inputStream) throws IOException {
         action = ACTION.read(inputStream);
+        actionID = Registry.LONG.read(inputStream); // FIXME: This prolly only needs to be read with the UNTRACK action
 
         switch (action) {
             case ADD: {
@@ -71,6 +79,7 @@ public class TrackerActionPacket extends Packet {
     @Override
     public void write(OutputStream outputStream) throws IOException {
         ACTION.write(action, outputStream);
+        Registry.LONG.write(actionID, outputStream);
 
         switch (action) {
             case ADD: {
@@ -122,6 +131,14 @@ public class TrackerActionPacket extends Packet {
 
     public void setAction(Action action) {
         this.action = action;
+    }
+
+    public long getActionID() {
+        return actionID;
+    }
+
+    public void setActionID(long actionID) {
+        this.actionID = actionID;
     }
 
     public ITracker getTracker() {

@@ -129,7 +129,7 @@ public class ReporterSyncPacket extends Packet {
             int playersToRead = Registry.UNSIGNED_SHORT.read(inputStream);
             for (int index = 0; index < playersToRead; ++index) players.add(YCRegistry.PLAYER.read(inputStream));
 
-            int trackersToRead = Registry.UNSIGNED_SHORT.read(inputStream);
+            int trackersToRead = Registry.INTEGER.read(inputStream);
             for (int index = 0; index < trackersToRead; ++index) trackers.add(YCRegistry.TRACKER.read(inputStream));
         }
     }
@@ -183,7 +183,7 @@ public class ReporterSyncPacket extends Packet {
             Registry.UNSIGNED_SHORT.write(players.size(), outputStream);
             for (Player player : players) YCRegistry.PLAYER.write(player, outputStream);
 
-            Registry.UNSIGNED_SHORT.write(trackers.size(), outputStream);
+            Registry.INTEGER.write(trackers.size(), outputStream);
             for (Tracker tracker : trackers) YCRegistry.TRACKER.write(tracker, outputStream);
         }
     }

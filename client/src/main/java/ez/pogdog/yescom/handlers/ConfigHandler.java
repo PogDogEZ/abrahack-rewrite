@@ -161,6 +161,86 @@ public class ConfigHandler implements IHandler {
     public void onExit() {
     }
 
+    /* ----------------------------- Private methods ----------------------------- */
+
+    private DataType getDataTypeFromClass(Class<?> clazz) {
+        if (Position.class.isAssignableFrom(clazz)) { // FIXME: Wow this is bad
+            return DataType.POSITION;
+        } else if (Angle.class.isAssignableFrom(clazz)) {
+            return DataType.ANGLE;
+        } else if (ChunkPosition.class.isAssignableFrom(clazz)) {
+            return DataType.CHUNK_POSITION;
+        } else if (String.class.isAssignableFrom(clazz)) {
+            return DataType.STRING;
+        } else if (int.class.isAssignableFrom(clazz)) {
+            return DataType.INTEGER;
+        } else if (double.class.isAssignableFrom(clazz)) {
+            return DataType.FLOAT;
+        } else if (boolean.class.isAssignableFrom(clazz)) {
+            return DataType.BOOLEAN;
+        }
+
+        return null;
+    }
+
+    private ConfigRule getConfigRuleFromField(Field field) {
+        String name = field.getName().toLowerCase(Locale.ROOT);
+        Class<?> clazz = field.getType();
+
+        boolean enumValue = false;
+        DataType dataType;
+        List<String> enumValues = new ArrayList<>();
+
+        try {
+            if (Enum.class.isAssignableFrom(clazz)) {
+                dataType = DataType.STRING;
+                enumValue = true;
+
+                // :vomit:
+                for (Enum<?> constant : ((Enum<?>)field.get(this)).getDeclaringClass().getEnumConstants())
+                    enumValues.add(constant.name());
+            } else {
+                dataType = getDataTypeFromClass(clazz);
+            }
+
+            if (dataType != null) {
+                if (!enumValue) {
+                    return new ConfigRule(name, dataType);
+                } else {
+                    return new ConfigRule(name, enumValues);
+                }
+            }
+
+        } catch (IllegalAccessException | IllegalArgumentException error) {
+            yesCom.logger.warning(String.format("Couldn't get config rule for field %s.", field.getName()));
+            yesCom.logger.throwing(ConfigHandler.class.getName(), "getConfigRuleFromField", error);
+        }
+
+        return null;
+    }
+
+    public Object getValueFromField(Field field) {
+        try {
+            Class<?> clazz = field.getType();
+
+            if (Enum.class.isAssignableFrom(clazz)) { // Just a few special cases
+                return ((Enum<?>)field.get(this)).name();
+            } else if (double.class.isAssignableFrom(clazz)) {
+                return (float)field.getDouble(this);
+            } else {
+                return field.get(this);
+            }
+
+        } catch (IllegalAccessException error) {
+            yesCom.logger.warning(String.format("Couldn't get value for field %s.", field.getName()));
+            yesCom.logger.throwing(ConfigHandler.class.getName(), "getValueFromField", error);
+        }
+
+        return null;
+    }
+
+    /* ----------------------------- Reading and writing ----------------------------- */
+
     public void readConfig() throws IOException {
         DumperOptions dumperOptions = new DumperOptions();
         dumperOptions.setDefaultFlowStyle(DumperOptions.FlowStyle.FLOW);
@@ -236,6 +316,8 @@ public class ConfigHandler implements IHandler {
         yesCom.logger.fine("Dumped config.");
     }
 
+    /* ----------------------------- Config rules ----------------------------- */
+
     /**
      * @return The config rules in a serializable format.
      */
@@ -244,69 +326,81 @@ public class ConfigHandler implements IHandler {
 
         for (Field field : ConfigHandler.class.getFields()) {
             field.setAccessible(true);
-            try {
-                String name = field.getName().toLowerCase(Locale.ROOT);
-                Class<?> clazz = field.getType();
-                boolean enumValue = false;
 
-                DataType dataType = DataType.STRING;
-                List<String> enumValues = new ArrayList<>();
-
-                Object value = "";
-
-                if (Position.class.isAssignableFrom(clazz)) { // FIXME: Wow this is bad
-                    dataType = DataType.POSITION;
-                    value = field.get(this);
-
-                } else if (Angle.class.isAssignableFrom(clazz)) {
-                    dataType = DataType.ANGLE;
-                    value = field.get(this);
-
-                } else if (ChunkPosition.class.isAssignableFrom(clazz)) {
-                    dataType = DataType.CHUNK_POSITION;
-                    value = field.get(this);
-
-                } else if (Enum.class.isAssignableFrom(clazz)) {
-                    enumValue = true;
-                    value = ((Enum<?>)field.get(this)).name();
-
-                    // :vomit:
-                    for (Enum<?> constant : ((Enum<?>)field.get(this)).getDeclaringClass().getEnumConstants())
-                        enumValues.add(constant.name());
-
-                } else if (String.class.isAssignableFrom(clazz)) {
-                    value = field.get(this);
-
-                } else if (int.class.isAssignableFrom(clazz)) {
-                    dataType = DataType.INTEGER;
-                    value = field.get(this);
-
-                } else if (double.class.isAssignableFrom(clazz)) {
-                    dataType = DataType.FLOAT;
-                    value = new Double((double)field.get(this)).floatValue();
-
-                } else if (boolean.class.isAssignableFrom(clazz)) {
-                    dataType = DataType.BOOLEAN;
-                    value = field.get(this);
-
-                } else {
-                    continue;
-                }
-
-                if (!enumValue) {
-                    rules.put(new ConfigRule(name, dataType), value);
-                } else {
-                    rules.put(new ConfigRule(name, enumValues), value);
-                }
-
-            } catch (IllegalAccessException | IllegalArgumentException error) {
-                yesCom.logger.warning(String.format("Couldn't get config rule for field %s.", field.getName()));
-                yesCom.logger.throwing(ConfigHandler.class.getName(), "getConfigRules", error);
-            }
+            ConfigRule configRule = getConfigRuleFromField(field);
+            Object value = getValueFromField(field);
+            if (configRule != null && value != null) rules.put(configRule, value);
         }
 
         return rules;
     }
+
+    /**
+     * Gets a serializable config rule given its name.
+     * @param name The name of the config rule.
+     * @return The config rule in a serializable format.
+     */
+    public ConfigRule getConfigRule(String name) {
+        for (Field field : ConfigHandler.class.getFields()) {
+            field.setAccessible(true);
+
+            if (field.getName().equalsIgnoreCase(name)) return getConfigRuleFromField(field);
+        }
+
+        return null;
+    }
+
+    public Object getConfigRuleValue(ConfigRule configRule) {
+        for (Field field : ConfigHandler.class.getFields()) {
+            field.setAccessible(true);
+
+            if (field.getName().equalsIgnoreCase(configRule.getName())) return getValueFromField(field);
+        }
+
+        return null;
+    }
+
+    public Object getConfigRuleValue(String name) {
+        return getConfigRuleValue(getConfigRule(name));
+    }
+
+    /**
+     * Sets a config rule to a certain value.
+     * @param configRule The rule to set.
+     * @param value The value to set the rule to.
+     * @throws IllegalArgumentException If the given value is not valid for the rule.
+     */
+    @SuppressWarnings("unchecked")
+    public void setConfigRuleValue(ConfigRule configRule, Object value) throws IllegalArgumentException {
+        for (Field field : ConfigHandler.class.getFields()) {
+            field.setAccessible(true);
+
+            if (field.getName().equalsIgnoreCase(configRule.getName())) {
+                Class<?> clazz = field.getType();
+
+                try {
+                    if (Enum.class.isAssignableFrom(clazz)) {
+                        field.set(this, Enum.valueOf((Class<? extends Enum>)clazz, value.toString()));
+                    } else if (double.class.isAssignableFrom(clazz)) {
+                        field.setDouble(this, (double)value);
+                    } else {
+                        field.set(this, value);
+                    }
+
+                    return;
+
+                } catch (Exception error) {
+                    yesCom.logger.warning(String.format("Couldn't set config rule value for field %s.", field.getName()));
+                    yesCom.logger.throwing(ConfigHandler.class.getSimpleName(), "setConfigRuleValue", error);
+                    throw new IllegalArgumentException(error.getMessage());
+                }
+            }
+        }
+
+        throw new IllegalArgumentException("No such config rule.");
+    }
+
+    /* ----------------------------- Setters and getters ----------------------------- */
 
     public File getConfigFile() {
         return configFile;

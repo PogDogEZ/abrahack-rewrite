@@ -105,6 +105,11 @@ public class BasicScanTask implements ILoadedChunkTask {
     }
 
     @Override
+    public TaskRegistry.RegisteredTask getRegisteredTask() {
+        return TaskRegistry.getTask(getClass());
+    }
+
+    @Override
     public List<TaskRegistry.Parameter> getParameters() {
         List<TaskRegistry.Parameter> parameters = new ArrayList<>();
         List<TaskRegistry.ParamDescription> paramDescriptions = TaskRegistry.getTask(getClass()).getParamDescriptions();

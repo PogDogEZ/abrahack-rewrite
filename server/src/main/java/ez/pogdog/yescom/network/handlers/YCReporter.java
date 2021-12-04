@@ -98,7 +98,8 @@ public class YCReporter extends YCHandler {
                             return;
                         }
 
-                        originator.provideData(dataExchange.getDataType(), dataExchange.getData(), dataExchange.getInvalidDataIDs());
+                        originator.provideData(dataExchange.getDataType(), dataExchange.getData(), dataExchange.getInvalidDataIDs(),
+                                dataExchange.getStartTime(), dataExchange.getEndTime(), dataExchange.getUpdateInterval());
                     }
                     break;
                 }
@@ -139,8 +140,10 @@ public class YCReporter extends YCHandler {
                         }
 
                         Action action = actions.get(configAction.getActionID());
-                        actions.remove(configAction.getActionID());
+                        // Don't remove the action as we should get an action response after this packet
+                        // actions.remove(configAction.getActionID());
 
+                        if (action.getOriginatorID() == -1) return;
                         YCHandler originator = yesCom.handlersManager.getHandler(action.getOriginatorID());
 
                         if (!(originator instanceof YCListener) || ((YCListener)originator).getCurrentReporter() != this) {
@@ -269,7 +272,7 @@ public class YCReporter extends YCHandler {
                         return;
                     }
 
-                    logger.finer(String.format("Updating player position: %s", player));
+                    // logger.finer(String.format("Updating player position: %s", player));
 
                     jServer.eventBus.post(new PlayerUpdatedEvent(this, player, playerAction.getNewPosition(), playerAction.getNewAngle()));
 
@@ -345,7 +348,7 @@ public class YCReporter extends YCHandler {
                         return;
                     }
 
-                    logger.finer(String.format("Updating tracker: %s", tracker));
+                    // logger.finer(String.format("Updating tracker: %s", tracker));
                     tracker.setTrackedPlayerIDs(trackerAction.getTrackedPlayerIDs());
 
                     jServer.eventBus.post(new TrackerUpdatedEvent(this, tracker));
@@ -396,6 +399,7 @@ public class YCReporter extends YCHandler {
             Action action = actions.get(actionResponse.getActionID());
             actions.remove(actionResponse.getActionID());
 
+            if (action.getOriginatorID() == -1) return;
             YCHandler originator = yesCom.handlersManager.getHandler(action.getOriginatorID());
 
             if (!(originator instanceof YCListener) || ((YCListener)originator).getCurrentReporter() != this) {
@@ -410,15 +414,18 @@ public class YCReporter extends YCHandler {
     /* ----------------------------- Requests and actions ----------------------------- */
 
     @Override
-    public void provideData(DataExchangePacket.DataType dataType, List<Object> data, List<BigInteger> invalidDataIDs) {
+    public void provideData(DataExchangePacket.DataType dataType, List<Object> data, List<BigInteger> invalidDataIDs,
+                            long startTime, long endTime, int updateInterval) {
+        // TODO: Will reporters need data? Prolly not but should be able to upload data to them anyway
     }
 
     @Override
-    public synchronized void requestData(int originatorID, DataExchangePacket.DataType dataType, List<BigInteger> dataIDs) {
+    public synchronized void requestData(int originatorID, DataExchangePacket.DataType dataType, List<BigInteger> dataIDs,
+                                         long startTime, long endTime) {
         requests.put(requestID, new Request(requestID, originatorID));
-        connection.sendPacket(new DataExchangePacket(dataType, requestID, dataIDs));
+        connection.sendPacket(new DataExchangePacket(dataType, requestID, dataIDs, startTime, endTime));
 
-        ++requestID;
+        if (++requestID == Integer.MAX_VALUE) requestID = 0;
     }
 
     public synchronized void requestAction(int originatorID, ActionRequestPacket.Action action, byte[] data) {
@@ -510,16 +517,22 @@ public class YCReporter extends YCHandler {
      * @param taskName The name of the registered task.
      * @param parameters The parameters for the task.
      */
-    public void startTask(String taskName, List<Parameter> parameters) {
-        connection.sendPacket(new TaskActionPacket(taskName, parameters));
+    public synchronized void startTask(int originatorID, String taskName, List<Parameter> parameters) {
+        actions.put(actionID, new Action(actionID, originatorID));
+        connection.sendPacket(new TaskActionPacket(actionID, taskName, parameters));
+
+        if (++actionID == Long.MAX_VALUE) actionID = 0;
     }
 
     /**
      * Requests that a task, given by ID, is stopped.
      * @param taskID The ID of the task to stop.
      */
-    public void stopTask(int taskID) {
-        connection.sendPacket(new TaskActionPacket(TaskActionPacket.Action.REMOVE, taskID));
+    public synchronized void stopTask(int originatorID, int taskID) {
+        actions.put(actionID, new Action(actionID, originatorID));
+        connection.sendPacket(new TaskActionPacket(TaskActionPacket.Action.STOP, actionID, taskID));
+
+        if (++actionID == Long.MAX_VALUE) actionID = 0;
     }
 
     /* ----------------------------- Players ----------------------------- */
@@ -595,8 +608,11 @@ public class YCReporter extends YCHandler {
      * Untracks (immediately stops) a tracker.
      * @param trackerID The ID of the tracker to untrack.
      */
-    public void untrackTracker(long trackerID) {
-        connection.sendPacket(new TrackerActionPacket(TrackerActionPacket.Action.UNTRACK, trackerID));
+    public synchronized void untrackTracker(int originatorID, long trackerID) {
+        actions.put(actionID, new Action(actionID, originatorID));
+        connection.sendPacket(new TrackerActionPacket(TrackerActionPacket.Action.UNTRACK, actionID, trackerID));
+
+        if (++actionID == Long.MAX_VALUE) actionID = 0;
     }
 
     /* ----------------------------- Online players ----------------------------- */

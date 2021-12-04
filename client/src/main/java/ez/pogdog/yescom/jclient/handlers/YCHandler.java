@@ -18,6 +18,8 @@ import me.iska.jclient.network.packet.Registry;
 
 import javax.crypto.Cipher;
 import java.io.*;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -161,15 +163,47 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
             yesCom.logger.fine("Got config action.");
 
-            switch (configAction.getAction()) { // TODO: Config action
+            switch (configAction.getAction()) {
                 case SET_RULE: {
+                    // Sneaky mfs tryna crash the server with differently typed config rules
+                    ConfigHandler.ConfigRule rule = yesCom.configHandler.getConfigRule(configAction.getRule().getName());
+                    Object value = configAction.getValue();
+
+                    if (rule == null) {
+                        connection.sendPacket(new ActionResponsePacket(configAction.getActionID(), false, "Rule not found."));
+                        return;
+                    }
+
+                    yesCom.logger.fine(String.format("Setting rule %s to %s.", rule, value));
+
+                    try {
+                        yesCom.configHandler.setConfigRuleValue(rule, value);
+                    } catch (IllegalArgumentException error) {
+                        connection.sendPacket(new ActionResponsePacket(configAction.getActionID(), false, error.getMessage()));
+                        return;
+                    }
+
+                    // Broadcast to everyone that the rule has been updated
+                    connection.sendPacket(new ConfigActionPacket(ConfigActionPacket.Action.SYNC_RULE, rule, value));
+                    connection.sendPacket(new ActionResponsePacket(configAction.getActionID(), true, "Rule updated."));
                     break;
                 }
                 case GET_RULE: {
-                    ConfigHandler.ConfigRule rule = null;
-                    Object value = null;
+                    ConfigHandler.ConfigRule rule = yesCom.configHandler.getConfigRule(configAction.getRuleName());
+                    if (rule == null) {
+                        connection.sendPacket(new ActionResponsePacket(configAction.getActionID(), false, "Rule not found."));
+                        return;
+                    }
+
+                    Object value = yesCom.configHandler.getConfigRuleValue(rule);
+                    if (value == null) { // Yeah what why would this happen except error on my behalf
+                        connection.sendPacket(new ActionResponsePacket(configAction.getActionID(), false,
+                                "Rule value is null for some reason lol, I guess I messed something up."));
+                        return;
+                    }
+
                     connection.sendPacket(new ConfigActionPacket(ConfigActionPacket.Action.SYNC_RULE, configAction.getActionID(), rule, value));
-                    // TODO: Send action response
+                    connection.sendPacket(new ActionResponsePacket(configAction.getActionID(), true, "Rule synced."));
                     break;
                 }
             }
@@ -181,11 +215,62 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
             switch (taskAction.getAction()) {
                 case START: {
-                    yesCom.addTask(taskAction.getTask());
+                    TaskRegistry.RegisteredTask registeredTask = TaskRegistry.getTask(taskAction.getTaskName());
+
+                    if (registeredTask != null) {
+                        ITask task;
+                        try {
+                            Constructor<? extends ITask> constructor = registeredTask.getTaskClazz().getConstructor(
+                                    registeredTask.getParamDescriptions().stream()
+                                            .map(paramDescription -> {
+                                                switch (paramDescription.getInputType()) {
+                                                    default:
+                                                    case SINGULAR: {
+                                                        return paramDescription.getDataType().getClazz();
+                                                    }
+                                                    case ARRAY: {
+                                                        return List.class;
+                                                    }
+                                                }
+                                            })
+                                            .toArray(Class[]::new));
+                            task = constructor.newInstance(taskAction.getTaskParameters().stream().map(parameter -> {
+                                switch (parameter.getParamDescription().getInputType()) {
+                                    default:
+                                    case SINGULAR: {
+                                        return parameter.getValue();
+                                    }
+                                    case ARRAY: {
+                                        return parameter.getValues();
+                                    }
+                                }
+                            }).toArray());
+
+                        } catch (Exception error) {
+                            yesCom.logger.warning(String.format("Couldn't instantiate task %s.", registeredTask));
+                            yesCom.logger.throwing(YCHandler.class.getSimpleName(), "handlePacket", error);
+
+                            connection.sendPacket(new ActionResponsePacket(taskAction.getActionID(), false, error.getMessage()));
+                            return;
+                        }
+
+                        yesCom.addTask(task);
+                        connection.sendPacket(new ActionResponsePacket(taskAction.getActionID(), true, "Task started."));
+
+                    } else {
+                        connection.sendPacket(new ActionResponsePacket(taskAction.getActionID(), false, "Task not found."));
+                    }
                     break;
                 }
                 case STOP: {
-                    yesCom.removeTask(taskAction.getTaskID());
+                    ITask task = yesCom.getTask(taskAction.getTaskID());
+                    if (task == null) {
+                        connection.sendPacket(new ActionResponsePacket(taskAction.getActionID(), false, "Task not found."));
+                        return;
+                    }
+
+                    yesCom.removeTask(task);
+                    connection.sendPacket(new ActionResponsePacket(taskAction.getActionID(), true, "Task stopped."));
                     break;
                 }
             }
@@ -238,11 +323,15 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
             if (trackerAction.getAction() == TrackerActionPacket.Action.UNTRACK) {
                 ITracker tracker = yesCom.trackingHandler.getTracker(trackerAction.getTrackerID());
-
-                if (tracker != null) {
-                    yesCom.logger.fine(String.format("Untracking %s.", tracker));
-                    yesCom.trackingHandler.untrack(tracker);
+                if (tracker == null) {
+                    connection.sendPacket(new ActionResponsePacket(trackerAction.getActionID(), false, "Tracker not found."));
+                    return;
                 }
+
+                yesCom.logger.fine(String.format("Untracking %s.", tracker));
+                yesCom.trackingHandler.untrack(tracker);
+                // Lol great message copilot
+                connection.sendPacket(new ActionResponsePacket(trackerAction.getActionID(), true, "Tracker untracked."));
             }
 
         } else if (packet instanceof ActionRequestPacket) {
@@ -521,46 +610,46 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
     /* ----------------------------- Task Events ----------------------------- */
 
     public synchronized void onTaskAdded(ITask task) {
-        queuedPackets.add(new TaskActionPacket(task));
+        queuedPackets.addFirst(new TaskActionPacket(TaskActionPacket.Action.ADD, task));
     }
 
     public synchronized void onTaskRemoved(ITask task) {
-        queuedPackets.add(new TaskActionPacket(task.getID()));
+        queuedPackets.addLast(new TaskActionPacket(TaskActionPacket.Action.REMOVE, task));
     }
 
     public synchronized void onTaskUpdate(ITask task) {
         if (task instanceof ILoadedChunkTask) {
-            queuedPackets.add(new TaskActionPacket(task, task.getProgress(), task.getTimeElapsed(),
+            queuedPackets.addLast(new TaskActionPacket(task, task.getProgress(), task.getTimeElapsed(),
                     ((ILoadedChunkTask)task).getCurrentPosition()));
         } else {
-            queuedPackets.add(new TaskActionPacket(task, task.getProgress(), task.getTimeElapsed()));
+            queuedPackets.addLast(new TaskActionPacket(task, task.getProgress(), task.getTimeElapsed()));
         }
     }
 
     public synchronized void onTaskResult(ITask task, String result) {
-        queuedPackets.add(new TaskActionPacket(task, result));
+        queuedPackets.addLast(new TaskActionPacket(task, result));
     }
 
     /* ----------------------------- Player Events ----------------------------- */
 
     public synchronized void onPlayerAdded(Player player) {
-        queuedPackets.add(new PlayerActionPacket(player));
+        queuedPackets.addFirst(new PlayerActionPacket(player));
     }
 
     public synchronized void onPlayerRemoved(Player player, String reason) {
-        queuedPackets.add(new PlayerActionPacket(player, reason));
+        queuedPackets.addLast(new PlayerActionPacket(player, reason));
     }
 
     public synchronized void onPositionChanged(Player player) {
-        queuedPackets.add(new PlayerActionPacket(player.getAuthService().getUsername(), player.getPosition(), player.getAngle()));
+        queuedPackets.addLast(new PlayerActionPacket(player.getAuthService().getUsername(), player.getPosition(), player.getAngle()));
     }
 
     public synchronized void onDimensionChanged(Player player) {
-        queuedPackets.add(new PlayerActionPacket(player.getAuthService().getUsername(), player.getDimension()));
+        queuedPackets.addLast(new PlayerActionPacket(player.getAuthService().getUsername(), player.getDimension()));
     }
 
     public synchronized void onHealthChanged(Player player) {
-        queuedPackets.add(new PlayerActionPacket(player.getAuthService().getUsername(), player.getFoodStats()));
+        queuedPackets.addLast(new PlayerActionPacket(player.getAuthService().getUsername(), player.getFoodStats()));
     }
 
     /* ----------------------------- Chunk Events ----------------------------- */
@@ -572,15 +661,15 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
     /* ----------------------------- Tracker Events ----------------------------- */
 
     public synchronized void onTrackerAdded(ITracker tracker) {
-        queuedPackets.add(new TrackerActionPacket(TrackerActionPacket.Action.ADD, tracker));
+        queuedPackets.addFirst(new TrackerActionPacket(TrackerActionPacket.Action.ADD, tracker));
     }
 
     public synchronized void onTrackerRemoved(ITracker tracker) {
-        queuedPackets.add(new TrackerActionPacket(TrackerActionPacket.Action.REMOVE, tracker));
+        queuedPackets.addLast(new TrackerActionPacket(TrackerActionPacket.Action.REMOVE, tracker));
     }
 
     public synchronized void onTrackerUpdate(ITracker tracker) {
-        queuedPackets.add(new TrackerActionPacket(TrackerActionPacket.Action.UPDATE, tracker));
+        queuedPackets.addLast(new TrackerActionPacket(TrackerActionPacket.Action.UPDATE, tracker));
     }
 
     /* ----------------------------- Info Events ----------------------------- */
@@ -595,11 +684,11 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
     public synchronized void onInfoUpdate(int waitingQueries, int tickingQueries, float queriesPerSecond, float tickRate,
                                           float serverPing,int timeSinceLastPacket) {
-        queuedPackets.add(new InfoUpdatePacket(waitingQueries, tickingQueries, queriesPerSecond, tickRate, serverPing, timeSinceLastPacket));
+        queuedPackets.addLast(new InfoUpdatePacket(waitingQueries, tickingQueries, queriesPerSecond, tickRate, serverPing, timeSinceLastPacket));
     }
 
     public synchronized void onInfoUpdate(int waitingQueries, int tickingQueries, float queriesPerSecond) {
-        queuedPackets.add(new InfoUpdatePacket(waitingQueries, tickingQueries, queriesPerSecond));
+        queuedPackets.addLast(new InfoUpdatePacket(waitingQueries, tickingQueries, queriesPerSecond));
     }
 
     public synchronized void onPlayerJoin(UUID uuid, String name) {

@@ -20,6 +20,12 @@ public interface ITask {
     void setID(int ID);
 
     /**
+     * For network compatibility, gives the task's "registered task", a class defining how this class behaves.
+     * @return The registered task.
+     */
+    TaskRegistry.RegisteredTask getRegisteredTask();
+
+    /**
      * For network compatibility, says which parameters have what values for this task.
      * @return The parameters.
      */

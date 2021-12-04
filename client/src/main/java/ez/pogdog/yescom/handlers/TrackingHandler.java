@@ -80,7 +80,8 @@ public class TrackingHandler implements IHandler { // FIXME: Holy shit PLEASE ov
         });
         new ArrayList<>(trackers.values()).forEach(tracker ->{
             tracker.onTick();
-            if (yesCom.ycHandler != null) yesCom.ycHandler.onTrackerUpdate(tracker);
+            // Don't update the tracker if it has just been removed
+            if (trackers.containsValue(tracker) && yesCom.ycHandler != null) yesCom.ycHandler.onTrackerUpdate(tracker);
         });
 
         boolean serverDown = !yesCom.connectionHandler.isConnected();
@@ -230,7 +231,7 @@ public class TrackingHandler implements IHandler { // FIXME: Holy shit PLEASE ov
     public synchronized void trackBasic(TrackedPlayer trackedPlayer) {
         yesCom.logger.fine(String.format("Starting basic tracker for %s.", trackedPlayer));
         new HashMap<>(trackers).forEach((trackerID, tracker) -> {
-            if (tracker.getTrackedPlayers().equals(trackedPlayer)) removeTracker(tracker);
+            if (tracker.getTrackedPlayers().contains(trackedPlayer)) removeTracker(tracker);
         });
         addTracker(new AdaptiveTracker(trackerID++, trackedPlayer));
     }
@@ -238,7 +239,7 @@ public class TrackingHandler implements IHandler { // FIXME: Holy shit PLEASE ov
     public synchronized void trackPanic(TrackedPlayer trackedPlayer) {
         yesCom.logger.fine(String.format("Starting panic tracker for %s.", trackedPlayer));
         new HashMap<>(trackers).forEach((trackerID, tracker) -> {
-            if (tracker.getTrackedPlayers().equals(trackedPlayer)) removeTracker(tracker);
+            if (tracker.getTrackedPlayers().contains(trackedPlayer)) removeTracker(tracker); // FIXME: Fix this obviously
         });
         addTracker(new PanicTracker(trackerID++, trackedPlayer));
         /*
@@ -264,7 +265,7 @@ public class TrackingHandler implements IHandler { // FIXME: Holy shit PLEASE ov
      */
     public ITracker getTracker(TrackedPlayer trackedPlayer) {
         return trackers.entrySet().stream()
-                .filter(entry -> entry.getValue().getTrackedPlayers().equals(trackedPlayer))
+                .filter(entry -> entry.getValue().getTrackedPlayers().contains(trackedPlayer))
                 .findFirst()
                 .map(Map.Entry::getValue)
                 .orElse(null);
@@ -276,9 +277,9 @@ public class TrackingHandler implements IHandler { // FIXME: Holy shit PLEASE ov
 
     public void addTracker(ITracker tracker) {
         if (!trackers.containsKey(tracker.getTrackerID()) && !trackers.containsValue(tracker)) {
-            trackers.put(tracker.getTrackerID(), tracker);
-
             if (yesCom.ycHandler != null) yesCom.ycHandler.onTrackerAdded(tracker);
+
+            trackers.put(tracker.getTrackerID(), tracker);
         }
     }
 

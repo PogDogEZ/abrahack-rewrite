@@ -23,6 +23,7 @@ import me.iska.jserver.event.Listener;
 import me.iska.jserver.network.Connection;
 import me.iska.jserver.network.packet.Packet;
 
+import java.math.BigInteger;
 import java.util.*;
 
 public class YCListener extends YCHandler {
@@ -33,8 +34,13 @@ public class YCListener extends YCHandler {
     private final String handlerName;
 
     private YCReporter currentReporter;
+
+    private boolean downloadingData;
+
     private boolean accountAction;
     private boolean configAction;
+    private boolean taskAction;
+    private boolean trackerAction;
     private ActionRequestPacket.Action otherAction;
 
     public YCListener(Connection connection, int handlerID, String handlerName) {
@@ -45,8 +51,13 @@ public class YCListener extends YCHandler {
         this.handlerName = handlerName;
 
         currentReporter = null;
+
+        downloadingData = false;
+
         accountAction = false;
         configAction = false;
+        taskAction = false;
+        trackerAction = false;
         otherAction = null;
 
         syncReporters();
@@ -59,6 +70,20 @@ public class YCListener extends YCHandler {
 
             switch (dataExchange.getRequestType()) {
                 case DOWNLOAD: {
+                    if (downloadingData) {
+                        connection.sendPacket(new ActionResponsePacket(-1, false, "Already downloading data."));
+                        return;
+
+                    } else if (currentReporter == null) {
+                        logger.fine(String.format("%s attempted to download data with no reporter.", this));
+                        connection.sendPacket(new ActionResponsePacket(-1, false, "No current reporter."));
+                        resyncCurrentReporter();
+                        return;
+                    }
+
+                    downloadingData = true;
+                    currentReporter.requestData(getID(), dataExchange.getDataType(), dataExchange.getDataIDs(),
+                            dataExchange.getStartTime(), dataExchange.getEndTime());
                     break;
                 }
                 case UPLOAD: {
@@ -76,6 +101,8 @@ public class YCListener extends YCHandler {
                     currentReporter = null;
                     accountAction = false; // Don't want to think we still have actions pending
                     configAction = false;
+                    taskAction = false;
+                    trackerAction = false;
                     otherAction = null;
 
                     resyncCurrentReporter();
@@ -93,6 +120,8 @@ public class YCListener extends YCHandler {
                         currentReporter = (YCReporter)selectedHandler;
                         accountAction = false;
                         configAction = false;
+                        taskAction = false;
+                        trackerAction = false;
                         otherAction = null;
 
                         logger.fine(String.format("%s selected reporter %s.", this, currentReporter));
@@ -104,12 +133,12 @@ public class YCListener extends YCHandler {
         } else if (packet instanceof ConfigActionPacket) {
             ConfigActionPacket configAction = (ConfigActionPacket)packet;
 
-            if (accountAction || this.configAction || otherAction != null) {
+            if (accountAction || this.configAction || taskAction || trackerAction || otherAction != null) {
                 connection.sendPacket(new ActionResponsePacket(-1, false, "Action already in progress."));
                 return;
 
             } else if (currentReporter == null) {
-                logger.fine(String.format("%s attempted account action with no reporter.", this));
+                logger.fine(String.format("%s attempted config action with no reporter.", this));
                 connection.sendPacket(new ActionResponsePacket(-1, false, "No current reporter."));
                 resyncCurrentReporter();
                 return;
@@ -135,33 +164,36 @@ public class YCListener extends YCHandler {
         } else if (packet instanceof TaskActionPacket) {
             TaskActionPacket taskAction = (TaskActionPacket)packet;
 
-            switch (taskAction.getAction()) {
-                case START: {
-                    if (currentReporter == null) {
-                        logger.fine(String.format("%s attempted to start task with no reporter.", this));
-                        resyncCurrentReporter();
+            if (taskAction.getAction() == TaskActionPacket.Action.START || taskAction.getAction() == TaskActionPacket.Action.STOP) {
+                if (accountAction || configAction || this.taskAction || trackerAction || otherAction != null) {
+                    connection.sendPacket(new ActionResponsePacket(-1, false, "Action already in progress."));
+                    return;
 
-                    } else {
-                        currentReporter.startTask(taskAction.getTaskName(), taskAction.getTaskParameters());
-                    }
-                    break;
+                } else if (currentReporter == null) {
+                    logger.fine(String.format("%s attempted task action with no reporter.", this));
+                    connection.sendPacket(new ActionResponsePacket(-1, false, "No current reporter."));
+                    resyncCurrentReporter();
+                    return;
                 }
-                case STOP: {
-                    if (currentReporter == null) {
-                        logger.fine(String.format("%s attempted to stop task with no reporter.", this));
-                        resyncCurrentReporter();
 
-                    } else {
-                        currentReporter.stopTask(taskAction.getTaskID());
+                switch (taskAction.getAction()) {
+                    case START: {
+                        this.taskAction = true;
+                        currentReporter.startTask(getID(), taskAction.getTaskName(), taskAction.getTaskParameters());
+                        break;
                     }
-                    break;
+                    case STOP: {
+                        this.taskAction = true;
+                        currentReporter.stopTask(getID(), taskAction.getTaskID());
+                        break;
+                    }
                 }
             }
 
         } else if (packet instanceof AccountActionPacket) {
             AccountActionPacket accountAction = (AccountActionPacket)packet;
 
-            if (this.accountAction || configAction || otherAction != null) {
+            if (this.accountAction || configAction || taskAction || trackerAction || otherAction != null) {
                 connection.sendPacket(new ActionResponsePacket(-1, false, "Action already in progress."));
                 return;
 
@@ -179,8 +211,8 @@ public class YCListener extends YCHandler {
                     if (accountAction.isLegacy()) {
                         currentReporter.loginAccount(getID(), accountAction.getUsername(), accountAction.getPassword());
                     } else {
-                        currentReporter.loginAccount(getID(), accountAction.getUsername(), accountAction.getClientToken(),
-                                accountAction.getAccessToken());
+                        currentReporter.loginAccount(getID(), accountAction.getUsername(), accountAction.getAccessToken(),
+                                accountAction.getClientToken());
                     }
                     break;
                 }
@@ -194,19 +226,25 @@ public class YCListener extends YCHandler {
             TrackerActionPacket trackerAction = (TrackerActionPacket)packet;
 
             if (trackerAction.getAction() == TrackerActionPacket.Action.UNTRACK) {
-                if (currentReporter == null) {
-                    logger.fine(String.format("%s attempted to untrack tracker with no reporter.", this));
+                if (accountAction || configAction || taskAction || this.trackerAction || otherAction != null) {
+                    connection.sendPacket(new ActionResponsePacket(-1, false, "Action already in progress."));
+                    return;
+
+                } else if (currentReporter == null) {
+                    logger.fine(String.format("%s attempted tracker action with no reporter.", this));
+                    connection.sendPacket(new ActionResponsePacket(-1, false, "No current reporter."));
                     resyncCurrentReporter();
                     return;
                 }
 
-                currentReporter.untrackTracker(trackerAction.getTrackerID());
+                this.trackerAction = true;
+                currentReporter.untrackTracker(getID(), trackerAction.getTrackerID());
             }
 
         } else if (packet instanceof ActionRequestPacket) {
             ActionRequestPacket actionRequest = (ActionRequestPacket)packet;
 
-            if (accountAction || configAction || otherAction != null) {
+            if (accountAction || configAction || taskAction || trackerAction || otherAction != null) {
                 connection.sendPacket(new ActionResponsePacket(-1, false, "Action already in progress."));
                 return;
 
@@ -238,6 +276,22 @@ public class YCListener extends YCHandler {
     @Override
     public void exit(String reason) {
         jServer.eventBus.unregister(this);
+    }
+
+    @Override
+    public void provideData(DataExchangePacket.DataType dataType, List<Object> data, List<BigInteger> invalidDataIDs,
+                            long startTime, long endTime, int updateInterval) {
+        downloadingData = false;
+        // Request ID 0 as the data has not been broadcast, we don't want to confuse the listener
+        connection.sendPacket(new DataExchangePacket(dataType, 0, data, invalidDataIDs, startTime, endTime, updateInterval));
+    }
+
+    @Override
+    public void requestData(int originatorID, DataExchangePacket.DataType dataType, List<BigInteger> dataIDs,
+                            long startTime, long endTime) {
+        YCHandler handler = yesCom.handlersManager.getHandler(originatorID);
+        // Say all requested were invalid
+        if (handler != null) handler.provideData(dataType, new ArrayList<>(), dataIDs, startTime, endTime, 0);
     }
 
     /* ----------------------------- Listeners ----------------------------- */
@@ -400,9 +454,11 @@ public class YCListener extends YCHandler {
     /* ----------------------------- Other ----------------------------- */
 
     public void onActionResponse(boolean successful, String message) {
-        if (accountAction || configAction || otherAction != null) {
+        if (accountAction || configAction || taskAction || trackerAction || otherAction != null) {
             accountAction = false;
             configAction = false;
+            taskAction = false;
+            trackerAction = false;
             otherAction = null;
 
             connection.sendPacket(new ActionResponsePacket(-1, successful, message));
