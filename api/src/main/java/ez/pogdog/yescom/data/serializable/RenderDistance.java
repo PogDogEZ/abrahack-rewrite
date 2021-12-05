@@ -4,11 +4,15 @@ import ez.pogdog.yescom.data.ISerializable;
 import ez.pogdog.yescom.util.ChunkPosition;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 
 public class RenderDistance implements ISerializable {
 
     private final BigInteger renderDistanceID;
+    private final HashSet<BigInteger> chunkStateIDs = new HashSet<>(); // hashset to prevent duplicates
     private final ChunkPosition centerPosition;
     private final int renderDistance;
     private final float errorX;
@@ -47,6 +51,19 @@ public class RenderDistance implements ISerializable {
     @Override
     public BigInteger getID() {
         return renderDistanceID;
+    }
+
+    public void addChunkStateID(BigInteger id) {
+        chunkStateIDs.add(id);
+    }
+
+    public void addChunkStateIDs(List<BigInteger> ids) {
+        for (BigInteger id : ids)
+            addChunkStateID(id);
+    }
+
+    public List<BigInteger> getChunkStateIDs() {
+        return new ArrayList<>(chunkStateIDs);
     }
 
     /**
