@@ -16,8 +16,8 @@ dependencies {
     compile group: "commons-cli", name: "commons-cli", version: "1.4"
     compile group: "org.yaml", name: "snakeyaml", version: "1.29"
 
-    compile 'commons-io:commons-io:2.11.0'
-    compile 'com.googlecode.json-simple:json-simple:1.1.1'
+    compile "commons-io:commons-io:20030203.000550"
+    compile "com.googlecode.json-simple:json-simple:1.1.1"
 
     compile group: "com.github.Steveice10", name: "MCProtocolLib", version: "1.12.2-2"
 }

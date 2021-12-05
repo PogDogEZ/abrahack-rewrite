@@ -246,6 +246,11 @@ class Connection(threading.Thread):
             if self._exit:
                 self._is_exiting = True
 
+                if self.handler is not None:
+                    self.handler.on_exit(self.exit_reason)
+                    for handler in self._other_handlers:
+                        handler.on_exit(self.exit_reason)
+
                 if len(self._send_queue_packets):
                     self._send_packets()
                     time.sleep(0.1)

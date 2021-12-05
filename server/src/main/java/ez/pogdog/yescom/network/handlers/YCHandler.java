@@ -171,11 +171,17 @@ public class YCHandler implements IHandler {
 
     public void provideData(DataExchangePacket.DataType dataType, List<Object> data, List<BigInteger> invalidDataIDs,
                             long startTime, long endTime, int updateInterval) {
-        connection.sendPacket(new DataExchangePacket(dataType, 0, data, invalidDataIDs, startTime, endTime, updateInterval));
     }
 
     public void requestData(int originatorID, DataExchangePacket.DataType dataType, List<BigInteger> dataIDs,
                             long startTime, long endTime) {
+    }
+
+    public void provideDataBounds(DataExchangePacket.DataType dataType, long startTime, long endTime, int updateInterval,
+                                  BigInteger maxDataID, BigInteger minDataID) {
+    }
+
+    public void requestDataBounds(int originatorID, DataExchangePacket.DataType dataType) {
     }
 
     public int getID() {

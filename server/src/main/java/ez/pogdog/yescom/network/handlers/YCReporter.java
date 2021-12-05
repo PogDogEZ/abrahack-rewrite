@@ -74,16 +74,13 @@ public class YCReporter extends YCHandler {
             DataExchangePacket dataExchange = (DataExchangePacket)packet;
 
             switch (dataExchange.getRequestType()) {
-                case DOWNLOAD: {
-                    break;
-                }
                 case UPLOAD: {
                     if (dataExchange.getRequestID() == -1) {
                         jServer.eventBus.post(new DataBroadcastEvent(this, dataExchange.getDataType(), dataExchange.getData()));
 
                     } else {
                         if (!requests.containsKey(dataExchange.getRequestID())) {
-                            logger.warning(String.format("Received data exchange packet for unknown request ID %d", dataExchange.getRequestID()));
+                            logger.warning(String.format("Received data exchange packet for unknown request ID %d.", dataExchange.getRequestID()));
                             connection.exit("Invalid data request ID.");
                             return;
                         }
@@ -101,6 +98,37 @@ public class YCReporter extends YCHandler {
                         originator.provideData(dataExchange.getDataType(), dataExchange.getData(), dataExchange.getInvalidDataIDs(),
                                 dataExchange.getStartTime(), dataExchange.getEndTime(), dataExchange.getUpdateInterval());
                     }
+                    break;
+                }
+                case SET_BOUNDS: {
+                    if (dataExchange.getRequestID() == -1) {
+                        // TODO: Data bounds event
+                        // jServer.eventBus.post(new BoundsBroadcastEvent(this, dataExchange.getDataType(), dataExchange.getData()));
+
+                    } else {
+                        if (!requests.containsKey(dataExchange.getRequestID())) {
+                            logger.warning(String.format("Received data exchange packet for unknown request ID %d.", dataExchange.getRequestID()));
+                            connection.exit("Invalid data request ID.");
+                            return;
+                        }
+
+                        Request request = requests.get(dataExchange.getRequestID());
+                        requests.remove(dataExchange.getRequestID());
+
+                        YCHandler originator = yesCom.handlersManager.getHandler(request.getOriginatorID());
+
+                        if (originator == null) { // They could've disconnected
+                            logger.finer(String.format("Received data exchange packet for unknown originator ID %d.", request.getOriginatorID()));
+                            return;
+                        }
+
+                        originator.provideDataBounds(dataExchange.getDataType(), dataExchange.getStartTime(), dataExchange.getEndTime(),
+                                dataExchange.getUpdateInterval(), dataExchange.getMaxDataID(), dataExchange.getMinDataID());
+                    }
+                    break;
+                }
+                case DOWNLOAD:
+                case GET_BOUNDS: {
                     break;
                 }
             }
@@ -424,6 +452,20 @@ public class YCReporter extends YCHandler {
                                          long startTime, long endTime) {
         requests.put(requestID, new Request(requestID, originatorID));
         connection.sendPacket(new DataExchangePacket(dataType, requestID, dataIDs, startTime, endTime));
+
+        if (++requestID == Integer.MAX_VALUE) requestID = 0;
+    }
+
+    @Override
+    public synchronized void provideDataBounds(DataExchangePacket.DataType dataType, long startTime, long endTime,
+                                               int updateInterval, BigInteger maxDataID, BigInteger minDataID) {
+        // TODO: Provide data bounds for reporters?
+    }
+
+    @Override
+    public synchronized void requestDataBounds(int originatorID, DataExchangePacket.DataType dataType) {
+        requests.put(requestID, new Request(requestID, originatorID));
+        connection.sendPacket(new DataExchangePacket(dataType, requestID));
 
         if (++requestID == Integer.MAX_VALUE) requestID = 0;
     }

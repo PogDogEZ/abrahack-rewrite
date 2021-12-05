@@ -300,4 +300,34 @@ public class DataHandler implements IDataProvider, IHandler {
         new File(yesCom.configHandler.TRACKERS_DIRECTORY).mkdirs();
         new File("data/uncompressed").mkdirs();
     }
+
+    /* ------------------------ Setters and getters ------------------------ */
+
+    public long getEarliestStatData() {
+        return earliestStatData;
+    }
+
+    public long getLatestStatData() {
+        return latestStatData;
+    }
+
+    public BigInteger getChunkStateID() {
+        return chunkStateID;
+    }
+
+    public BigInteger getRenderDistanceID() {
+        return renderDistanceID;
+    }
+
+    public BigInteger getTrackedPlayerID() {
+        return trackedPlayerID;
+    }
+
+    public BigInteger getLogID() {
+        return logID;
+    }
+
+    public BigInteger getChatID() {
+        return chatID;
+    }
 }

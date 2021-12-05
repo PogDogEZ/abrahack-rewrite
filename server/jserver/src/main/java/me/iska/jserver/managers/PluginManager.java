@@ -8,28 +8,27 @@ import me.iska.jserver.plugin.PluginClassLoader;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 public class PluginManager implements IManager {
-
-    private final File PLUGINS_DIR = Paths.get("plugins").toFile();
 
     private final JServer jServer = JServer.getInstance();
     private final Logger logger = JServer.getLogger();
 
     private final Map<IPlugin, PluginClassLoader> plugins = new HashMap<>();
 
+    private final File pluginsDir;
+
     public PluginManager() {
-        if (!PLUGINS_DIR.exists()) {
+        pluginsDir = Paths.get(jServer.getWorkingDirectory().getPath(), "plugins").toFile();
+
+        if (!pluginsDir.exists()) {
             logger.fine("Plugins directory does not exist, creating one.");
-            if (!PLUGINS_DIR.mkdir()) logger.warning("Could not create plugins directory.");
+            if (!pluginsDir.mkdir()) logger.warning("Could not create plugins directory.");
         }
     }
 
@@ -92,12 +91,12 @@ public class PluginManager implements IManager {
     public void loadPlugins() {
         logger.info("Loading plugins...");
 
-        if (!PLUGINS_DIR.exists() || !PLUGINS_DIR.isDirectory()) {
+        if (!pluginsDir.exists() || !pluginsDir.isDirectory()) {
             logger.warning("Plugins directory is not a directory or does not exist.");
             return;
         }
 
-        for (File file : PLUGINS_DIR.listFiles()) {
+        for (File file : pluginsDir.listFiles()) {
             JarFile jarFile;
             try {
                 jarFile = new JarFile(file);

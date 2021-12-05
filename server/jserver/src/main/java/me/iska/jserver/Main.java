@@ -2,8 +2,10 @@ package me.iska.jserver;
 
 import me.iska.jserver.network.Server;
 import me.iska.jserver.util.Colour;
+import org.apache.commons.cli.*;
 
 import java.io.Console;
+import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.HashMap;
@@ -62,17 +64,56 @@ public class Main {
     @SuppressWarnings({ "BusyWait", "InfiniteLoopStatement" })
     public static void main(String[] args) {
         logger.info("Starting JServer...");
-        JServer jServer = new JServer("TestServer", 6);
-        Runtime.getRuntime().addShutdownHook(new Thread(jServer::exit));
 
-        Server server;
+        Options options = new Options();
+
+        Option serverNameOption = new Option("n", "name", true, "The name of the server.");
+        serverNameOption.setType(String.class);
+        serverNameOption.setRequired(true);
+        options.addOption(serverNameOption);
+
+        Option protocolVersionOption = new Option("v", "protocolVersion", true, "The protocol version to use.");
+        protocolVersionOption.setType(Integer.class);
+        options.addOption(protocolVersionOption);
+
+        Option workingDirectoryOption = new Option("wd", "workingDirectory", true, "The working directory.");
+        workingDirectoryOption.setType(String.class);
+        options.addOption(workingDirectoryOption);
+
+        Option hostOption = new Option("h", "host", true, "The host to bind to.");
+        hostOption.setType(String.class);
+        options.addOption(hostOption);
+
+        Option portOption = new Option("p", "port", true, "The port to bind to.");
+        portOption.setType(Integer.class);
+        options.addOption(portOption);
+
+        CommandLineParser parser = new DefaultParser();
+
         try {
-            server = new Server(new ServerSocket());
+            CommandLine cmd = parser.parse(options, args);
+
+            String serverName = cmd.getOptionValue("name");
+            String protocolVersion = cmd.getOptionValue("protocolVersion");
+            String workingDirectory = cmd.getOptionValue("workingDirectory");
+            String host = cmd.getOptionValue("host");
+            String port = cmd.getOptionValue("port");
+
+            JServer jServer = new JServer(serverName,
+                    protocolVersion == null ? 6 : Integer.parseInt(protocolVersion),
+                    workingDirectory == null ? new File(".") : new File(workingDirectory),
+                    host == null ? "localhost" : host,
+                    port == null ? 5001 : Integer.parseInt(port));
+            Runtime.getRuntime().addShutdownHook(new Thread(jServer::exit));
+
+            Server server  = new Server(new ServerSocket());
             jServer.connectionManager.addServer(server);
-            server.bind("localhost", 5001);
-        } catch (IOException error) {
-            logger.warning("Couldn't add default server:");
+            server.bind(host == null ? "localhost" : host, port == null ? 5001 : Integer.parseInt(port));
+
+        } catch (Exception error) {
+            logger.severe("Couldn't parse command line args.");
             logger.throwing(Main.class.getSimpleName(), "main", error);
+
             System.exit(1);
         }
 

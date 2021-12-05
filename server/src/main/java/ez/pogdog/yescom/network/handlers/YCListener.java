@@ -86,7 +86,24 @@ public class YCListener extends YCHandler {
                             dataExchange.getStartTime(), dataExchange.getEndTime());
                     break;
                 }
-                case UPLOAD: {
+                case GET_BOUNDS: {
+                    if (downloadingData) {
+                        connection.sendPacket(new ActionResponsePacket(-1, false, "Already downloading data."));
+                        return;
+
+                    } else if (currentReporter == null) {
+                        logger.fine(String.format("%s attempted to request data bounds with no reporter.", this));
+                        connection.sendPacket(new ActionResponsePacket(-1, false, "No current reporter."));
+                        resyncCurrentReporter();
+                        return;
+                    }
+
+                    downloadingData = true;
+                    currentReporter.requestDataBounds(getID(), dataExchange.getDataType());
+                    break;
+                }
+                case UPLOAD:
+                case SET_BOUNDS: {
                     break;
                 }
             }
@@ -99,6 +116,9 @@ public class YCListener extends YCHandler {
                     logger.fine(String.format("Unselecting current reporter for %s.", this));
 
                     currentReporter = null;
+
+                    downloadingData = false;
+
                     accountAction = false; // Don't want to think we still have actions pending
                     configAction = false;
                     taskAction = false;
@@ -113,11 +133,14 @@ public class YCListener extends YCHandler {
                     if (!(selectedHandler instanceof YCReporter)) {
                         resyncCurrentReporter();
                         connection.sendPacket(new ReporterActionPacket(ReporterActionPacket.Action.REMOVE,
-                                reporterAction.getReporterID(), ""));
+                                reporterAction.getReporterID()));
                         logger.fine(String.format("%s selected invalid reporter.", this));
 
                     } else {
                         currentReporter = (YCReporter)selectedHandler;
+
+                        downloadingData = false;
+
                         accountAction = false;
                         configAction = false;
                         taskAction = false;
@@ -294,18 +317,29 @@ public class YCListener extends YCHandler {
         if (handler != null) handler.provideData(dataType, new ArrayList<>(), dataIDs, startTime, endTime, 0);
     }
 
+    @Override
+    public void provideDataBounds(DataExchangePacket.DataType dataType, long startTime, long endTime, int updateInterval,
+                                  BigInteger maxDataID, BigInteger minDataID) {
+        downloadingData = false;
+        connection.sendPacket(new DataExchangePacket(dataType, startTime, endTime, updateInterval, maxDataID, minDataID));
+    }
+
+    @Override
+    public void requestDataBounds(int originatorID, DataExchangePacket.DataType dataType) {
+        YCHandler handler = yesCom.handlersManager.getHandler(originatorID);
+        if (handler != null) handler.provideDataBounds(dataType, 0L, 0L, 0, BigInteger.ZERO, BigInteger.ZERO);
+    }
+
     /* ----------------------------- Listeners ----------------------------- */
 
     @Listener
     public void onReporterAdded(ReporterAddedEvent event) {
-        connection.sendPacket(new ReporterActionPacket(ReporterActionPacket.Action.ADD, event.getReporter().getID(),
-                event.getReporter().getName()));
+        connection.sendPacket(new ReporterActionPacket(ReporterActionPacket.Action.ADD, event.getReporter()));
     }
 
     @Listener
     public void onReporterRemoved(ReporterRemovedEvent event) {
-        connection.sendPacket(new ReporterActionPacket(ReporterActionPacket.Action.REMOVE, event.getReporter().getID(),
-                event.getReporter().getName()));
+        connection.sendPacket(new ReporterActionPacket(ReporterActionPacket.Action.REMOVE, event.getReporter().getID()));
 
         if (event.getReporter() == currentReporter) {
             currentReporter = null;
@@ -433,7 +467,7 @@ public class YCListener extends YCHandler {
     public void syncReporters() {
         logger.fine(String.format("%s syncing...", this));
         for (YCReporter reporter : yesCom.handlersManager.getReporters())
-            connection.sendPacket(new ReporterActionPacket(ReporterActionPacket.Action.ADD, reporter.getID(), reporter.getName()));
+            connection.sendPacket(new ReporterActionPacket(ReporterActionPacket.Action.ADD, reporter));
         logger.fine("Done.");
     }
 

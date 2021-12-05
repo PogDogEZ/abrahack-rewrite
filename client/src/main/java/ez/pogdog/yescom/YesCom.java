@@ -153,7 +153,7 @@ public class YesCom {
             Runtime.getRuntime().addShutdownHook(new Thread(instance::exit));
             instance.run();
 
-        } catch (ParseException error) {
+        } catch (Exception error) {
             tempLogger.severe("Couldn't parse command line args.");
             tempLogger.throwing(YesCom.class.getSimpleName(), "main", error);
 

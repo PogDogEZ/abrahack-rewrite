@@ -136,7 +136,7 @@ class DataExchangePacket(Packet):
     SIDE = Side.BOTH
 
     def __init__(self, request_type=0, data_type=0, request_id: int = -1, start_time: int = 0, end_time: int = 0,
-                 update_interval: int = 0) -> None:
+                 update_interval: int = 0, max_data_id: int = 0, min_data_id: int = 0) -> None:
         super().__init__()
 
         self.request_type = request_type
@@ -150,6 +150,9 @@ class DataExchangePacket(Packet):
         self.start_time = start_time
         self.end_time = end_time
         self.update_interval = update_interval
+
+        self.max_data_id = max_data_id
+        self.min_data_id = min_data_id
 
     def read(self, fileobj: IO) -> None:
         self.request_type = DataExchangePacket.RequestType.read(fileobj)
@@ -214,6 +217,17 @@ class DataExchangePacket(Packet):
                 for index in range(data_to_read):
                     self._data.append(TrackingDataSpec.read(fileobj))
 
+        elif self.request_type == DataExchangePacket.RequestType.SET_BOUNDS:
+            if self.data_type in (DataExchangePacket.DataType.TICK_DATA, DataExchangePacket.DataType.PING_DATA,
+                                  DataExchangePacket.DataType.TSLP_DATA):
+                self.start_time = Long.read(fileobj)
+                self.end_time = Long.read(fileobj)
+                self.update_interval = Long.read(fileobj)
+
+            else:
+                self.max_data_id = VarInt.read(fileobj)
+                self.min_data_id = VarInt.read(fileobj)
+
     def write(self, fileobj: IO) -> None:
         DataExchangePacket.RequestType.write(self.request_type, fileobj)
         DataExchangePacket.DataType.write(self.data_type, fileobj)
@@ -272,6 +286,10 @@ class DataExchangePacket(Packet):
                 for data in self._data:
                     TrackingDataSpec.write(data, fileobj)
 
+        elif self.request_type == DataExchangePacket.RequestType.SET_BOUNDS:
+            for data_id in self._data_ids:
+                VarInt.write(data_id, fileobj)
+
     def get_data(self) -> List[object]:
         return self._data.copy()
 
@@ -323,6 +341,9 @@ class DataExchangePacket(Packet):
     class RequestType(Enum):
         DOWNLOAD = 0
         UPLOAD = 1
+
+        GET_BOUNDS = 2
+        SET_BOUNDS = 3
 
     class DataType(Enum):
         TICK_DATA = 0
@@ -737,7 +758,7 @@ class InfoUpdatePacket(Packet):
     SIDE = Side.BOTH
 
     def __init__(self, waiting_queries: int = 0, ticking_queries: int = 0, queries_per_second: float = 0,
-                 connected: bool = False, tick_rate: float = 20, server_ping: float = 0,
+                 connected: bool = False, tick_rate: float = 0, server_ping: float = 0,
                  time_since_last_packet: int = 0) -> None:
         super().__init__()
 
@@ -900,12 +921,15 @@ class ReporterActionPacket(Packet):
     NAME = "reporter_action"
     SIDE = Side.BOTH
 
-    def __init__(self, action=0, reporter_id: int = 0, reporter_name: str = "") -> None:
+    def __init__(self, action=0, reporter_id: int = 0, reporter_name: str = "", reporter_host: str = "",
+                 reporter_port: int = 0) -> None:
         super().__init__()
 
         self.action = action
         self.reporter_id = reporter_id
         self.reporter_name = reporter_name
+        self.reporter_host = reporter_host
+        self.reporter_port = reporter_port
 
     def read(self, fileobj: IO) -> None:
         self.action = ReporterActionPacket.Action.read(fileobj)
@@ -913,6 +937,8 @@ class ReporterActionPacket(Packet):
 
         if self.action == ReporterActionPacket.Action.ADD:
             self.reporter_name = String.read(fileobj)
+            self.reporter_host = String.read(fileobj)
+            self.reporter_port = UnsignedShort.read(fileobj)
 
     def write(self, fileobj: IO) -> None:
         ReporterActionPacket.Action.write(self.action, fileobj)
@@ -920,6 +946,8 @@ class ReporterActionPacket(Packet):
 
         if self.action == ReporterActionPacket.Action.ADD:
             String.write(self.reporter_name, fileobj)
+            String.write(self.reporter_host, fileobj)
+            UnsignedShort.write(self.reporter_port, fileobj)
 
     class Action(Enum):
         ADD = 0

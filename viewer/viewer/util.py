@@ -277,6 +277,16 @@ class ConfigRule:
     def __repr__(self) -> str:
         return "ConfigRule(name=%s, data_type=%s)" % (self._name, DataType.name_from_value(self._data_type))
 
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, ConfigRule):
+            return False
+        else:
+            return self._name == other._name and self._data_type == other._data_type and \
+                   self._enum_values == other._enum_values
+
+    def __hash__(self) -> int:
+        return hash((self._name, self._data_type, self._enum_value))
+
 
 class RegisteredTask:
     """

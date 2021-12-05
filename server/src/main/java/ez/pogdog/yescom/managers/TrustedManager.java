@@ -1,6 +1,7 @@
 package ez.pogdog.yescom.managers;
 
 import ez.pogdog.yescom.IManager;
+import ez.pogdog.yescom.YesCom;
 import me.iska.jserver.JServer;
 
 import java.io.File;
@@ -19,17 +20,20 @@ import java.util.logging.Logger;
 @SuppressWarnings("FieldCanBeLocal")
 public class TrustedManager implements IManager {
 
-    private final File TRUSTED_FILE = Paths.get("trusted.txt").toFile();
-
+    private final JServer jServer = JServer.getInstance();
     private final Logger logger = JServer.getLogger();
 
     private final Map<byte[], byte[]> trustedHandlers = new HashMap<>();
 
+    private final File trustedFile;
+
     public TrustedManager() {
-        if (!TRUSTED_FILE.exists() || TRUSTED_FILE.isDirectory()) {
+        trustedFile = Paths.get(jServer.getWorkingDirectory().getPath(), "trusted.txt").toFile();
+
+        if (!trustedFile.exists() || trustedFile.isDirectory()) {
             logger.fine("Creating trusted file as it does not exist.");
             try {
-                if (!TRUSTED_FILE.createNewFile()) throw new IOException("Couldn't create file due to unknown.");
+                if (!trustedFile.createNewFile()) throw new IOException("Couldn't create file due to unknown.");
             } catch (IOException error) {
                 logger.warning("Couldn't create trusted file.");
                 logger.throwing(TrustedManager.class.getSimpleName(), "TrustedManager", error);
@@ -38,7 +42,7 @@ public class TrustedManager implements IManager {
         } else {
             logger.fine("Reading trusted file...");
             try {
-                Files.readAllLines(TRUSTED_FILE.toPath()).forEach(line -> trustedHandlers.put(Base64.getDecoder().decode(line), null));
+                Files.readAllLines(trustedFile.toPath()).forEach(line -> trustedHandlers.put(Base64.getDecoder().decode(line), null));
             } catch (IOException error) {
                 logger.warning("Couldn't read trusted file.");
                 logger.throwing(TrustedManager.class.getSimpleName(), "TrustedManager", error);

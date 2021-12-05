@@ -18,3 +18,6 @@ class Handler:  # TODO: Overhaul handlers
 
     def on_update(self) -> None:
         ...
+
+    def on_exit(self, reason: str) -> None:
+        ...

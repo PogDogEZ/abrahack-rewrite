@@ -38,8 +38,12 @@ public class DataExchangePacket extends Packet {
     private long endTime;
     private int updateInterval;
 
+    private BigInteger maxDataID;
+    private BigInteger minDataID;
+
     public DataExchangePacket(RequestType requestType, DataType dataType, int requestID, List<?> data, List<BigInteger> invalidDataIDs,
-                              List<BigInteger> dataIDs, long startTime, long endTime, int updateInterval) {
+                              List<BigInteger> dataIDs, long endTime, long startTime, int updateInterval,
+                              BigInteger maxDataID, BigInteger minDataID) {
         this.requestType = requestType;
         this.dataType = dataType;
 
@@ -49,6 +53,9 @@ public class DataExchangePacket extends Packet {
         this.endTime = endTime;
         this.updateInterval = updateInterval;
 
+        this.maxDataID = maxDataID;
+        this.minDataID = minDataID;
+
         this.data.addAll(data);
         this.invalidDataIDs.addAll(invalidDataIDs);
         this.dataIDs.addAll(dataIDs);
@@ -56,7 +63,8 @@ public class DataExchangePacket extends Packet {
 
     public DataExchangePacket(DataType dataType, int requestID, List<?> data, List<BigInteger> invalidDataIDs, long startTime,
                               long endTime, int updateInterval) {
-        this(RequestType.UPLOAD, dataType, requestID, data, invalidDataIDs, new ArrayList<>(), startTime, endTime, updateInterval);
+        this(RequestType.UPLOAD, dataType, requestID, data, invalidDataIDs, new ArrayList<>(), startTime, endTime, updateInterval,
+                BigInteger.ZERO, BigInteger.ZERO);
     }
 
     public DataExchangePacket(DataType dataType, int requestID, List<?> data, List<BigInteger> invalidDataIDs) {
@@ -76,7 +84,8 @@ public class DataExchangePacket extends Packet {
     }
 
     public DataExchangePacket(DataType dataType, int requestID, List<BigInteger> dataIDs, long startTime, long endTime) {
-        this(RequestType.DOWNLOAD, dataType, requestID, new ArrayList<>(), new ArrayList<>(), dataIDs, startTime, endTime, 0);
+        this(RequestType.DOWNLOAD, dataType, requestID, new ArrayList<>(), new ArrayList<>(), dataIDs, startTime, endTime, 0,
+                BigInteger.ZERO, BigInteger.ZERO);
     }
 
     public DataExchangePacket(DataType dataType, List<BigInteger> dataIDs, long startTime, long endTime) {
@@ -99,8 +108,45 @@ public class DataExchangePacket extends Packet {
         this(dataType, -1, startTime, endTime);
     }
 
+    public DataExchangePacket(DataType dataType, int requestID) {
+        this(RequestType.GET_BOUNDS, dataType, requestID, new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
+                0L, 0L, 0, BigInteger.ZERO, BigInteger.ZERO);
+    }
+
+    public DataExchangePacket(DataType dataType) {
+        this(dataType, -1);
+    }
+
+    public DataExchangePacket(DataType dataType, int requestID, long startTime, long endTime, int updateInterval,
+                              BigInteger maxDataID, BigInteger minDataID) {
+        this(RequestType.SET_BOUNDS, dataType, requestID, new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
+                startTime, endTime, updateInterval, maxDataID, minDataID);
+    }
+
+    public DataExchangePacket(DataType dataType, long startTime, long endTime, int updateInterval, BigInteger maxDataID,
+                              BigInteger minDataID) {
+        this(dataType, -1, startTime, endTime, updateInterval, maxDataID, minDataID);
+    }
+
+    public DataExchangePacket(DataType dataType, int requestID, long startTime, long endTime, int updateInterval) {
+        this(dataType, requestID, startTime, endTime, updateInterval, BigInteger.ZERO, BigInteger.ZERO);
+    }
+
+    public DataExchangePacket(DataType dataType, long startTime, long endTime, int updateInterval) {
+        this(dataType, -1, startTime, endTime, updateInterval);
+    }
+
+    public DataExchangePacket(DataType dataType, int requestID, BigInteger maxDataID, BigInteger minDataID) {
+        this(dataType, requestID, 0L, 0L, 0, maxDataID, minDataID);
+    }
+
+    public DataExchangePacket(DataType dataType, BigInteger maxDataID, BigInteger minDataID) {
+        this(dataType, -1, maxDataID, minDataID);
+    }
+
     public DataExchangePacket() {
-        this(RequestType.DOWNLOAD, DataType.TICK_DATA, -1, new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), 0L, 0L, 0);
+        this(RequestType.DOWNLOAD, DataType.TICK_DATA, -1, new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
+                0L, 0L, 0, BigInteger.ZERO, BigInteger.ZERO);
     }
 
     @Override
@@ -174,6 +220,27 @@ public class DataExchangePacket extends Packet {
                     }
                     case TRACKING_DATA: {
                         for (int index = 0; index < dataToRead; ++index) data.add(YCRegistry.TRACKING_DATA.read(inputStream));
+                        break;
+                    }
+                }
+                break;
+            }
+            case GET_BOUNDS: {
+                break;
+            }
+            case SET_BOUNDS: {
+                switch (dataType) {
+                    case TICK_DATA:
+                    case PING_DATA:
+                    case TSLP_DATA: {
+                        startTime = Registry.LONG.read(inputStream);
+                        endTime = Registry.LONG.read(inputStream);
+                        updateInterval = Registry.UNSIGNED_SHORT.read(inputStream);
+                        break;
+                    }
+                    default: {
+                        maxDataID = Registry.VAR_INTEGER.read(inputStream);
+                        minDataID = Registry.VAR_INTEGER.read(inputStream);
                         break;
                     }
                 }
@@ -253,6 +320,27 @@ public class DataExchangePacket extends Packet {
                    }
                }
                break;
+            }
+            case GET_BOUNDS: {
+                break;
+            }
+            case SET_BOUNDS: {
+                switch (dataType) {
+                    case TICK_DATA:
+                    case PING_DATA:
+                    case TSLP_DATA: {
+                        Registry.LONG.write(startTime, outputStream);
+                        Registry.LONG.write(endTime, outputStream);
+                        Registry.UNSIGNED_SHORT.write(updateInterval, outputStream);
+                        break;
+                    }
+                    default: {
+                        Registry.VAR_INTEGER.write(maxDataID, outputStream);
+                        Registry.VAR_INTEGER.write(minDataID, outputStream);
+                        break;
+                    }
+                }
+                break;
             }
         }
     }
@@ -382,8 +470,25 @@ public class DataExchangePacket extends Packet {
         this.updateInterval = updateInterval;
     }
 
+    public BigInteger getMaxDataID() {
+        return maxDataID;
+    }
+
+    public void setMaxDataID(BigInteger maxDataID) {
+        this.maxDataID = maxDataID;
+    }
+
+    public BigInteger getMinDataID() {
+        return minDataID;
+    }
+
+    public void setMinDataID(BigInteger minDataID) {
+        this.minDataID = minDataID;
+    }
+
     public enum RequestType {
-        DOWNLOAD, UPLOAD;
+        DOWNLOAD, UPLOAD,
+        GET_BOUNDS, SET_BOUNDS;
     }
 
     public enum DataType {

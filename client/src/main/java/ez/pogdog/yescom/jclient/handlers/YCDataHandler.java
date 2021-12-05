@@ -173,7 +173,51 @@ public class YCDataHandler implements IHandler {
                     }
                     break;
                 }
-                case UPLOAD: {
+                case GET_BOUNDS: {
+                    switch (dataExchange.getDataType()) {
+                        case TICK_DATA:
+                        case PING_DATA:
+                        case TSLP_DATA: {
+                            connection.sendPacket(new DataExchangePacket(dataExchange.getDataType(),
+                                    dataExchange.getRequestID(), yesCom.dataHandler.getEarliestStatData(),
+                                    yesCom.dataHandler.getLatestStatData(), yesCom.configHandler.NUMERICAL_DATA_UPDATE_INTERVAL));
+                            break;
+                        }
+                        case ONLINE_PLAYER: {
+                            break;
+                        }
+                        case LOGS: {
+                            connection.sendPacket(new DataExchangePacket(dataExchange.getDataType(),
+                                    dataExchange.getRequestID(), yesCom.dataHandler.getLogID(), BigInteger.ZERO));
+                            break;
+                        }
+                        case CHAT: {
+                            connection.sendPacket(new DataExchangePacket(dataExchange.getDataType(),
+                                    dataExchange.getRequestID(), yesCom.dataHandler.getChatID(), BigInteger.ZERO));
+                            break;
+                        }
+                        case CHUNK_STATE: {
+                            connection.sendPacket(new DataExchangePacket(dataExchange.getDataType(),
+                                    dataExchange.getRequestID(), yesCom.dataHandler.getChunkStateID(), BigInteger.ZERO));
+                            break;
+                        }
+                        case RENDER_DISTANCE: {
+                            connection.sendPacket(new DataExchangePacket(dataExchange.getDataType(),
+                                    dataExchange.getRequestID(), yesCom.dataHandler.getRenderDistanceID(), BigInteger.ZERO));
+                            break;
+                        }
+                        case TRACKED_PLAYER:
+                        case TRACKING_DATA: {
+                            // TODO: Store the minimum IDs, instead of just assuming 0 as in the future it won't be 0
+                            connection.sendPacket(new DataExchangePacket(dataExchange.getDataType(),
+                                    dataExchange.getRequestID(), yesCom.dataHandler.getTrackedPlayerID(), BigInteger.ZERO));
+                            break;
+                        }
+                    }
+                    break;
+                }
+                case UPLOAD:
+                case SET_BOUNDS: {
                     break;
                 }
             }

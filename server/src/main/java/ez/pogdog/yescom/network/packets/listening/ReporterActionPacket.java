@@ -22,23 +22,27 @@ public class ReporterActionPacket extends Packet {
     private Action action;
     private int reporterID;
     private String reporterName;
+    private String reporterHost;
+    private int reporterPort;
 
-    public ReporterActionPacket(Action action, int reporterID, String reporterName) {
+    public ReporterActionPacket(Action action, int reporterID, String reporterName, String reporterHost, int reporterPort) {
         this.action = action;
         this.reporterID = reporterID;
         this.reporterName = reporterName;
+        this.reporterHost = reporterHost;
+        this.reporterPort = reporterPort;
     }
 
     public ReporterActionPacket(Action action, YCReporter reporter) {
-        this(action, reporter.getID(), reporter.getName());
+        this(action, reporter.getID(), reporter.getName(), reporter.getMinecraftHost(), reporter.getMinecraftPort());
     }
 
     public ReporterActionPacket(Action action, int reporterID) {
-        this(action, reporterID, "");
+        this(action, reporterID, "", "", 0);
     }
 
     public ReporterActionPacket() {
-        this(Action.ADD, 0, "");
+        this(Action.ADD, 0, "", "", 0);
     }
 
     @Override
@@ -46,7 +50,11 @@ public class ReporterActionPacket extends Packet {
         action = ACTION.read(inputStream);
         reporterID = Registry.SHORT.read(inputStream);
 
-        if (action == Action.ADD) reporterName = Registry.STRING.read(inputStream);
+        if (action == Action.ADD) {
+            reporterName = Registry.STRING.read(inputStream);
+            reporterHost = Registry.STRING.read(inputStream);
+            reporterPort = Registry.UNSIGNED_SHORT.read(inputStream);
+        }
     }
 
     @Override
@@ -54,7 +62,11 @@ public class ReporterActionPacket extends Packet {
         ACTION.write(action, outputStream);
         Registry.SHORT.write((short)reporterID, outputStream);
 
-        if (action == Action.ADD) Registry.STRING.write(reporterName, outputStream);
+        if (action == Action.ADD) {
+            Registry.STRING.write(reporterName, outputStream);
+            Registry.STRING.write(reporterHost, outputStream);
+            Registry.UNSIGNED_SHORT.write(reporterPort, outputStream);
+        }
     }
 
     /**
@@ -88,6 +100,28 @@ public class ReporterActionPacket extends Packet {
 
     public void setReporterName(String reporterName) {
         this.reporterName = reporterName;
+    }
+
+    /**
+     * @return The IP address of the Minecraft server that the reporter is connected to.
+     */
+    public String getReporterHost() {
+        return reporterHost;
+    }
+
+    public void setReporterHost(String reporterHost) {
+        this.reporterHost = reporterHost;
+    }
+
+    /**
+     * @return The port of Minecraft server the reporter is connected to.
+     */
+    public int getReporterPort() {
+        return reporterPort;
+    }
+
+    public void setReporterPort(int reporterPort) {
+        this.reporterPort = reporterPort;
     }
 
     public enum Action {
