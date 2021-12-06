@@ -1,5 +1,6 @@
 package ez.pogdog.yescom.handlers.connection;
 
+import com.github.steveice10.mc.auth.exception.request.RequestException;
 import com.github.steveice10.mc.auth.service.AuthenticationService;
 import com.github.steveice10.mc.protocol.MinecraftProtocol;
 import com.github.steveice10.packetlib.Client;
@@ -195,6 +196,12 @@ public class ConnectionHandler implements IHandler {
             if (!session.isConnected()) {
                 // TODO: Perhaps try to refresh the token? Idk why else it wouldn't have connected <- except the server being down
                 yesCom.logger.warning(String.format("Couldn't log %s in, immediate disconnect.", authService.getSelectedProfile().getName()));
+                try {
+                    player.getAuthService().login(); // TODO: This may not work, if it fails to connect after x amount of times, deauth
+                } catch (RequestException error) {
+                    yesCom.logger.warning(String.format("Couldn't re-login auth server for %s.", authService.getSelectedProfile().getName()));
+                    yesCom.logger.throwing(ConnectionHandler.class.getSimpleName(), "login", error);
+                }
             } else {
                 healthLogout.remove(authService.getSelectedProfile().getId());
             }

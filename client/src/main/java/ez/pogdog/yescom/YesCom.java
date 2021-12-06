@@ -257,7 +257,7 @@ public class YesCom {
         accountHandler.onTick();
         connectionHandler.onTick();
 
-        boolean doTaskUpdate = System.currentTimeMillis() - lastTaskUpdate > 1000;
+        boolean doTaskUpdate = System.currentTimeMillis() - lastTaskUpdate > 100;
         if (doTaskUpdate) lastTaskUpdate = System.currentTimeMillis();
 
         new ArrayList<>(currentTasks).forEach(task -> {

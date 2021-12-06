@@ -115,8 +115,10 @@ public class BasicScanTask implements ILoadedChunkTask {
         List<TaskRegistry.ParamDescription> paramDescriptions = TaskRegistry.getTask(getClass()).getParamDescriptions();
 
         // Wouldn't have to use the Collections.singletonList if Java was good at type resolving
-        parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(0), Collections.singletonList(startPos)));
-        parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(1), Collections.singletonList(endPos)));
+        parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(0),
+                Collections.singletonList(new ChunkPosition(startPos.getX() * chunkSkip, startPos.getZ() * chunkSkip))));
+        parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(1),
+                Collections.singletonList(new ChunkPosition(endPos.getX() * chunkSkip, endPos.getZ() * chunkSkip))));
         parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(2), Collections.singletonList(chunkSkip)));
         parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(3), Collections.singletonList(dimension)));
         parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(4), Collections.singletonList(priority)));

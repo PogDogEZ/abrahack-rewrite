@@ -114,8 +114,8 @@ public class HighwayScanTask implements ILoadedChunkTask {
         List<TaskRegistry.Parameter> parameters = new ArrayList<>();
         List<TaskRegistry.ParamDescription> paramDescriptions = TaskRegistry.getTask(getClass()).getParamDescriptions();
 
-        parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(0), Collections.singletonList(maxDistance)));
-        parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(1), Collections.singletonList(minDistance)));
+        parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(0), Collections.singletonList(maxDistance * chunkSkip)));
+        parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(1), Collections.singletonList(minDistance * chunkSkip)));
         parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(2), Collections.singletonList(chunkSkip)));
         parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(3), Collections.singletonList(dimension)));
         parameters.add(new TaskRegistry.Parameter(paramDescriptions.get(4), Collections.singletonList(priority)));
@@ -135,7 +135,7 @@ public class HighwayScanTask implements ILoadedChunkTask {
 
     @Override
     public float getProgress() {
-        return currentIndex / (float)maxIndex;
+        return currentIndex / (float)maxIndex * 100.0f;
     }
 
     @Override

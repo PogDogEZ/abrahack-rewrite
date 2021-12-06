@@ -169,7 +169,7 @@ public class StaticScanTask implements ILoadedChunkTask {
 
     @Override
     public float getProgress() {
-        return currentIndex / (float)positions.size();
+        return currentIndex / (float)positions.size() * 100.0f;
     }
 
     @Override
