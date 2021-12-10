@@ -1,0 +1,25 @@
+apply plugin: "idea"
+apply plugin: "ru.vyarus.use-python"
+
+python {
+    installVirtualenv = true
+    envPath = "./venv"
+    scope = VIRTUALENV
+
+    pip "pip:21.3.1"
+    pip "colorama:0.4.4"
+    pip "cryptography:36.0.0"
+    pip "requests:2.26.0"
+
+    pip "PyQt5:5.15.6"
+
+    pip "numpy:1.21.4"
+    pip "opencv-python:4.5.4.60"
+
+    pip "bresenham:0.2.1"
+    pip "minecraft-launcher-lib:4.1"
+}
+
+task run(type: PythonTask) {
+    command = "src/main.py"
+}

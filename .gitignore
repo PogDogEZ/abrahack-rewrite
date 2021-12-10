@@ -3,7 +3,7 @@
 **/.idea/
 **/build/
 
-/venv/
+**/venv/
 
 /client/identity/
 /client/accounts.txt
@@ -14,3 +14,9 @@
 /server/jserver/build
 /server/plugins/
 /server/trusted.txt
+
+# Ignore Gradle project-specific cache directory
+.gradle
+
+# Ignore Gradle build output directory
+build

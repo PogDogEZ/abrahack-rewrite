@@ -23,5 +23,5 @@ jar {
     }
 
     baseName = "jserver"
-    version = "${version}"
+    // version = "${version}"
 }

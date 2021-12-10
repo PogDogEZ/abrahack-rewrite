@@ -1,4 +1,0 @@
-rootProject.name = "abrahack-rewrite"
-
-include ":api"
-project(":api").projectDir = new File("../api")

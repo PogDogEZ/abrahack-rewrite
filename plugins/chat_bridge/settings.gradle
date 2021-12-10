@@ -1,6 +1,0 @@
-rootProject.name = "examplechat"
-
-include ":api", ":yescom", ":jserver"
-project(":api").projectDir = new File("../../api")
-project(":yescom").projectDir = new File("../../server")
-project(":jserver").projectDir = new File("../../server/jserver")

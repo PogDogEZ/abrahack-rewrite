@@ -61,12 +61,12 @@ public class TrackingHandler implements IHandler { // FIXME: Holy shit PLEASE ov
                 if (trackedPlayer.getTrackingSince() < overLapping.get().getTrackingSince()) { // Keep the older one
                     removeTrackedPlayer(overLapping.get());
                     new HashMap<>(trackers).forEach((trackerID, tracker) -> {
-                        if (tracker.getTrackedPlayers().equals(overLapping.get())) removeTracker(tracker);
+                        if (tracker.getTrackedPlayers().contains(overLapping.get())) removeTracker(tracker);
                     });
                 } else {
                     removeTrackedPlayer(trackedPlayer);
                     new HashMap<>(trackers).forEach((trackerID, tracker) -> {
-                        if (tracker.getTrackedPlayers().equals(trackedPlayer)) removeTracker(tracker);
+                        if (tracker.getTrackedPlayers().contains(trackedPlayer)) removeTracker(tracker);
                     });
                 }
             }

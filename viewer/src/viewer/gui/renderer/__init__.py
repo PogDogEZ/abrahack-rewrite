@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import List
+from typing import List, Tuple
 
 import cv2
 import numpy as np
@@ -15,9 +15,8 @@ class Renderer:
     def layers(self) -> List[layers.Layer]:
         return self._layers.copy()
 
-    def __init__(self, mcviewer, main_frame) -> None:
-        self.viewer = mcviewer
-        self.main_frame = main_frame
+    def __init__(self, main_window) -> None:
+        self.main_window = main_window
 
         self._layers = [
             layers.StatesLayer(self),
@@ -34,25 +33,25 @@ class Renderer:
         line_width = (scale_x + scale_y) / (2 + factor)
         return max(1, round(line_width))
 
-    def draw_rect(self, image: np.ndarray, chunk_x: float, chunk_y: float, chunk_x1: float, chunk_y1: float,
-                   colour: tuple, line_width: int) -> np.ndarray:
+    def draw_rect(self, image: np.ndarray, chunk_pos1: Tuple[float, float], chunk_pos2: Tuple[float, float],
+                  colour: tuple, line_width: int) -> np.ndarray:
         scale = self.main_frame.scale
         left_offset = self.main_frame.left_offset
 
         scaled_chunk_size = (Config.CHUNK_SIZE[0] * scale[0], Config.CHUNK_SIZE[1] * scale[1])
-        diff = (scaled_chunk_size[0] * (max(chunk_x, chunk_x1) - min(chunk_x, chunk_x1)),
-                scaled_chunk_size[1] * (max(chunk_y, chunk_y1) - min(chunk_y, chunk_y1)))
+        diff = (scaled_chunk_size[0] * (max(chunk_pos1[0], chunk_pos2[0]) - min(chunk_pos1[0], chunk_pos2[0])),
+                scaled_chunk_size[1] * (max(chunk_pos1[1], chunk_pos2[1]) - min(chunk_pos1[1], chunk_pos2[1])))
         screen_bounds = (
             -(scaled_chunk_size[0] * diff[0]),
             -(scaled_chunk_size[1] * diff[1]),
-            self.main_frame.size[0] + (scaled_chunk_size[0] * diff[0]),
-            self.main_frame.size[1] + (scaled_chunk_size[1] * diff[1]),
+            image.shape[1] + (scaled_chunk_size[0] * diff[0]),
+            image.shape[0] + (scaled_chunk_size[1] * diff[1]),
         )
 
-        pixel_coord1 = (int((chunk_x + left_offset[0]) * scaled_chunk_size[0]),
-                        int((chunk_y + left_offset[1]) * scaled_chunk_size[1]))
-        pixel_coord2 = (int((chunk_x1 + left_offset[0]) * scaled_chunk_size[0]),
-                        int((chunk_y1 + left_offset[1]) * scaled_chunk_size[1]))
+        pixel_coord1 = (int((chunk_pos1[0] + left_offset[0]) * scaled_chunk_size[0]),
+                        int((chunk_pos1[1] + left_offset[1]) * scaled_chunk_size[1]))
+        pixel_coord2 = (int((chunk_pos2[0] + left_offset[0]) * scaled_chunk_size[0]),
+                        int((chunk_pos2[1] + left_offset[1]) * scaled_chunk_size[1]))
 
         # image[pixel_coord1[1]: pixel_coord2[1], pixel_coord1[0]: pixel_coord2[0]] = colour
 
@@ -67,12 +66,13 @@ class Renderer:
 
         return image
 
-    def render(self) -> np.ndarray:
-        image = np.zeros((self.main_frame.size[1], self.main_frame.size[0], 3), np.uint8)
+    def render(self, size: Tuple[int, int], mouse_position: Tuple[int, int], left_offset: Tuple[float, float],
+               scale: Tuple[float, float]) -> np.ndarray:
+        image = np.zeros((size[1], size[0], 3), np.uint8)
         image[:] = Config.BACKGROUND_COLOUR
 
         for layer in self._layers:
-            image = layer.draw(image)
+            image = layer.draw(image, mouse_position, left_offset, scale)
 
         return image
 

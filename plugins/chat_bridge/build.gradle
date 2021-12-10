@@ -11,8 +11,8 @@ repositories {
 
 dependencies {
     implementation project(":api")
-    implementation project(":jserver")
-    implementation project(":yescom")
+    implementation project(":server")
+    implementation project(":server:jserver")
 
     compile group: "com.discord4j", name: "discord4j-core", version: "3.1.7"
     compile group: 'commons-io', name: 'commons-io', version: '2.6'

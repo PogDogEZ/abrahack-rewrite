@@ -1,0 +1,23 @@
+rootProject.name = "abrahack-rewrite"
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath group: "ru.vyarus", name: "gradle-use-python-plugin", version: "2.3.0"
+    }
+}
+
+// Main subprojects
+include ":api", ":client", ":server", ":server:jserver", ":viewer"
+
+project(":api").projectDir = new File("./api")
+project(":client").projectDir = new File("./client")
+project(":server").projectDir = new File("./server")
+project(":server:jserver").projectDir = new File("./server/jserver")
+project(":viewer").projectDir = new File("./viewer")
+
+// Plugins
+include ":plugins:chat_bridge"
+project(":plugins:chat_bridge").projectDir = new File("./plugins/chat_bridge")

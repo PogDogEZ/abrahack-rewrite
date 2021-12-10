@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import math
-from typing import Dict
+from typing import Dict, Tuple
 
 import cv2
 import numpy as np
@@ -11,6 +11,9 @@ from viewer.util import Dimension, ChunkState
 
 
 class Layer:
+    """
+    A render layer.
+    """
 
     @property
     def name(self) -> str:
@@ -29,16 +32,21 @@ class Layer:
     def __repr__(self) -> str:
         return "Layer(name=%s)" % self._name
 
-    def draw(self, image: np.ndarray) -> np.ndarray:
+    def draw(self, image: np.ndarray, mouse_position: Tuple[int, int], left_offset: Tuple[float, float],
+             scale: Tuple[float, float]) -> np.ndarray:
         ...
 
 
 class GridLayer(Layer):
+    """
+    Draws a grid when you zoom in far enough.
+    """
 
     def __init__(self, renderer) -> None:
         super().__init__(renderer, "grid", {})
 
-    def draw(self, image: np.ndarray) -> np.ndarray:
+    def draw(self, image: np.ndarray, mouse_position: Tuple[int, int], left_offset: Tuple[float, float],
+             scale: Tuple[float, float]) -> np.ndarray:
         scale = self.renderer.main_frame.scale
         left_offset = self.renderer.main_frame.left_offset
         size = self.renderer.main_frame.size
@@ -65,15 +73,15 @@ class StatesLayer(Layer):
     def __init__(self, renderer) -> None:
         super().__init__(renderer, "states", {})
 
-    def draw(self, image: np.ndarray) -> np.ndarray:
-        if self.renderer.viewer.current_reporter == -1:
+    def draw(self, image: np.ndarray, mouse_position: Tuple[int, int], left_offset: Tuple[float, float],
+             scale: Tuple[float, float]) -> np.ndarray:
+        current_reporter = self.renderer.viewer.current_reporter
+        if current_reporter is None:
             return image
-
-        reporter = self.renderer.viewer.get_reporter(handler_id=self.renderer.viewer.current_reporter)
 
         # FIXME: Faster rendering
 
-        for active_task in reporter.get_active_tasks():
+        for active_task in current_reporter.get_active_tasks():
             if active_task.loaded_chunk_task:
                 self.renderer.draw_rect(image, active_task.current_position.x, active_task.current_position.z,
                                         active_task.current_position.x + 1, active_task.current_position.z + 1,
@@ -91,7 +99,7 @@ class StatesLayer(Layer):
                         self.renderer.draw_rect(image, chunk_position.x, chunk_position.z, chunk_position.x + 1,
                                                 chunk_position.z + 1, Config.WAITING_COLOUR, -1)
 
-        for chunk_state in reporter.get_states(Dimension.value_to_mc(self.renderer.main_frame.current_dimension)):
+        for chunk_state in current_reporter.get_states(Dimension.value_to_mc(self.renderer.main_frame.current_dimension)):
             if chunk_state.chunk_position in self.renderer.main_frame.selected_chunks:
                 continue
 
@@ -109,7 +117,8 @@ class HighwaysLayer(Layer):
     def __init__(self, renderer) -> None:
         super().__init__(renderer, "highways", {})
 
-    def draw(self, image: np.ndarray) -> np.ndarray:
+    def draw(self, image: np.ndarray, mouse_position: Tuple[int, int], left_offset: Tuple[float, float],
+             scale: Tuple[float, float]) -> np.ndarray:
         scale = self.renderer.main_frame.scale
         left_offset = self.renderer.main_frame.left_offset
         size = self.renderer.main_frame.size
@@ -129,7 +138,8 @@ class PlayersLayer(Layer):
     def __init__(self, renderer) -> None:
         super().__init__(renderer, "players", {})
 
-    def draw(self, image: np.ndarray) -> np.ndarray:
+    def draw(self, image: np.ndarray, mouse_position: Tuple[int, int], left_offset: Tuple[float, float],
+             scale: Tuple[float, float]) -> np.ndarray:
         players = []
 
         if self.renderer.viewer.current_reporter != -1:
@@ -154,7 +164,8 @@ class TrackedPlayersLayer(Layer):
     def __init__(self, renderer) -> None:
         super().__init__(renderer, "tracked_players", {})
 
-    def draw(self, image: np.ndarray) -> np.ndarray:
+    def draw(self, image: np.ndarray, mouse_position: Tuple[int, int], left_offset: Tuple[float, float],
+             scale: Tuple[float, float]) -> np.ndarray:
         trackers = []
 
         if self.renderer.viewer.current_reporter != -1:
@@ -203,7 +214,8 @@ class SelectedLayer(Layer):
     def __init__(self, renderer) -> None:
         super().__init__(renderer, "selected", {})
 
-    def draw(self, image: np.ndarray) -> np.ndarray:
+    def draw(self, image: np.ndarray, mouse_position: Tuple[int, int], left_offset: Tuple[float, float],
+             scale: Tuple[float, float]) -> np.ndarray:
         for selected in self.renderer.main_frame.selected_chunks:
             self.renderer.draw_rect(image, selected.x, selected.z, selected.x + 1, selected.z + 1, (0, 255, 0),
                                     self.renderer.scaled_line_width(*self.renderer.main_frame.scale, 2))
@@ -234,11 +246,8 @@ class CursorLayer(Layer):
     def __init__(self, renderer) -> None:
         super().__init__(renderer, "cursor", {})
 
-    def draw(self, image: np.ndarray) -> np.ndarray:
-        scale = self.renderer.main_frame.scale
-        left_offset = self.renderer.main_frame.left_offset
-        mouse_position = self.renderer.main_frame.mouse_position
-
+    def draw(self, image: np.ndarray, mouse_position: Tuple[int, int], left_offset: Tuple[float, float],
+             scale: Tuple[float, float]) -> np.ndarray:
         mouse_pos = [
             int(math.floor(mouse_position[0] / Config.CHUNK_SIZE[0] / scale[0] - left_offset[0])),
             int(math.floor(mouse_position[1] / Config.CHUNK_SIZE[1] / scale[1] - left_offset[1]))
@@ -247,4 +256,3 @@ class CursorLayer(Layer):
         return self.renderer.draw_rect(image, mouse_pos[0], mouse_pos[1], mouse_pos[0] + 1, mouse_pos[1] + 1,
                                        ((0, 0, 255) if not self.renderer.main_frame.mouse_grabbed else (0, 255, 0)),
                                        min(255, self.renderer.scaled_line_width(*scale, 1)))
-

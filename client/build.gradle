@@ -7,7 +7,6 @@ repositories {
         url = "https://jitpack.io"
     }
     mavenCentral()
-    jcenter()
 }
 
 dependencies {

@@ -1,12 +1,13 @@
 # The Client
-The client, as described by Nathan in the root README, is the client that connects to the given Minecraft server.
+The client, as described by Nathan in the root README, 
+is the client that connects to the given Minecraft server.
 
 ## Running the client
 To run the client, you will have to build it first:\
-From the root directory, `cd client`, then run `./gradlew build`.
+From the root directory, run `./gradlew :client:build`.
 
 Once the client has been built, you can run the program:\
-Run the command `java -jar ./build/libs/yescom.jar -h <server ip>`.
+Run the command `java -jar ./client/build/libs/yescom.jar -h <server ip>`.
 
 ## Accounts
 To specify **Mojang** accounts for the client to use, you can use the *accounts.txt* (depends on the argument, see below) file to specify accounts.

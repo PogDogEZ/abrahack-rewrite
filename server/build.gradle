@@ -10,11 +10,10 @@ repositories {
         url = "https://jitpack.io"
     }
     mavenCentral()
-    jcenter()
 }
 
 dependencies {
-    implementation project(":jserver")
+    implementation project(":server:jserver")
     compile project(":api")
 }
 
