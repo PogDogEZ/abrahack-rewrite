@@ -600,16 +600,17 @@ class PlayerActionPacket(Packet):
     NAME = "player_action"
     SIDE = Side.BOTH
 
-    def __init__(self, action=0, player: Player = None, player_name: str = "", disconnect_reason: str = "",
-                 new_position: Position = Position(0, 0, 0), new_angle: Angle = Angle(0, 0), new_dimension: int = 0,
-                 new_health: float = 20, new_hunger: int = 20, new_saturation: float = 20) -> None:
+    def __init__(self, action=0, player_name: str = "", uuid: UUID = None, display_name: str = "",
+                 disconnect_reason: str = "", new_position: Position = Position(0, 0, 0), new_angle: Angle = Angle(0, 0),
+                 new_dimension: int = 0, new_health: float = 20, new_hunger: int = 20, new_saturation: float = 20) -> None:
         super().__init__()
 
         self.action = action
 
-        self.player = player
-
         self.player_name = player_name
+        self.uuid = uuid
+        self.display_name = display_name
+
         self.disconnect_reason = disconnect_reason
 
         self.new_position = new_position
@@ -623,56 +624,70 @@ class PlayerActionPacket(Packet):
 
     def read(self, fileobj: IO) -> None:
         self.action = PlayerActionPacket.Action.read(fileobj)
+        self.player_name = String.read(fileobj)
 
         if self.action == PlayerActionPacket.Action.ADD:
-            self.player = PlayerSpec.read(fileobj)
-        else:
-            self.player_name = String.read(fileobj)
+            self.uuid = UUID(bytes=Bytes.read(fileobj))
+            self.display_name = String.read(fileobj)
 
-            if self.action == PlayerActionPacket.Action.REMOVE:
-                self.disconnect_reason = String.read(fileobj)
+        elif self.action == PlayerActionPacket.Action.REMOVE:
+            ...
 
-            elif self.action == PlayerActionPacket.Action.UPDATE_POSITION:
-                self.new_position = PositionSpec.read(fileobj)
-                self.new_angle = AngleSpec.read(fileobj)
+        elif self.action == PlayerActionPacket.Action.LOGIN:
+            ...
 
-            elif self.action == PlayerActionPacket.Action.UPDATE_DIMENSION:
-                self.new_dimension = Short.read(fileobj)
+        elif self.action == PlayerActionPacket.Action.LOGOUT:
+            self.disconnect_reason = String.read(fileobj)
 
-            elif self.action == PlayerActionPacket.Action.UPDATE_HEALTH:
-                self.new_health = Float.read(fileobj)
-                self.new_hunger = UnsignedShort.read(fileobj)
-                self.new_saturation = Float.read(fileobj)
+        elif self.action == PlayerActionPacket.Action.UPDATE_POSITION:
+            self.new_position = PositionSpec.read(fileobj)
+            self.new_angle = AngleSpec.read(fileobj)
+
+        elif self.action == PlayerActionPacket.Action.UPDATE_DIMENSION:
+            self.new_dimension = Short.read(fileobj)
+
+        elif self.action == PlayerActionPacket.Action.UPDATE_HEALTH:
+            self.new_health = Float.read(fileobj)
+            self.new_hunger = UnsignedShort.read(fileobj)
+            self.new_saturation = Float.read(fileobj)
 
     def write(self, fileobj: IO) -> None:
         PlayerActionPacket.Action.write(self.action, fileobj)
+        String.write(self.player_name, fileobj)
 
         if self.action == PlayerActionPacket.Action.ADD:
-            PlayerSpec.write(self.player, fileobj)
-        else:
-            String.write(self.player_name, fileobj)
+            Bytes.write(self.uuid.bytes, fileobj)
+            String.write(self.display_name, fileobj)
 
-            if self.action == PlayerActionPacket.Action.REMOVE:
-                String.write(self.disconnect_reason, fileobj)
+        elif self.action == PlayerActionPacket.Action.REMOVE:
+            ...
 
-            elif self.action == PlayerActionPacket.Action.UPDATE_POSITION:
-                PositionSpec.write(self.new_position, fileobj)
-                AngleSpec.write(self.new_angle, fileobj)
+        elif self.action == PlayerActionPacket.Action.LOGIN:
+            ...
 
-            elif self.action == PlayerActionPacket.Action.UPDATE_DIMENSION:
-                Short.write(self.new_dimension, fileobj)
+        elif self.action == PlayerActionPacket.Action.LOGOUT:
+            String.write(self.disconnect_reason, fileobj)
 
-            elif self.action == PlayerActionPacket.Action.UPDATE_HEALTH:
-                Float.write(self.new_health, fileobj)
-                UnsignedShort.write(self.new_hunger, fileobj)
-                Float.write(self.new_saturation, fileobj)
+        elif self.action == PlayerActionPacket.Action.UPDATE_POSITION:
+            PositionSpec.write(self.new_position, fileobj)
+            AngleSpec.write(self.new_angle, fileobj)
+
+        elif self.action == PlayerActionPacket.Action.UPDATE_DIMENSION:
+            Short.write(self.new_dimension, fileobj)
+
+        elif self.action == PlayerActionPacket.Action.UPDATE_HEALTH:
+            Float.write(self.new_health, fileobj)
+            UnsignedShort.write(self.new_hunger, fileobj)
+            Float.write(self.new_saturation, fileobj)
 
     class Action(Enum):
         ADD = 0
         REMOVE = 1
-        UPDATE_POSITION = 2
-        UPDATE_DIMENSION = 3
-        UPDATE_HEALTH = 4
+        LOGIN = 2
+        LOGOUT = 3
+        UPDATE_POSITION = 4
+        UPDATE_DIMENSION = 5
+        UPDATE_HEALTH = 6
 
 
 class TrackerActionPacket(Packet):

@@ -65,6 +65,28 @@ class Dimension(Enum):
     OVERWORLD = 1
     END = 2
 
+    @staticmethod
+    def value_to_mc(value) -> int:
+        """
+        Converts an enum value into a Minecraft dimension.
+
+        :param value: The enum value.
+        :return: The Minecraft dimension.
+        """
+
+        return value - 1
+
+    @staticmethod
+    def mc_to_value(mc: int):  # -> Dimension:
+        """
+        Converts a Minecraft value into an enum value.
+
+        :param mc: The Minecraft dimension.
+        :return: THe enum value.
+        """
+
+        return mc + 1
+
 
 class Priority(Enum):
     """
@@ -206,11 +228,13 @@ class Player:
 
         return self._display_name
 
-    def __init__(self, username: str) -> None:
+    def __init__(self, username: str, uuid: UUID, display_name: str) -> None:
         self._username = username
 
-        self._uuid = None
-        self._display_name = ""
+        self._uuid = uuid
+        self._display_name = display_name
+
+        self.logged_in = False
 
         self.position = Position(0, 0, 0)
         self.angle = Angle(0, 0)
@@ -225,12 +249,6 @@ class Player:
 
     def __repr__(self) -> str:
         return "Player(username=%r, display_name=%r)" % (self._username, self._display_name)
-
-    def set_profile_details(self, uuid: UUID, display_name: str) -> None:
-        if self._uuid is None:
-            self._uuid = uuid
-        if not self._display_name:
-            self._display_name = display_name
 
 
 class ConfigRule:
