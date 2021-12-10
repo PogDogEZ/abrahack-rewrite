@@ -187,7 +187,7 @@ public class ConnectionHandler implements IHandler {
 
             // coordExploit.ceHandler.onPlayerAdded(player);
 
-            if (yesCom.ycHandler != null) yesCom.ycHandler.onPlayerAdded(player); // Fixed the issue with invalid player names
+            if (yesCom.ycHandler != null) yesCom.ycHandler.onPlayerLogin(player); // Fixed the issue with invalid player names
             session.addListener(new SessionReactionAdapter(player));
             session.connect();
 
@@ -377,7 +377,7 @@ public class ConnectionHandler implements IHandler {
                 yesCom.logger.throwing(SessionReactionAdapter.class.getSimpleName(), "disconnected", event.getCause());
             }
 
-            if (yesCom.ycHandler != null) yesCom.ycHandler.onPlayerRemoved(player, event.getReason());
+            if (yesCom.ycHandler != null) yesCom.ycHandler.onPlayerLogout(player, event.getReason());
             yesCom.logger.info(String.format("%s was disconnected for: %s",
                     player.getAuthService().getSelectedProfile().getName(), event.getReason()));
             yesCom.invalidMoveHandler.removeHandle(player);

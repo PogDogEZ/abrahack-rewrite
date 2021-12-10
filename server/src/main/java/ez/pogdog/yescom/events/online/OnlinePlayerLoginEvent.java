@@ -8,12 +8,12 @@ import java.util.UUID;
 /**
  * Called when any player logs into the server.
  */
-public class PlayerLoginEvent extends ReporterEvent {
+public class OnlinePlayerLoginEvent extends ReporterEvent {
 
     private final UUID uuid;
     private final String displayName;
 
-    public PlayerLoginEvent(YCReporter reporter, UUID uuid, String displayName) {
+    public OnlinePlayerLoginEvent(YCReporter reporter, UUID uuid, String displayName) {
         super(reporter);
 
         this.uuid = uuid;

@@ -12,6 +12,8 @@ import me.iska.jclient.network.packet.types.EnumType;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.util.UUID;
 
 /**
  * Sent by the client/server to indicate a change in a player's state.
@@ -19,11 +21,14 @@ import java.io.OutputStream;
 @Packet.Info(name="player_action", id=YCRegistry.ID_OFFSET + 7, side=Packet.Side.BOTH)
 public class PlayerActionPacket extends Packet {
 
+    private final EnumType<Action> ACTION = new EnumType<>(Action.class);
+
     private Action action;
 
-    private Player player;
-
     private String playerName;
+    private UUID uuid;
+    private String displayName;
+
     private String disconnectReason;
 
     private Position newPosition;
@@ -33,11 +38,13 @@ public class PlayerActionPacket extends Packet {
 
     private Player.FoodStats newStats;
 
-    public PlayerActionPacket(Action action, Player player, String playerName, String disconnectReason,
-                              Position newPosition, Angle newAngle, Dimension newDimension, Player.FoodStats newStats) {
+    public PlayerActionPacket(Action action, String playerName, UUID uuid, String displayName,
+                              String disconnectReason, Position newPosition, Angle newAngle, Dimension newDimension,
+                              Player.FoodStats newStats) {
         this.action = action;
-        this.player = player;
         this.playerName = playerName;
+        this.uuid = uuid;
+        this.displayName = displayName;
         this.disconnectReason = disconnectReason;
         this.newPosition = newPosition;
         this.newAngle = newAngle;
@@ -45,65 +52,75 @@ public class PlayerActionPacket extends Packet {
         this.newStats = newStats;
     }
 
-    public PlayerActionPacket(Player player, String disconnectReason) {
-        this(Action.REMOVE, player, player.getAuthService().getUsername(), disconnectReason, player.getPosition(), player.getAngle(),
+    public PlayerActionPacket(Action action, Player player) {
+        this(action, player.getAuthService().getUsername(), player.getAuthService().getSelectedProfile().getId(),
+                player.getAuthService().getSelectedProfile().getName(), "", player.getPosition(), player.getAngle(),
                 player.getDimension(), player.getFoodStats());
     }
 
-    public PlayerActionPacket(Player player) {
-        this(Action.ADD, player, player.getAuthService().getUsername(), "", player.getPosition(), player.getAngle(),
+    public PlayerActionPacket(String username, UUID uuid, String displayName) {
+        this(Action.ADD, username, uuid, displayName, "", new Position(0, 0, 0),
+                new Angle(0, 0), Dimension.OVERWORLD, null);
+    }
+
+    public PlayerActionPacket(String username) {
+        this(Action.REMOVE, username, null, "", "", new Position(0, 0, 0),
+                new Angle(0, 0), Dimension.OVERWORLD, null);
+    }
+
+    public PlayerActionPacket(Player player, String disconnectReason) {
+        this(Action.LOGOUT, player.getAuthService().getUsername(), player.getAuthService().getSelectedProfile().getId(),
+                player.getAuthService().getSelectedProfile().getName(), disconnectReason, player.getPosition(), player.getAngle(),
                 player.getDimension(), player.getFoodStats());
     }
 
     public PlayerActionPacket(String playerName, Position newPosition, Angle newAngle) {
-        this(Action.UPDATE_POSITION, null, playerName, "", newPosition, newAngle, Dimension.OVERWORLD,
-                null);
+        this(Action.UPDATE_POSITION, playerName, null, "", "", newPosition, newAngle,
+                Dimension.OVERWORLD, null);
     }
 
     public PlayerActionPacket(String playerName, Dimension newDimension) {
-        this(Action.UPDATE_DIMENSION, null, playerName, "", new Position(0, 0,0),
+        this(Action.UPDATE_DIMENSION, playerName, null, "", "", new Position(0, 0,0),
                 new Angle(0.0f, 0.0f), newDimension, null);
     }
 
     public PlayerActionPacket(String playerName, Player.FoodStats newStats) {
-        this(Action.UPDATE_HEALTH, null, playerName, "", new Position(0, 0, 0),
+        this(Action.UPDATE_HEALTH, playerName, null, "", "", new Position(0, 0, 0),
                 new Angle(0.0f, 0.0f), Dimension.OVERWORLD, newStats);
     }
 
     public PlayerActionPacket() {
-        this(Action.ADD, null, "", "", new Position(0, 0, 0),
+        this(Action.ADD, "", null, "", "", new Position(0, 0, 0),
                 new Angle(0.0f, 0.0f), Dimension.OVERWORLD, null);
     }
 
     @Override
     public void read(InputStream inputStream) throws IOException {
-        action = new EnumType<>(Action.class).read(inputStream);
+        action = ACTION.read(inputStream);
+        playerName = Registry.STRING.read(inputStream);
 
         switch (action) {
             case ADD: {
-                player = YCRegistry.PLAYER.read(inputStream);
+                uuid = UUID.nameUUIDFromBytes(Registry.BYTES.read(inputStream));
+                displayName = Registry.STRING.read(inputStream);
                 break;
             }
-            case REMOVE: {
-                playerName = Registry.STRING.read(inputStream);
+            case LOGOUT: {
                 disconnectReason = Registry.STRING.read(inputStream);
                 break;
             }
             case UPDATE_POSITION: {
-                playerName = Registry.STRING.read(inputStream);
                 newPosition = YCRegistry.POSITION.read(inputStream);
                 newAngle = YCRegistry.ANGLE.read(inputStream);
                 break;
             }
             case UPDATE_DIMENSION: {
-                playerName = Registry.STRING.read(inputStream);
                 newDimension = Dimension.fromMC(Registry.SHORT.read(inputStream));
                 break;
             }
             case UPDATE_HEALTH: {
                 if (newStats == null) newStats = new Player.FoodStats(20.0f, 20, 5.0f);
 
-                playerName = Registry.STRING.read(inputStream);
                 newStats.setHealth(Registry.FLOAT.read(inputStream));
                 newStats.setHunger(Registry.UNSIGNED_SHORT.read(inputStream));
                 newStats.setSaturation(Registry.FLOAT.read(inputStream));
@@ -114,31 +131,32 @@ public class PlayerActionPacket extends Packet {
 
     @Override
     public void write(OutputStream outputStream) throws IOException {
-        new EnumType<>(Action.class).write(action, outputStream);
+        ACTION.write(action, outputStream);
+        Registry.STRING.write(playerName, outputStream);
 
         switch (action) {
             case ADD: {
-                YCRegistry.PLAYER.write(player, outputStream);
+                Registry.BYTES.write(ByteBuffer.allocate(16)
+                        .putLong(uuid.getMostSignificantBits())
+                        .putLong(uuid.getLeastSignificantBits())
+                        .array(), outputStream);
+                Registry.STRING.write(displayName, outputStream);
                 break;
             }
-            case REMOVE: {
-                Registry.STRING.write(playerName, outputStream);
+            case LOGOUT: {
                 Registry.STRING.write(disconnectReason, outputStream);
                 break;
             }
             case UPDATE_POSITION: {
-                Registry.STRING.write(playerName, outputStream);
                 YCRegistry.POSITION.write(newPosition, outputStream);
                 YCRegistry.ANGLE.write(newAngle, outputStream);
                 break;
             }
             case UPDATE_DIMENSION: {
-                Registry.STRING.write(playerName, outputStream);
                 Registry.SHORT.write((short)newDimension.getMCDim(), outputStream);
                 break;
             }
             case UPDATE_HEALTH: {
-                Registry.STRING.write(playerName, outputStream);
                 Registry.FLOAT.write(newStats.getHealth(), outputStream);
                 Registry.UNSIGNED_SHORT.write(newStats.getHunger(), outputStream);
                 Registry.FLOAT.write(newStats.getSaturation(), outputStream);
@@ -159,17 +177,6 @@ public class PlayerActionPacket extends Packet {
     }
 
     /**
-     * @return The player.
-     */
-    public Player getPlayer() {
-        return player;
-    }
-
-    public void setPlayer(Player player) {
-        this.player = player;
-    }
-
-    /**
      * @return The username of the player.
      */
     public String getPlayerName() {
@@ -178,6 +185,28 @@ public class PlayerActionPacket extends Packet {
 
     public void setPlayerName(String playerName) {
         this.playerName = playerName;
+    }
+
+    /**
+     * @return The UUID of the player.
+     */
+    public UUID getUUID() {
+        return uuid;
+    }
+
+    public void setUUID(UUID uuid) {
+        this.uuid = uuid;
+    }
+
+    /**
+     * @return The in-game display name of the player.
+     */
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
     }
 
     /**
@@ -237,6 +266,7 @@ public class PlayerActionPacket extends Packet {
 
     public enum Action {
         ADD, REMOVE,
+        LOGIN, LOGOUT,
         UPDATE_POSITION,
         UPDATE_DIMENSION,
         UPDATE_HEALTH;

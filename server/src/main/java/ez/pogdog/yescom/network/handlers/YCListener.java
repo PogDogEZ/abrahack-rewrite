@@ -5,11 +5,9 @@ import ez.pogdog.yescom.events.ReporterAddedEvent;
 import ez.pogdog.yescom.events.ReporterRemovedEvent;
 import ez.pogdog.yescom.events.config.SyncConfigRuleEvent;
 import ez.pogdog.yescom.events.data.DataBroadcastEvent;
-import ez.pogdog.yescom.events.online.PlayerLoginEvent;
-import ez.pogdog.yescom.events.online.PlayerLogoutEvent;
-import ez.pogdog.yescom.events.player.PlayerAddedEvent;
-import ez.pogdog.yescom.events.player.PlayerRemovedEvent;
-import ez.pogdog.yescom.events.player.PlayerUpdatedEvent;
+import ez.pogdog.yescom.events.online.OnlinePlayerLoginEvent;
+import ez.pogdog.yescom.events.online.OnlinePlayerLogoutEvent;
+import ez.pogdog.yescom.events.player.*;
 import ez.pogdog.yescom.events.task.TaskAddedEvent;
 import ez.pogdog.yescom.events.task.TaskRemovedEvent;
 import ez.pogdog.yescom.events.task.TaskResultEvent;
@@ -386,11 +384,23 @@ public class YCListener extends YCHandler {
     @Listener
     public void onPlayerAdded(PlayerAddedEvent event) {
         if (event.getReporter() == currentReporter)
-            connection.sendPacket(new PlayerActionPacket(event.getPlayer()));
+            connection.sendPacket(new PlayerActionPacket(PlayerActionPacket.Action.ADD, event.getPlayer()));
     }
 
     @Listener
     public void onPlayerRemoved(PlayerRemovedEvent event) {
+        if (event.getReporter() == currentReporter)
+            connection.sendPacket(new PlayerActionPacket(event.getPlayer()));
+    }
+
+    @Listener
+    public void onPlayerLogin(PlayerLoginEvent event) {
+        if (event.getReporter() == currentReporter)
+            connection.sendPacket(new PlayerActionPacket(PlayerActionPacket.Action.LOGIN, event.getPlayer()));
+    }
+
+    @Listener
+    public void onPlayerLogout(PlayerLogoutEvent event) {
         if (event.getReporter() == currentReporter)
             connection.sendPacket(new PlayerActionPacket(event.getPlayer(), event.getReason()));
     }
@@ -444,7 +454,7 @@ public class YCListener extends YCHandler {
     }
 
     @Listener
-    public synchronized void onPlayerLogin(PlayerLoginEvent event) {
+    public synchronized void onOnlinePlayerLogin(OnlinePlayerLoginEvent event) {
         if (event.getReporter() == currentReporter) {
             playerLogins.put(event.getUUID(), event.getDisplayName());
             playerLogouts.remove(event.getUUID());
@@ -452,7 +462,7 @@ public class YCListener extends YCHandler {
     }
 
     @Listener
-    public synchronized void onPlayerLogout(PlayerLogoutEvent event) {
+    public synchronized void onOnlinePlayerLogout(OnlinePlayerLogoutEvent event) {
         if (event.getReporter() == currentReporter) {
             playerLogouts.add(event.getUUID());
             playerLogins.remove(event.getUUID());

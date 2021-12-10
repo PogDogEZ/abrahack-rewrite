@@ -11,6 +11,8 @@ public class Player {
     private final UUID uuid;
     private final String displayName;
 
+    private boolean loggedIn;
+
     private Position position;
     private Angle angle;
     private int dimension;
@@ -23,6 +25,14 @@ public class Player {
         this.username = username;
         this.uuid = uuid;
         this.displayName = displayName;
+
+        loggedIn = false;
+        position = new Position(0, 0, 0);
+        angle = new Angle(0, 0);
+        dimension = 0;
+        health = 20.0f;
+        food = 20;
+        saturation = 5.0f;
     }
 
     @Override
@@ -40,6 +50,14 @@ public class Player {
 
     public String getDisplayName() {
         return displayName;
+    }
+
+    public boolean isLoggedIn() {
+        return loggedIn;
+    }
+
+    public void setLoggedIn(boolean loggedIn) {
+        this.loggedIn = loggedIn;
     }
 
     public Position getPosition() {

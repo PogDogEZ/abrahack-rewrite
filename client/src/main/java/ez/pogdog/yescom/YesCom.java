@@ -83,9 +83,9 @@ public class YesCom {
         tempLogger.setUseParentHandlers(false);
         tempLogger.addHandler(consoleHandler);
 
-        Logger.getLogger("jclient").setLevel(Level.ALL);
-        Logger.getLogger("jclient").setUseParentHandlers(false);
-        Logger.getLogger("jclient").addHandler(consoleHandler);
+        Logger.getLogger("").setLevel(Level.ALL);
+        Logger.getLogger("").setUseParentHandlers(false);
+        Logger.getLogger("").addHandler(consoleHandler);
 
         Options options = new Options();
 
@@ -141,7 +141,7 @@ public class YesCom {
 
                 tempLogger.setLevel(level);
                 consoleHandler.setLevel(level);
-                Logger.getLogger("jclient").setLevel(level);
+                Logger.getLogger("").setLevel(level);
 
             } catch (IllegalArgumentException | NullPointerException ignored) {
             }

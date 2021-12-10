@@ -4,6 +4,8 @@ import ez.pogdog.yescom.events.ReporterEvent;
 import ez.pogdog.yescom.network.handlers.YCReporter;
 import ez.pogdog.yescom.util.Player;
 
+import java.util.UUID;
+
 public class PlayerAddedEvent extends ReporterEvent {
 
     private final Player player;
@@ -14,9 +16,6 @@ public class PlayerAddedEvent extends ReporterEvent {
         this.player = player;
     }
 
-    /**
-     * @return The player that was added.
-     */
     public Player getPlayer() {
         return player;
     }

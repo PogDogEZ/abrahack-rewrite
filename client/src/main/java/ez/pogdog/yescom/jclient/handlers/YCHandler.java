@@ -3,6 +3,7 @@ package ez.pogdog.yescom.jclient.handlers;
 import com.github.steveice10.mc.auth.exception.request.RequestException;
 import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.data.serializable.ChatMessage;
+import ez.pogdog.yescom.data.serializable.TrackedPlayer;
 import ez.pogdog.yescom.handlers.ConfigHandler;
 import ez.pogdog.yescom.handlers.connection.Player;
 import ez.pogdog.yescom.jclient.packets.*;
@@ -45,6 +46,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
     private final List<ChatMessage> queuedChatMessages = new ArrayList<>();
     private final List<ChunkState> queuedChunkStates = new ArrayList<>();
+    private final List<TrackedPlayer> queuedTrackedPlayers = new ArrayList<>();
 
     private final List<UUID> syncedOnlinePlayers = new ArrayList<>();
     private final Map<UUID, String> queuedJoins = new HashMap<>();
@@ -142,7 +144,9 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
                 yesCom.logger.finer("Done.");
 
                 yesCom.logger.finer("Syncing players...");
-                yesCom.connectionHandler.getPlayers().forEach(this::onPlayerAdded);
+                yesCom.accountHandler.getAccounts().forEach(authService -> onPlayerAdded(authService.getUsername(),
+                        authService.getSelectedProfile().getId(), authService.getSelectedProfile().getName()));
+                yesCom.connectionHandler.getPlayers().forEach(this::onPlayerLogin);
                 yesCom.logger.finer("Done.");
 
                 yesCom.logger.finer("Syncing trackers...");
@@ -250,7 +254,12 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
                             yesCom.logger.warning(String.format("Couldn't instantiate task %s.", registeredTask));
                             yesCom.logger.throwing(YCHandler.class.getSimpleName(), "handlePacket", error);
 
-                            connection.sendPacket(new ActionResponsePacket(taskAction.getActionID(), false, error.getMessage()));
+                            if (error instanceof InvocationTargetException) {;
+                                connection.sendPacket(new ActionResponsePacket(taskAction.getActionID(), false,
+                                        ((InvocationTargetException)error).getTargetException().getMessage()));
+                            } else {
+                                connection.sendPacket(new ActionResponsePacket(taskAction.getActionID(), false, error.getMessage()));
+                            }
                             return;
                         }
 
@@ -403,13 +412,19 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
             queuedChatMessages.clear();
         }
 
-        if (System.currentTimeMillis() - lastChunkStatesUpdate > 500) {
+        if (System.currentTimeMillis() - lastChunkStatesUpdate > 250) {
             lastChunkStatesUpdate = System.currentTimeMillis();
 
             if (!queuedChunkStates.isEmpty())
                 connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.CHUNK_STATE,
                         queuedChunkStates, new ArrayList<>()));
             queuedChunkStates.clear();
+        }
+
+        if (!queuedTrackedPlayers.isEmpty()) {
+            connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.TRACKED_PLAYER,
+                    queuedTrackedPlayers, new ArrayList<>()));
+            queuedTrackedPlayers.clear();
         }
 
         if (!queuedJoins.isEmpty()) {
@@ -632,11 +647,19 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
     /* ----------------------------- Player Events ----------------------------- */
 
-    public synchronized void onPlayerAdded(Player player) {
-        queuedPackets.addFirst(new PlayerActionPacket(player));
+    public synchronized void onPlayerAdded(String username, UUID uuid, String displayName) {
+        queuedPackets.addFirst(new PlayerActionPacket(username, uuid, displayName));
     }
 
-    public synchronized void onPlayerRemoved(Player player, String reason) {
+    public synchronized void onPlayerRemoved(String username) {
+        queuedPackets.addFirst(new PlayerActionPacket(username));
+    }
+
+    public synchronized void onPlayerLogin(Player player) {
+        queuedPackets.addLast(new PlayerActionPacket(PlayerActionPacket.Action.LOGIN, player));
+    }
+
+    public synchronized void onPlayerLogout(Player player, String reason) {
         queuedPackets.addLast(new PlayerActionPacket(player, reason));
     }
 
@@ -655,7 +678,13 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
     /* ----------------------------- Chunk Events ----------------------------- */
 
     public synchronized void onChunkState(ChunkState chunkState) {
-        queuedChunkStates.add(chunkState);
+        if (yesCom.configHandler.BROADCAST_CHUNK_STATES) queuedChunkStates.add(chunkState);
+    }
+
+    /* ----------------------------- Tracked Player Events ----------------------------- */
+
+    public synchronized void onTrackedPlayer(TrackedPlayer trackedPlayer) {
+        if (yesCom.configHandler.BROADCAST_TRACKED_PLAYERS) queuedTrackedPlayers.add(trackedPlayer);
     }
 
     /* ----------------------------- Tracker Events ----------------------------- */

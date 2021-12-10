@@ -37,6 +37,9 @@ public class ConfigHandler implements IHandler {
     public String GROUP_NAME = "local";
     public String PASSWORD = "t";
 
+    public boolean BROADCAST_CHUNK_STATES = true;
+    public boolean BROADCAST_TRACKED_PLAYERS = false; // The viewer should request these when trackers get added anyway
+
     /**
      * How long to wait before logging in.
      */
@@ -48,7 +51,7 @@ public class ConfigHandler implements IHandler {
     public int MIN_TIME_CONNECTED = 5000;
 
     /**
-     * When to puase packet sending due to lack of server response.
+     * When to pause packet sending due to lack of server response.
      */
     public int MAX_PACKET_TIME = 1000;
 
@@ -382,7 +385,7 @@ public class ConfigHandler implements IHandler {
                     if (Enum.class.isAssignableFrom(clazz)) {
                         field.set(this, Enum.valueOf((Class<? extends Enum>)clazz, value.toString()));
                     } else if (double.class.isAssignableFrom(clazz)) {
-                        field.setDouble(this, (double)value);
+                        field.setDouble(this, ((Float)value).doubleValue());
                     } else {
                         field.set(this, value);
                     }

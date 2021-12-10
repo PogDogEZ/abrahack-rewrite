@@ -3,11 +3,9 @@ package ez.pogdog.yescom.network.handlers;
 import ez.pogdog.yescom.events.data.DataBroadcastEvent;
 import ez.pogdog.yescom.events.InfoUpdateEvent;
 import ez.pogdog.yescom.events.config.SyncConfigRuleEvent;
-import ez.pogdog.yescom.events.online.PlayerLoginEvent;
-import ez.pogdog.yescom.events.online.PlayerLogoutEvent;
-import ez.pogdog.yescom.events.player.PlayerAddedEvent;
-import ez.pogdog.yescom.events.player.PlayerRemovedEvent;
-import ez.pogdog.yescom.events.player.PlayerUpdatedEvent;
+import ez.pogdog.yescom.events.online.OnlinePlayerLoginEvent;
+import ez.pogdog.yescom.events.online.OnlinePlayerLogoutEvent;
+import ez.pogdog.yescom.events.player.*;
 import ez.pogdog.yescom.events.task.TaskAddedEvent;
 import ez.pogdog.yescom.events.task.TaskRemovedEvent;
 import ez.pogdog.yescom.events.task.TaskResultEvent;
@@ -272,72 +270,71 @@ public class YCReporter extends YCHandler {
         } else if (packet instanceof PlayerActionPacket) {
             PlayerActionPacket playerAction = (PlayerActionPacket)packet;
 
-            switch (playerAction.getAction()) {
-                case ADD: {
-                    logger.finer(String.format("Adding player: %s", playerAction.getPlayer()));
-                    players.add(playerAction.getPlayer());
+            if (playerAction.getAction() == PlayerActionPacket.Action.ADD) {
+                Player player = new Player(playerAction.getPlayerName(), playerAction.getUUID(), playerAction.getDisplayName());
 
-                    jServer.eventBus.post(new PlayerAddedEvent(this, playerAction.getPlayer()));
-                    break;
+                logger.finer(String.format("Adding player: %s", player));
+                players.add(player);
+
+                jServer.eventBus.post(new PlayerAddedEvent(this, player));
+
+            } else {
+                Player player = getPlayer(playerAction.getPlayerName());
+                if (player == null) {
+                    connection.exit("Invalid player name: " + playerAction.getPlayerName());
+                    return;
                 }
-                case REMOVE: {
-                    Player player = getPlayer(playerAction.getPlayerName());
-                    if (player == null) {
-                        connection.exit("Invalid player name: " + playerAction.getPlayerName());
-                        return;
+
+                switch (playerAction.getAction()) {
+                    case REMOVE: {
+                        logger.finer(String.format("Removing player: %s", player));
+                        players.remove(player);
+
+                        jServer.eventBus.post(new PlayerRemovedEvent(this, player));
+                        break;
                     }
+                    case LOGIN: {
+                        logger.finer(String.format("Logging player %s in.", player));
+                        player.setLoggedIn(true);
 
-                    logger.finer(String.format("Removing player: %s", player));
-                    players.remove(player);
-
-                    jServer.eventBus.post(new PlayerRemovedEvent(this, player, playerAction.getDisconnectReason()));
-                    break;
-                }
-                case UPDATE_POSITION: {
-                    Player player = getPlayer(playerAction.getPlayerName());
-                    if (player == null) {
-                        connection.exit("Invalid player name: " + playerAction.getPlayerName());
-                        return;
+                        jServer.eventBus.post(new PlayerLoginEvent(this, player));
+                        break;
                     }
+                    case LOGOUT: {
+                        logger.finer(String.format("Logging player %s out.", player));
+                        player.setLoggedIn(false);
 
-                    // logger.finer(String.format("Updating player position: %s", player));
-
-                    jServer.eventBus.post(new PlayerUpdatedEvent(this, player, playerAction.getNewPosition(), playerAction.getNewAngle()));
-
-                    player.setPosition(playerAction.getNewPosition());
-                    player.setAngle(playerAction.getNewAngle());
-                    break;
-                }
-                case UPDATE_DIMENSION: {
-                    Player player = getPlayer(playerAction.getPlayerName());
-                    if (player == null) {
-                        connection.exit("Invalid player name: " + playerAction.getPlayerName());
-                        return;
+                        jServer.eventBus.post(new PlayerLogoutEvent(this, player, playerAction.getDisconnectReason()));
+                        break;
                     }
+                    case UPDATE_POSITION: {
+                        // logger.finer(String.format("Updating player position: %s", player));
 
-                    logger.finer(String.format("Updating player dimension: %s", player));
+                        jServer.eventBus.post(new PlayerUpdatedEvent(this, player, playerAction.getNewPosition(), playerAction.getNewAngle()));
 
-                    jServer.eventBus.post(new PlayerUpdatedEvent(this, player, playerAction.getNewDimension()));
-
-                    player.setDimension(playerAction.getNewDimension());
-                    break;
-                }
-                case UPDATE_HEALTH: {
-                    Player player = getPlayer(playerAction.getPlayerName());
-                    if (player == null) {
-                        connection.exit("Invalid player name: " + playerAction.getPlayerName());
-                        return;
+                        player.setPosition(playerAction.getNewPosition());
+                        player.setAngle(playerAction.getNewAngle());
+                        break;
                     }
+                    case UPDATE_DIMENSION: {
+                        logger.finer(String.format("Updating player dimension: %s", player));
 
-                    logger.finer(String.format("Updating player health: %s", player));
+                        jServer.eventBus.post(new PlayerUpdatedEvent(this, player, playerAction.getNewDimension()));
 
-                    jServer.eventBus.post(new PlayerUpdatedEvent(this, player, playerAction.getNewHealth(),
-                            playerAction.getNewHunger(), playerAction.getNewSaturation()));
+                        player.setDimension(playerAction.getNewDimension());
+                        break;
+                    }
+                    case UPDATE_HEALTH: {
+                        logger.finer(String.format("Updating player health: %s", player));
 
-                    player.setHealth(playerAction.getNewHealth());
-                    player.setFood(playerAction.getNewHunger());
-                    player.setSaturation(playerAction.getNewSaturation());
-                    break;
+                        jServer.eventBus.post(new PlayerUpdatedEvent(this, player, playerAction.getNewHealth(),
+                                playerAction.getNewHunger(), playerAction.getNewSaturation()));
+
+                        player.setHealth(playerAction.getNewHealth());
+                        player.setFood(playerAction.getNewHunger());
+                        player.setSaturation(playerAction.getNewSaturation());
+                        break;
+                    }
                 }
             }
 
@@ -397,7 +394,7 @@ public class YCReporter extends YCHandler {
             switch (onlinePlayersAction.getAction()) {
                 case ADD: {
                     onlinePlayersAction.getOnlinePlayers().forEach((uuid, displayName) -> {
-                        jServer.eventBus.post(new PlayerLoginEvent(this, uuid, displayName));
+                        jServer.eventBus.post(new OnlinePlayerLoginEvent(this, uuid, displayName));
 
                         yesCom.putUUIDToName(uuid, displayName);
                         onlinePlayers.put(uuid, displayName);
@@ -406,7 +403,7 @@ public class YCReporter extends YCHandler {
                 }
                 case REMOVE: {
                     onlinePlayersAction.getOnlinePlayers().forEach((uuid, displayName) -> {
-                        jServer.eventBus.post(new PlayerLogoutEvent(this, uuid));
+                        jServer.eventBus.post(new OnlinePlayerLogoutEvent(this, uuid));
 
                         onlinePlayers.remove(uuid);
                     });

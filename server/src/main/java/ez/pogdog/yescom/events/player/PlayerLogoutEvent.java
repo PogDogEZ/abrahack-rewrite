@@ -4,21 +4,26 @@ import ez.pogdog.yescom.events.ReporterEvent;
 import ez.pogdog.yescom.network.handlers.YCReporter;
 import ez.pogdog.yescom.util.Player;
 
-public class PlayerRemovedEvent extends ReporterEvent {
+/**
+ * Called when a player associated with YesCom logs out.
+ */
+public class PlayerLogoutEvent extends ReporterEvent {
 
     private final Player player;
+    private final String reason;
 
-    public PlayerRemovedEvent(YCReporter reporter, Player player) {
+    public PlayerLogoutEvent(YCReporter reporter, Player player, String reason) {
         super(reporter);
 
         this.player = player;
+        this.reason = reason;
     }
 
-    /**
-     * @return The player that was removed.
-     */
     public Player getPlayer() {
         return player;
     }
-}
 
+    public String getReason() {
+        return reason;
+    }
+}

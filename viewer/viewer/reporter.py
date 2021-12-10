@@ -25,6 +25,14 @@ class Reporter:
         return self._name
 
     @property
+    def host(self) -> str:
+        return self._host
+
+    @property
+    def port(self) -> int:
+        return self._port
+
+    @property
     def registered_tasks(self) -> List[RegisteredTask]:
         """
         :return: The registered tasks that the reporter supports.
@@ -92,9 +100,11 @@ class Reporter:
     def time_since_last_packet(self) -> int:
         return self._time_since_last_packet
 
-    def __init__(self, handler_id: int, handler_name: str) -> None:
+    def __init__(self, handler_id: int, handler_name: str, host: str, port: int) -> None:
         self._id = handler_id
         self._name = handler_name
+        self._host = host
+        self._port = port
 
         self._config_rules = {}
         self._registered_tasks = []
@@ -151,7 +161,7 @@ class Reporter:
         self._time_since_last_packet = 0
 
     def update_info(self, waiting_queries: int, ticking_queries: int, queries_per_second: float, is_connected: bool,
-                    tick_rate: float = 20, server_ping: float = 0, time_since_last_packet: int = 0):
+                    tick_rate: float = 0, server_ping: float = 0, time_since_last_packet: int = 0):
         """
         Updates the reporter info.
 
@@ -435,6 +445,9 @@ class Reporter:
     def remove_online_player(self, uuid: UUID) -> None:
         if uuid in self._online_players:
             del self._online_players[uuid]
+
+    def is_player_online(self, uuid: UUID) -> bool:
+        return uuid in self._online_players
 
     def get_online_player(self, uuid: UUID) -> str:
         if not uuid in self._online_players:

@@ -9,11 +9,13 @@ from pyclient.networking.connection import Connection
 from pyclient.networking.handlers import Handler
 from pyclient.networking.packets import Packet
 from pyclient.networking.types.basic import String
+from viewer.events import ReporterEvent, DataEvent, PlayerEvent, DataBoundsEvent, ConnectEvent, DisconnectEvent, \
+    OnlinePlayerEvent, TaskEvent, TrackerEvent
 from viewer.network.packets import ReporterActionPacket, YCInitRequestPacket, YCInitResponsePacket, ReporterSyncPacket, \
     DataExchangePacket, ConfigActionPacket, TaskActionPacket, PlayerActionPacket, TrackerActionPacket, InfoUpdatePacket, \
     ActionResponsePacket, AccountActionPacket, OnlinePlayersActionPacket, ActionRequestPacket
 from viewer.reporter import Reporter
-from viewer.util import ActiveTask, RegisteredTask
+from viewer.util import ActiveTask, RegisteredTask, Player
 
 
 class Viewer(Handler):
@@ -47,7 +49,10 @@ class Viewer(Handler):
             # noinspection PyTypeChecker
             return None
 
-        return self.get_reporter(self._current_reporter)
+        try:
+            return self.get_reporter(self._current_reporter)
+        except LookupError:
+            return None
 
     @current_reporter.setter
     def current_reporter(self, handler_or_id: Union[Reporter, int]) -> None:
@@ -55,12 +60,11 @@ class Viewer(Handler):
         :param handler_or_id: The reporter to select, or the ID of the reporter to select.
         """
 
-        if self._current_reporter != -1:
-            self.get_reporter(self._current_reporter).reset()
-        self._current_reporter = -1
-
         reporter_action = ReporterActionPacket()
         reporter_action.action = ReporterActionPacket.Action.SELECT
+
+        if handler_or_id is None:
+            handler_or_id = -1
 
         if isinstance(handler_or_id, Reporter):
             reporter_action.reporter_id = handler_or_id.handler_id
@@ -77,6 +81,10 @@ class Viewer(Handler):
         self._tracker_action = False
         self._other_action = None
 
+    @property
+    def initialized(self) -> bool:
+        return self._initialized and not self._initializing
+
     def __init__(self, connection: Connection, name: str = "test") -> None:
         super().__init__(connection)
 
@@ -84,14 +92,13 @@ class Viewer(Handler):
         self._name = name
 
         self._current_reporter = -1
+        self._queued_unregister = False
         self._reporters = []
 
-        self._config_listeners = []  # TODO: Listeners
-        self._task_listeners = []
-        self._player_listeners = []
-        self._tracker_listeners = []
+        self._event_listeners = []
 
         self._uuid_to_username_cache = {}  # TODO: Dump this cache
+        self._username_to_uuid_cache = {}
 
         self._initializing = False
         self._initialized = False
@@ -109,6 +116,8 @@ class Viewer(Handler):
         self._data_start_time = 0
         self._data_end_time = 0
         self._data_update_interval = 0
+        self._data_max_id = 0
+        self._data_min_id = 0
 
         self._action_success = False
         self._action_message = ""
@@ -133,10 +142,13 @@ class Viewer(Handler):
             self._initializing = False
             self._initialized = True
 
+            self._post_event(ConnectEvent())
+
         elif isinstance(packet, DataExchangePacket):
             if packet.request_type == DataExchangePacket.RequestType.UPLOAD:
                 if packet.request_id == -1:  # Broadcast data
-                    print(packet.get_data())
+                    self._post_event(DataEvent(packet.data_type, packet.get_data(), packet.get_invalid_data_ids(),
+                                               packet.start_time, packet.end_time, packet.update_interval))
 
                 else:
                     self._data.clear()
@@ -148,18 +160,61 @@ class Viewer(Handler):
                     self._data_end_time = packet.end_time
                     self._data_update_interval = packet.update_interval
 
+                    self._post_event(DataEvent(packet.data_type, packet.get_data(), packet.get_invalid_data_ids(),
+                                               packet.start_time, packet.end_time, packet.update_interval))
+
                     self._downloading_data = False
+
+            elif packet.request_type == DataExchangePacket.RequestType.SET_BOUNDS:
+                self._data_start_time = packet.start_time
+                self._data_end_time = packet.end_time
+                self._data_update_interval = packet.update_interval
+
+                self._data_max_id = packet.max_data_id
+                self._data_min_id = packet.min_data_id
+
+                self._post_event(DataBoundsEvent(packet.data_type, packet.start_time, packet.end_time,
+                                                 packet.update_interval, packet.max_data_id, packet.min_data_id))
+
+                self._downloading_data = False
 
         elif isinstance(packet, ReporterActionPacket):
             if packet.action == ReporterActionPacket.Action.ADD:
-                self.register_reporter(Reporter(packet.reporter_id, packet.reporter_name))
+                current_reporter = Reporter(packet.reporter_id, packet.reporter_name, packet.reporter_host, packet.reporter_port)
+
+                self.register_reporter(current_reporter)
+                self._post_event(ReporterEvent(ReporterEvent.EventType.ADDED, current_reporter))
             else:
-                self.unregister_reporter(self.get_reporter(packet.reporter_id))
+                try:
+                    current_reporter = self.get_reporter(packet.reporter_id)
+
+                    self.unregister_reporter(current_reporter)
+                    self._post_event(ReporterEvent(ReporterEvent.EventType.REMOVED, current_reporter))
+                except LookupError:
+                    ...
 
         elif isinstance(packet, ReporterSyncPacket):
+            # Always reset out current reporter on received a new one
+            current_reporter = self.current_reporter
+            if current_reporter is not None:
+                for active_task in current_reporter.get_active_tasks():
+                    self._post_event(TaskEvent(TaskEvent.EventType.REMOVED, active_task))
+                for player in current_reporter.get_players():
+                    self._post_event(PlayerEvent(PlayerEvent.EventType.REMOVED, player))
+                for tracker in current_reporter.get_trackers():
+                    self._post_event(TrackerEvent(TrackerEvent.EventType.REMOVED, tracker))
+                for uuid, name in current_reporter.get_online_players().items():
+                    self._post_event(OnlinePlayerEvent(OnlinePlayerEvent.EventType.REMOVED, uuid, name))
+                current_reporter.reset()
+
             if not packet.has_reporter:
                 logging.debug("Unselecting current reporter.")
+
                 self._current_reporter = -1
+                # Unregister it once we know we have lost our reporter
+                if current_reporter is not None and self._queued_unregister:
+                    self._queued_unregister = False
+                    self.unregister_reporter(current_reporter)
 
                 self._downloading_data = False
 
@@ -168,6 +223,9 @@ class Viewer(Handler):
                 self._task_action = False
                 self._tracker_action = False
                 self._other_action = None
+
+                # noinspection PyTypeChecker
+                self._post_event(ReporterEvent(ReporterEvent.EventType.SELECTED, None))
 
             else:
                 self._current_reporter = packet.reporter_id
@@ -190,7 +248,16 @@ class Viewer(Handler):
                     current_reporter.set_players(packet.get_players())
                     current_reporter.set_trackers(packet.get_trackers())
 
+                    for active_task in packet.get_active_tasks():
+                        self._post_event(TaskEvent(TaskEvent.EventType.ADDED, active_task))
+                    for player in packet.get_players():
+                        self._post_event(PlayerEvent(PlayerEvent.EventType.ADDED, player))
+                    for tracker in packet.get_trackers():
+                        self._post_event(TrackerEvent(TrackerEvent.EventType.UPDATED, tracker))
+
                     logging.debug("Current reporter: %r." % current_reporter)
+
+                    self._post_event(ReporterEvent(ReporterEvent.EventType.SELECTED, current_reporter))
 
         elif isinstance(packet, ConfigActionPacket):
             current_reporter = self.current_reporter
@@ -205,45 +272,80 @@ class Viewer(Handler):
 
             if current_reporter is not None:
                 if packet.action == TaskActionPacket.Action.ADD:
-                    current_reporter.add_active_task(ActiveTask(current_reporter.get_registered_task(packet.task_name),
-                                                                packet.task_id, packet.get_task_params(), 0, 0, []))
+                    active_task = ActiveTask(current_reporter.get_registered_task(packet.task_name), packet.task_id,
+                                             packet.get_task_params(), 0, 0, [])
+                    current_reporter.add_active_task(active_task)
+
+                    self._post_event(TaskEvent(TaskEvent.EventType.ADDED, active_task))
 
                 elif packet.action == TaskActionPacket.Action.REMOVE:
-                    current_reporter.remove_active_task(current_reporter.get_active_task(packet.task_id))
+                    active_task = current_reporter.get_active_task(packet.task_id)
+                    current_reporter.remove_active_task(active_task)
+
+                    self._post_event(TaskEvent(TaskEvent.EventType.REMOVED, active_task))
 
                 elif packet.action == TaskActionPacket.Action.UPDATE:
-                    current_reporter.get_active_task(packet.task_id).update(packet.loaded_chunk_task, packet.progress,
-                                                                            packet.time_elapsed, packet.current_position)
+                    active_task = current_reporter.get_active_task(packet.task_id)
+                    active_task.update(packet.loaded_chunk_task, packet.progress, packet.time_elapsed,
+                                       packet.current_position)
+
+                    self._post_event(TaskEvent(TaskEvent.EventType.UPDATED, active_task))
 
                 elif packet.action == TaskActionPacket.Action.RESULT:
-                    current_reporter.get_active_task(packet.task_id).add_result(packet.result)
+                    active_task = current_reporter.get_active_task(packet.task_id)
+                    active_task.add_result(packet.result)
+
+                    self._post_event(TaskEvent(TaskEvent.EventType.RESULT, active_task, packet.result))
 
         elif isinstance(packet, PlayerActionPacket):
             current_reporter = self.current_reporter
 
             if current_reporter is not None:
                 if packet.action == PlayerActionPacket.Action.ADD:
-                    logging.debug("New player: %r." % packet.player)
-                    current_reporter.add_player(packet.player)
+                    player = Player(packet.player_name, packet.uuid, packet.display_name)
+                    logging.debug("New player: %r." % player)
+
+                    current_reporter.add_player(player)
+                    self._post_event(PlayerEvent(PlayerEvent.EventType.ADDED, player))
 
                 else:
                     player = current_reporter.get_player(packet.player_name)
+                    if player is None:
+                        return
 
                     if packet.action == PlayerActionPacket.Action.REMOVE:
-                        logging.debug("%r was disconnected for %r", player, packet.disconnect_reason)
                         current_reporter.remove_player(player)
+
+                        self._post_event(PlayerEvent(PlayerEvent.EventType.REMOVED, player))
+
+                    elif packet.action == PlayerActionPacket.Action.LOGIN:
+                        player.logged_in = True
+
+                        self._post_event(PlayerEvent(PlayerEvent.EventType.LOGIN, player))
+
+                    elif packet.action == PlayerActionPacket.Action.LOGOUT:
+                        logging.debug("%r was disconnected for %r", player, packet.disconnect_reason)
+                        player.logged_in = False
+
+                        self._post_event(PlayerEvent(PlayerEvent.EventType.LOGOUT, player, packet.disconnect_reason))
 
                     elif packet.action == PlayerActionPacket.Action.UPDATE_POSITION:
                         player.position = packet.new_position
                         player.angle = packet.new_angle
 
+                        self._post_event(PlayerEvent(PlayerEvent.EventType.UPDATED, player))
+
                     elif packet.action == PlayerActionPacket.Action.UPDATE_DIMENSION:
                         player.dimension = packet.new_dimension
+
+                        self._post_event(PlayerEvent(PlayerEvent.EventType.UPDATED, player))
 
                     elif packet.action == PlayerActionPacket.Action.UPDATE_HEALTH:
                         player.health = packet.new_health
                         player.food = packet.new_hunger
                         player.saturation = packet.new_saturation
+
+                        self._post_event(PlayerEvent(PlayerEvent.EventType.UPDATED, player))
 
         elif isinstance(packet, TrackerActionPacket):
             current_reporter = self.current_reporter
@@ -252,14 +354,20 @@ class Viewer(Handler):
                 if packet.action == TrackerActionPacket.Action.ADD:
                     current_reporter.add_tracker(packet.tracker)
 
+                    self._post_event(TrackerEvent(TrackerEvent.EventType.ADDED, packet.tracker))
+
                 else:
                     tracker = current_reporter.get_tracker(packet.tracker_id)
 
                     if packet.action == TrackerActionPacket.Action.REMOVE:
                         current_reporter.remove_tracker(tracker)
 
+                        self._post_event(TrackerEvent(TrackerEvent.EventType.REMOVED, tracker))
+
                     elif packet.action == TrackerActionPacket.Action.UPDATE:
                         tracker.set_tracked_player_ids(packet.get_tracked_player_ids())
+
+                        self._post_event(TrackerEvent(TrackerEvent.EventType.UPDATED, tracker))
 
         elif isinstance(packet, InfoUpdatePacket):
             current_reporter = self.current_reporter
@@ -274,11 +382,16 @@ class Viewer(Handler):
 
             if current_reporter is not None:
                 if packet.action == OnlinePlayersActionPacket.Action.ADD:
-                    self._uuid_to_username_cache.update(packet.get_online_players())
+                    for uuid, username in packet.get_online_players().items():
+                        self._uuid_to_username_cache[uuid] = username
+                        self._username_to_uuid_cache[username] = uuid
+                        self._post_event(OnlinePlayerEvent(OnlinePlayerEvent.EventType.ADDED, uuid, username))
                     current_reporter.put_online_players(packet.get_online_players())
 
                 else:
                     for uuid in packet.get_online_players():
+                        self._post_event(OnlinePlayerEvent(OnlinePlayerEvent.EventType.REMOVED, uuid,
+                                                           self._uuid_to_username_cache[uuid]))
                         current_reporter.remove_online_player(uuid)
 
         elif isinstance(packet, ActionResponsePacket):
@@ -296,15 +409,40 @@ class Viewer(Handler):
             self._tracker_action = False
             self._other_action = None
 
+    def on_exit(self, reason: str) -> None:
+        self.exit()
+
     # ----------------------------- Management stuff ----------------------------- #
+
+    def _post_event(self, event) -> None:
+        for event_listener in self._event_listeners:
+            event_listener(event)
 
     def exit(self) -> None:
         """
         Exits the viewer.
         """
 
+        for reporter in self._reporters:
+            self._post_event(ReporterEvent(ReporterEvent.EventType.REMOVED, reporter))
+
+        current_reporter = self.current_reporter
+        if current_reporter is not None:
+            for active_task in current_reporter.get_active_tasks():
+                self._post_event(TaskEvent(TaskEvent.EventType.REMOVED, active_task))
+            for player in current_reporter.get_players():
+                self._post_event(PlayerEvent(PlayerEvent.EventType.REMOVED, player))
+            for tracker in current_reporter.get_trackers():
+                self._post_event(TrackerEvent(TrackerEvent.EventType.REMOVED, tracker))
+            for uuid, name in current_reporter.get_online_players().items():
+                self._post_event(OnlinePlayerEvent(OnlinePlayerEvent.EventType.REMOVED, uuid, name))
+
+        self._current_reporter = -1
+
         if self.connection is not None and self.connection.connected:
             self.connection.exit("Exited.")
+
+        self._post_event(DisconnectEvent())
 
     def init(self) -> None:
         """
@@ -321,6 +459,24 @@ class Viewer(Handler):
         logging.info("Initializing YC connection.")
         self.connection.send_packet(YCInitRequestPacket(client_type=YCInitRequestPacket.ClientType.LISTENING,
                                                         handler_name=self._name))
+
+    def add_listener(self, listener) -> None:
+        """
+        Adds an event listener to this viewer.
+
+        :param listener: The listener (function) to add.
+        """
+
+        self._event_listeners.append(listener)
+
+    def remove_listener(self, listener) -> None:
+        """
+        Removes an event listener from this viewer.
+
+        :param listener: The listener (function) to remove.
+        """
+
+        self._event_listeners.remove(listener)
 
     # ----------------------------- Actions ----------------------------- #
 
@@ -357,7 +513,7 @@ class Viewer(Handler):
             raise error
 
         while self._downloading_data:
-            time.sleep(0.1)
+            time.sleep(0.01)
 
         return self._data_start_time, self._data_end_time, self._data_update_interval, self._data.copy()
 
@@ -395,9 +551,77 @@ class Viewer(Handler):
             raise error
 
         while self._downloading_data:
-            time.sleep(0.1)
+            time.sleep(0.01)
 
         return self._data.copy(), self._invalid_data_ids.copy()
+
+    def request_numeric_data_bounds(self, data_type: DataExchangePacket.DataType) -> Tuple[int, int, int]:
+        """
+        Requests the numeric data bounds from the current reporter.
+
+        :param data_type: The type of data to request.
+        :return: The start, end and update interval.
+        """
+
+        if not self._initialized or self._initializing:
+            raise Exception("Not initialized.")
+
+        if self._downloading_data:
+            raise Exception("Already downloading data.")
+
+        if self.current_reporter is None:
+            raise Exception("No reporter selected.")
+
+        if not data_type in (DataExchangePacket.DataType.TICK_DATA, DataExchangePacket.DataType.PING_DATA,
+                             DataExchangePacket.DataType.TSLP_DATA):
+            raise Exception("Invalid data type requested.")
+
+        self._downloading_data = True
+        try:
+            self.connection.send_packet(DataExchangePacket(request_type=DataExchangePacket.RequestType.GET_BOUNDS,
+                                                           data_type=data_type))
+        except Exception as error:
+            self._downloading_data = False
+            raise error
+
+        while self._downloading_data:
+            time.sleep(0.01)
+
+        return self._data_start_time, self._data_end_time, self._data_update_interval
+
+    def request_data_bounds(self, data_type: DataExchangePacket.DataType) -> Tuple[int, int]:
+        """
+        Requests the data bounds of the current reporter.
+
+        :param data_type: The type of data to request.
+        :return: The min and max bounds of the data.
+        """
+
+        if not self._initialized or self._initializing:
+            raise Exception("Not initialized.")
+
+        if self._downloading_data:
+            raise Exception("Already downloading data.")
+
+        if self.current_reporter is None:
+            raise Exception("No reporter selected.")
+
+        if data_type in (DataExchangePacket.DataType.TICK_DATA, DataExchangePacket.DataType.PING_DATA,
+                         DataExchangePacket.DataType.TSLP_DATA):
+            raise Exception("Invalid data type requested.")
+
+        self._downloading_data = True
+        try:
+            self.connection.send_packet(DataExchangePacket(request_type=DataExchangePacket.RequestType.GET_BOUNDS,
+                                                           data_type=data_type))
+        except Exception as error:
+            self._downloading_data = False
+            raise error
+
+        while self._downloading_data:
+            time.sleep(0.01)
+
+        return self._data_min_id, self._data_max_id
 
     def sync_config_rule(self, name: str) -> str:
         """
@@ -425,7 +649,7 @@ class Viewer(Handler):
             raise error
 
         while self._config_action:
-            time.sleep(0.1)
+            time.sleep(0.01)
 
         if self._action_success:
             return self._action_message
@@ -467,7 +691,7 @@ class Viewer(Handler):
             raise error
 
         while self._config_action:
-            time.sleep(0.1)
+            time.sleep(0.01)
 
         if self._action_success:
             return self._action_message
@@ -508,7 +732,7 @@ class Viewer(Handler):
             raise error
 
         while self._account_action:
-            time.sleep(0.1)
+            time.sleep(0.01)
 
         if self._action_success:
             return self._action_message
@@ -542,7 +766,46 @@ class Viewer(Handler):
             raise error
 
         while self._account_action:
-            time.sleep(0.1)
+            time.sleep(0.01)
+
+        if self._action_success:
+            return self._action_message
+        else:
+            raise Exception(self._action_message)
+
+    def start_task_raw(self, task_name: str, parameters: List[ActiveTask.Parameter]) -> str:
+        """
+        Starts a task given the name of the task, and the raw parameters.
+
+        :param task_name: The name of the task to start.
+        :param parameters: The raw parameters for the task.
+        :return: The success message.
+        """
+
+        if not self._initialized or self._initializing:
+            raise Exception("Not initialized.")
+
+        if self._account_action or self._config_action or self._task_action or self._tracker_action or \
+                self._other_action is not None:
+            raise Exception("Already waiting for an action to complete.")
+
+        current_reporter = self.current_reporter
+        if current_reporter is None:
+            raise Exception("No current reporter.")
+
+        registered_task = current_reporter.get_registered_task(task_name)
+
+        self._task_action = True
+        try:
+            task_action = TaskActionPacket(action=TaskActionPacket.Action.START, task_name=task_name)
+            task_action.set_task_params(parameters)
+            self.connection.send_packet(task_action)
+        except Exception as error:
+            self._task_action = False
+            raise error
+
+        while self._task_action:
+            time.sleep(0.01)
 
         if self._action_success:
             return self._action_message
@@ -551,7 +814,8 @@ class Viewer(Handler):
 
     def start_task(self, task_name: str, **parameters) -> str:
         """
-        Starts a task given the name of the task, and some parameters.
+        Starts a task given the name of the task, and some parameters, these are turned into compatible parameters
+        automatically.
 
         :param task_name: The name of the task to start.
         :param parameters: The parameters required for the task.
@@ -576,22 +840,7 @@ class Viewer(Handler):
             param_description = registered_task.get_param_description(param_name)
             serializable_params.append(ActiveTask.Parameter(param_description, parameters[param_name]))
 
-        self._task_action = True
-        try:
-            task_action = TaskActionPacket(action=TaskActionPacket.Action.START, task_name=task_name)
-            task_action.set_task_params(serializable_params)
-            self.connection.send_packet(task_action)
-        except Exception as error:
-            self._task_action = False
-            raise error
-
-        while self._task_action:
-            time.sleep(0.1)
-
-        if self._action_success:
-            return self._action_message
-        else:
-            raise Exception(self._action_message)
+        return self.start_task_raw(task_name, serializable_params)
 
     def stop_task(self, task_id: int) -> str:
         """
@@ -619,7 +868,7 @@ class Viewer(Handler):
             raise error
 
         while self._task_action:
-            time.sleep(0.1)
+            time.sleep(0.01)
 
         if self._action_success:
             return self._action_message
@@ -653,7 +902,7 @@ class Viewer(Handler):
             raise error
 
         while self._tracker_action:
-            time.sleep(0.1)
+            time.sleep(0.01)
 
         if self._action_success:
             return self._action_message
@@ -692,7 +941,7 @@ class Viewer(Handler):
             raise error
 
         while self._other_action is not None:
-            time.sleep(0.1)
+            time.sleep(0.01)
 
         if self._action_success:
             return self._action_message
@@ -725,10 +974,10 @@ class Viewer(Handler):
         if reporter in self._reporters:
             logging.debug("Unregistered reporter: %r." % reporter)
 
-            self._reporters.remove(reporter)
-
-            if reporter.handler_id == self._current_reporter:
-                self._current_reporter = -1
+            if reporter.handler_id != self._current_reporter:
+                self._reporters.remove(reporter)  # Don't do this here as we need to wait for the reporter sync
+            else:
+                self._queued_unregister = True
 
     def get_reporter(self, handler_id: int = None, handler_name: str = None) -> Reporter:
         """
@@ -754,15 +1003,6 @@ class Viewer(Handler):
 
     # ----------------------------- UUID to name cache ----------------------------- #
 
-    def set_name_for_uuid(self, uuid: UUID, name: str) -> None:
-        """
-        Sets the name for a UUID.
-
-        :param uuid: The UUID.
-        :param name: The display name.
-        """
-        self._uuid_to_username_cache[uuid] = name
-
     def get_name_for_uuid(self, uuid: UUID) -> str:
         """
         Converts a UUID to a display name.
@@ -772,3 +1012,13 @@ class Viewer(Handler):
         """
 
         return self._uuid_to_username_cache.get(uuid, "")
+
+    def get_uuid_for_name(self, username: str) -> UUID:
+        """
+        Converts a display name to a UUID.
+
+        :param username: The display name.
+        :return: The UUID, None if not found.
+        """
+
+        return self._username_to_uuid_cache.get(username, None)

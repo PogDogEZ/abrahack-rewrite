@@ -138,6 +138,7 @@ public class DataHandler implements IDataProvider, IHandler {
 
         trackedPlayerID = trackedPlayerID.add(BigInteger.ONE);
 
+        if (yesCom.ycHandler != null) yesCom.ycHandler.onTrackedPlayer(trackedPlayer);
         return trackedPlayer;
     }
 

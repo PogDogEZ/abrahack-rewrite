@@ -8,12 +8,13 @@ import java.util.UUID;
 /**
  * Called when any player logs out.
  */
-public class PlayerLogoutEvent extends ReporterEvent {
+public class OnlinePlayerLogoutEvent extends ReporterEvent {
 
     private final UUID uuid;
 
-    public PlayerLogoutEvent(YCReporter reporter, UUID uuid) {
+    public OnlinePlayerLogoutEvent(YCReporter reporter, UUID uuid) {
         super(reporter);
+
         this.uuid = uuid;
     }
 

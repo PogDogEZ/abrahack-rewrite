@@ -136,6 +136,10 @@ public class AccountHandler implements IHandler {
                     authService.getSelectedProfile().getName()));
             userMap.put(username, password);
             accountCache.add(authService);
+
+            if (yesCom.ycHandler != null)
+                yesCom.ycHandler.onPlayerAdded(authService.getUsername(), authService.getSelectedProfile().getId(),
+                        authService.getSelectedProfile().getName());
         }
     }
 
@@ -154,12 +158,16 @@ public class AccountHandler implements IHandler {
                     authService.getSelectedProfile().getName()));
             // userMap.put(username, accessToken);
             accountCache.add(authService);
+
+            if (yesCom.ycHandler != null)
+                yesCom.ycHandler.onPlayerAdded(authService.getUsername(), authService.getSelectedProfile().getId(),
+                        authService.getSelectedProfile().getName());
         }
     }
 
     /**
      * Logs an account out.
-     * @param username The username of the account (the email).
+     * @param username The username of the account (not the display name).
      */
     public synchronized void logout(String username) {
         Optional<AuthenticationService> foundAuthService = accountCache.stream()
@@ -170,6 +178,8 @@ public class AccountHandler implements IHandler {
             userMap.remove(username);
             accountCache.remove(authService);
             yesCom.connectionHandler.logout(authService.getSelectedProfile().getId());
+
+            if (yesCom.ycHandler != null) yesCom.ycHandler.onPlayerRemoved(username);
         });
     }
 
