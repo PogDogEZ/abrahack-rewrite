@@ -9,11 +9,11 @@ able to add and remove accounts, view trackers, start tasks, etc.
 **Note: you will need Python 3.9 installed to run the viewer.**
 
 To run the viewer, you will have to install the dependencies first:\
-From the root directory, run `./gradlew :viewer:pipInstall`\
+From the root directory, run `./gradlew :viewer:pipInstall`
 
 Once the dependencies have been installed, you can run it:
  - Through gradle: `./gradlew :viewer:run`
- - Through python: `source ./viewer/venv/bin/activate`, `python3 ./viewer/src/main.py`
+ - Through python: `source ./viewer/venv/bin/activate`, `python3 -c "from src.viewer import main; main()"`
 
 If it crashes almost immediately on startup with the following error:
 ```
