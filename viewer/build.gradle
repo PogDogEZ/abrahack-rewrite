@@ -12,6 +12,7 @@ python {
     pip "requests:2.26.0"
 
     pip "PyQt5:5.15.6"
+    pip "PyQt5-stubs:5.15.2.0"
 
     pip "numpy:1.21.4"
     pip "opencv-python:4.5.4.60"
@@ -21,5 +22,6 @@ python {
 }
 
 task run(type: PythonTask) {
-    command = "src/main.py"
+    // Pretty terrible fix but idk what else to do
+    command = "-c \"from src.viewer import main; main()\""
 }
