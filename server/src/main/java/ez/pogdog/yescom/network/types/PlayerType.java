@@ -21,14 +21,17 @@ public class PlayerType extends Type<Player> {
         String displayName = Registry.STRING.read(inputStream);
 
         Player player = new Player(username, uuid, displayName);
+        player.setLoggedIn(Registry.BOOLEAN.read(inputStream));
 
-        player.setPosition(YCRegistry.POSITION.read(inputStream));
-        player.setAngle(YCRegistry.ANGLE.read(inputStream));
-        player.setDimension(Registry.UNSIGNED_SHORT.read(inputStream));
+        if (player.isLoggedIn()) {
+            player.setPosition(YCRegistry.POSITION.read(inputStream));
+            player.setAngle(YCRegistry.ANGLE.read(inputStream));
+            player.setDimension(Registry.UNSIGNED_SHORT.read(inputStream));
 
-        player.setHealth(Registry.FLOAT.read(inputStream));
-        player.setFood(Registry.UNSIGNED_SHORT.read(inputStream));
-        player.setSaturation(Registry.FLOAT.read(inputStream));
+            player.setHealth(Registry.FLOAT.read(inputStream));
+            player.setFood(Registry.UNSIGNED_SHORT.read(inputStream));
+            player.setSaturation(Registry.FLOAT.read(inputStream));
+        }
 
         return player;
     }
@@ -41,14 +44,17 @@ public class PlayerType extends Type<Player> {
                 .putLong(value.getUUID().getLeastSignificantBits())
                 .array(), outputStream);
         Registry.STRING.write(value.getDisplayName(), outputStream);
+        Registry.BOOLEAN.write(value.isLoggedIn(), outputStream);
 
-        YCRegistry.POSITION.write(value.getPosition(), outputStream);
-        YCRegistry.ANGLE.write(value.getAngle(), outputStream);
+        if (value.isLoggedIn()) {
+            YCRegistry.POSITION.write(value.getPosition(), outputStream);
+            YCRegistry.ANGLE.write(value.getAngle(), outputStream);
 
-        Registry.SHORT.write((short)value.getDimension(), outputStream);
+            Registry.SHORT.write((short)value.getDimension(), outputStream);
 
-        Registry.FLOAT.write(value.getHealth(), outputStream);
-        Registry.UNSIGNED_SHORT.write(value.getFood(), outputStream);
-        Registry.FLOAT.write(value.getSaturation(), outputStream);
+            Registry.FLOAT.write(value.getHealth(), outputStream);
+            Registry.UNSIGNED_SHORT.write(value.getFood(), outputStream);
+            Registry.FLOAT.write(value.getSaturation(), outputStream);
+        }
     }
 }

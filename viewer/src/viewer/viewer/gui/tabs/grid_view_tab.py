@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 
-import datetime
-import operator
+import logging
+import time
 from typing import List
 
-from PyQt5.QtCore import QThread
+import numpy as np
+from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QGraphicsView, QVBoxLayout, QPushButton, QGraphicsScene, QTreeWidget, \
-    QTreeWidgetItem
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QGraphicsScene, QTreeWidget, QLabel
 
-from ..renderer import Renderer
+from ..renderer.renderer import Renderer
 from ..util import array_to_qt_image
-from ...network.packets import DataExchangePacket
-from ...util import TrackedPlayer, Tracker, Dimension
+from ...config import Config
+from ...util import ChunkState, Dimension
 
 
 class GridViewTab(QWidget):
@@ -22,23 +22,23 @@ class GridViewTab(QWidget):
 
         self.main_window = main_window
 
-        self._renderer = Renderer(self.main_window)
-        self._left_offset = (0, 0)
-        self._scale = (1, 1)
-
-        self._nether_states = {}
-        self._overworld_states = {}
-        self._end_states = {}
-        self._tracked_players = {}
-
-        self._render_scheduler_thread = GridViewTab.RenderSchedulerThread()
+        self._background_thread = GridViewTab.BackgroundThread(self.main_window, self)
 
         self.setObjectName("grid_view_tab")
 
         self.main_layout = QHBoxLayout(self)
+        # self.main_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.grid_view = QGraphicsView(self)
-        self.main_layout.addWidget(self.grid_view)
+        self.grid_view_layout = QVBoxLayout(self)
+        # self.grid_view_layout.setSpacing(2)
+
+        # self.coords_label = QLabel(self)
+        # self.grid_view_layout.addWidget(self.coords_label)
+
+        self.grid_view = Renderer(self, self.main_window)
+        self.grid_view_layout.addWidget(self.grid_view)
+
+        self.main_layout.addLayout(self.grid_view_layout)
 
         self.trackers_layout = QVBoxLayout()
 
@@ -60,103 +60,95 @@ class GridViewTab(QWidget):
         self.main_layout.addLayout(self.trackers_layout)
         self.main_layout.setStretch(0, 1)
 
-        self.trackers_tree_widget.setHeaderLabel("Tracked players (0):")
-        self.goto_button.setText("Goto player")
-        self.untrack_button.setText("Untrack player")
+        # self.coords_label.setText("Coords: 0, 0")
+        self.trackers_tree_widget.setHeaderLabel("Trackers (0):")
+        self.goto_button.setText("Goto tracker")
+        self.untrack_button.setText("Untrack tracker")
 
-        self.main_window.reporter_selected_emitter.connect(lambda reporter: self._update_tracked_players_header())
-        self.main_window.tracked_player_data_emitter.connect(self._on_tracked_player_data)
-        self.main_window.tracker_added_emitter.connect(self._on_tracker_added)
-        self.main_window.tracker_removed_emitter.connect(self._on_tracker_removed)
-        self.main_window.tracker_updated_emitter.connect(self._on_tracker_updated)
+        self.main_window.connect_emitter.connect(self._reset_data)
+        self.main_window.disconnect_emitter.connect(self._reset_data)
+        self.main_window.reporter_selected_emitter.connect(lambda reporter: self._reset_data())
+        self.main_window.resized_emitter.connect(self._render_grid)
+        self.main_window.chunk_data_emitter.connect(self._on_chunk_data)
 
-        self._render_scheduler_thread.start()
+        self._background_thread.render_update_emitter.connect(self._render_grid)
+
+        self._background_thread.start()
 
     def _render_grid(self) -> None:
         grid_size = self.grid_view.size()
         if grid_size.width() <= 10 or grid_size.height() <= 10:
             return
 
-        image = self._renderer.render((grid_size.width() - 10, grid_size.height() - 10), (0, 0), self._left_offset,
-                                      self._scale)
+        # noinspection PyProtectedMember
+        image = self.grid_view._render()
 
         scene = QGraphicsScene()
         scene.addPixmap(QPixmap.fromImage(array_to_qt_image(image)))
 
         self.grid_view.setScene(scene)
 
-    # ----------------------------- Convenience methods ----------------------------- #
-
-    def _update_tracked_players_header(self) -> None:
-        if self.main_window.viewer is None or self.main_window.viewer.current_reporter is None:
-            tracked_players = 0
-        else:
-            tracked_players = len(self._tracked_players)
-
-        self.trackers_tree_widget.setHeaderLabel("Tracked players (%i):" % tracked_players)
-
-    # noinspection PyMethodMayBeStatic
-    def _update_tracked_player_data(self, item_widget: QTreeWidgetItem, tracked_player: TrackedPlayer) -> QTreeWidgetItem:
-        if tracked_player.get_possible_players():
-            best_possible = max(tracked_player.get_possible_players().items(), key=operator.itemgetter(1))[1]
-            best_possible = self.main_window.viewer.get_name_for_uuid(best_possible)
-        else:
-            best_possible = "Unknown"
-        current_position = tracked_player.render_distance.center_position
-        error_x, error_z = tracked_player.render_distance.error_x, tracked_player.render_distance.error_z
-
-        item_widget.setText(0, "%s:%i" % (best_possible, tracked_player.tracked_player_id))
-
-        if not item_widget.childCount():
-            for index in range(6):
-                item_widget.addChild(QTreeWidgetItem([]))
-
-        item_widget.child(0).setText(0, "ID: %i" % tracked_player.tracked_player_id)
-        item_widget.child(1).setText(0, "Position: %i, %i" % (current_position.x * 16, current_position.z * 16))
-        item_widget.child(2).setText(0, "Error: %.1f, %.1f" % (error_x * 16, error_z * 16))
-        item_widget.child(3).setText(0, "Dimension: %s" % Dimension.name_from_value(Dimension.mc_to_value(tracked_player.dimension)))
-        item_widget.child(4).setText(0, "Since: %s" % datetime.datetime.utcfromtimestamp(tracked_player.found_at // 1000))
-        item_widget.child(5).setText(0, "Logged out: %s" % tracked_player.logged_out)
-
-        for index in range(item_widget.childCount()):
-            item_widget.child(index).setToolTip(0, item_widget.child(index).text(0))
-
-        # TODO: Possible players
-
-        return item_widget
+    def _reset_data(self) -> None:
+        self.grid_view.states.clear()
 
     # ----------------------------- General emitters ----------------------------- #
 
-    def _on_tracked_player_data(self, data: List[TrackedPlayer]) -> None:
-        for tracked_player in data:
-            if tracked_player.tracked_player_id in self._tracked_players:
-                item_widget = self._tracked_players[tracked_player.tracked_player_id][1]
-            else:
-                item_widget = QTreeWidgetItem([""])
-                self.trackers_tree_widget.addTopLevelItem(item_widget)
+    # noinspection PyTypeChecker
+    def _on_chunk_data(self, states: List[ChunkState]) -> None:
+        for state in states:
+            region = (state.chunk_position.x // Config.REGION_SIZE[0], state.chunk_position.z // Config.REGION_SIZE[1])
+            value = 255 if state.state == ChunkState.State.LOADED else 32
 
-            item_widget = self._update_tracked_player_data(item_widget, tracked_player)
-            self._tracked_players[tracked_player.tracked_player_id] = (tracked_player, item_widget)
+            dimension = Dimension.mc_to_value(state.dimension)
+            if not dimension in self.grid_view.states:
+                self.grid_view.states[dimension] = {}
 
-        self._update_tracked_players_header()
+            if not region in self.grid_view.states[dimension]:
+                self.grid_view.states[dimension][region] = np.zeros((Config.REGION_SIZE[1] // Config.INTERPOLATION_SIZE[1],
+                                                                     Config.REGION_SIZE[0] // Config.INTERPOLATION_SIZE[0]),
+                                                                    dtype=np.uint8)
+                self.grid_view.states[dimension][region][:, :] = 0
 
-    def _on_tracker_added(self, tracker: Tracker) -> None:
-        self.main_window.request_data_sync(DataExchangePacket.DataType.TRACKED_PLAYER, tracker.get_tracked_player_ids())
-
-    def _on_tracker_removed(self, tracker: Tracker) -> None:
-        ...
-
-    def _on_tracker_updated(self, tracker: Tracker) -> None:
-        self.main_window.request_data_sync(DataExchangePacket.DataType.TRACKED_PLAYER, tracker.get_tracked_player_ids())
-
-    # ----------------------------- Widget emitters ----------------------------- #
+            coords = ((state.chunk_position.x % Config.REGION_SIZE[0]) // Config.INTERPOLATION_SIZE[0],
+                      (state.chunk_position.z % Config.REGION_SIZE[1]) // Config.INTERPOLATION_SIZE[1])
+            self.grid_view.states[dimension][region][coords[::-1]] = value
 
     # ----------------------------- Threads ----------------------------- #
 
-    class RenderSchedulerThread(QThread):
+    class BackgroundThread(QThread):
 
-        def __init__(self) -> None:
+        render_update_emitter = pyqtSignal()
+
+        def __init__(self, main_window, grid_view_tab) -> None:
             super().__init__()
 
+            self.main_window = main_window
+            self.grid_view_tab = grid_view_tab
+
         def run(self) -> None:
-            ...
+            decay_rate = 0
+            while True:
+                start = time.time()
+
+                # coords = self.grid_view_tab.grid_view.cursor_coords
+                # coords = (round(coords[0] * 16), round(coords[1] * 16))
+                # self.grid_view_tab.coords_label.setText("Coords: %i, %i" % coords)
+
+                # Decay the chunk states
+                if Config.DECAY_RATE and decay_rate > Config.DECAY_RATE:
+                    decay_rate = 0
+                    try:
+                        for dimension in self.grid_view_tab.grid_view.states:
+                            for region_coords, region in self.grid_view_tab.grid_view.states[dimension].items():
+                                # region[region < 32] += 1
+                                region[region > 0] -= 1
+                    except RuntimeError:  # Lazy solution
+                        ...
+                decay_rate += 1
+
+                if self.main_window.main_tab_widget.currentWidget() == self.grid_view_tab:
+                    self.render_update_emitter.emit()
+
+                delta_time = time.time() - start  # FIXME: Necessary?
+                if delta_time < 0.03333:
+                    time.sleep(0.03333 - delta_time)

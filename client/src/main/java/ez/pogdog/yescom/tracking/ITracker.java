@@ -28,13 +28,4 @@ public interface ITracker {
      * @return The potential targets of the tracker.
      */
     List<TrackedPlayer> getTrackedPlayers();
-
-    /**
-     * @return How "healthy" the tracker is, not used rn.
-     */
-    Health getHealth();
-
-    enum Health {
-        GOOD, ILL, DEAD;
-    }
 }

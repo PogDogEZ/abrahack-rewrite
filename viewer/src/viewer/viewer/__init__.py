@@ -16,7 +16,7 @@ from .util import ActiveTask, RegisteredTask, Player
 from ..pyclient.networking.connection import Connection
 from ..pyclient.networking.handlers import Handler
 from ..pyclient.networking.packets import Packet
-from ..pyclient.networking.types.basic import String
+from ..pyclient.networking.types.basic import String, Integer
 
 
 class Viewer(Handler):
@@ -443,6 +443,14 @@ class Viewer(Handler):
         if self.connection is not None and self.connection.connected:
             self.connection.exit("Exited.")
 
+        self._downloading_data = False
+
+        self._account_action = False
+        self._config_action = False
+        self._task_action = False
+        self._tracker_action = False
+        self._other_action = None
+
         self._post_event(DisconnectEvent())
 
     def init(self) -> None:
@@ -839,7 +847,10 @@ class Viewer(Handler):
         serializable_params = []
         for param_name in parameters:
             param_description = registered_task.get_param_description(param_name)
-            serializable_params.append(ActiveTask.Parameter(param_description, parameters[param_name]))
+            if isinstance(parameters[param_name], list) or isinstance(parameters[param_name], tuple):
+                serializable_params.append(ActiveTask.Parameter(param_description, *parameters[param_name]))
+            else:
+                serializable_params.append(ActiveTask.Parameter(param_description, parameters[param_name]))
 
         return self.start_task_raw(task_name, serializable_params)
 

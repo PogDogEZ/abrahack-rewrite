@@ -74,6 +74,7 @@ public class DimChangeResolver implements IResolver {
         int dx = 0;
         int dz = -1;
 
+        /*
         for (int currentIndex = 0; currentIndex < 100; ++currentIndex) {
             if (-5 < x && x <= 5 && -5 < z && z <= 5) {
                 ChunkPosition position = startPosition.add(x * renderDistance, z * renderDistance);
@@ -110,6 +111,7 @@ public class DimChangeResolver implements IResolver {
             x += dx;
             z += dz;
         }
+         */
     }
 
     public ChunkPosition getStartPosition() {

@@ -22,15 +22,18 @@ public class PlayerType extends Type<Player> {
 
         UUID uuid = UUID.nameUUIDFromBytes(Registry.BYTES.read(inputStream));
         String displayName = Registry.STRING.read(inputStream);
+        boolean loggedIn = Registry.BOOLEAN.read(inputStream);
 
-        Position position = YCRegistry.POSITION.read(inputStream);
-        Angle angle = YCRegistry.ANGLE.read(inputStream);
+        if (loggedIn) {
+            Position position = YCRegistry.POSITION.read(inputStream);
+            Angle angle = YCRegistry.ANGLE.read(inputStream);
 
-        int dimension = Registry.UNSIGNED_SHORT.read(inputStream);
+            int dimension = Registry.UNSIGNED_SHORT.read(inputStream);
 
-        float health = Registry.FLOAT.read(inputStream);
-        int hunger = Registry.UNSIGNED_SHORT.read(inputStream);
-        float saturation = Registry.FLOAT.read(inputStream);
+            float health = Registry.FLOAT.read(inputStream);
+            int hunger = Registry.UNSIGNED_SHORT.read(inputStream);
+            float saturation = Registry.FLOAT.read(inputStream);
+        }
 
         // This is merely for reading implementation, we won't actually be receiving this type
         return YesCom.getInstance().connectionHandler.getPlayer(uuid);
@@ -46,6 +49,7 @@ public class PlayerType extends Type<Player> {
                 .putLong(uuid.getLeastSignificantBits())
                 .array(), outputStream);
         Registry.STRING.write(value.getAuthService().getSelectedProfile().getName(), outputStream);
+        Registry.BOOLEAN.write(true, outputStream); // By definition of a player, they should be logged in
 
         YCRegistry.POSITION.write(value.getPosition(), outputStream);
         YCRegistry.ANGLE.write(value.getAngle(), outputStream);

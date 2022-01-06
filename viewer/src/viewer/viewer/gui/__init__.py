@@ -18,6 +18,7 @@ from .tabs.grid_view_tab import GridViewTab
 from .tabs.reporter_tab import ReporterTab
 from .tabs.server_tab import ServerTab
 from .tabs.tasks_tab import TasksTab
+from .tabs.tracking_tab import TrackingTab
 from .. import Viewer
 from ..config import Config
 from ..events import ReporterEvent, DataEvent, PlayerEvent, DataBoundsEvent, ConnectEvent, DisconnectEvent, \
@@ -54,7 +55,9 @@ class MainWindow(QMainWindow):
     reporter_unselected_emitter = pyqtSignal()
 
     player_added_emitter = pyqtSignal(Player)
-    player_removed_emitter = pyqtSignal(Player, str)
+    player_removed_emitter = pyqtSignal(Player)
+    player_logged_in_emitter = pyqtSignal(Player)
+    player_logged_out_emitter = pyqtSignal(Player, str)
     player_updated_emitter = pyqtSignal(Player)
 
     task_added_emitter = pyqtSignal(ActiveTask)
@@ -144,6 +147,7 @@ class MainWindow(QMainWindow):
         self.reporter_tab = ReporterTab(self)
         self.grid_view_tab = GridViewTab(self)
         self.accounts_tab = AccountsTab(self)
+        self.tracking_tab = TrackingTab(self)
         self.tasks_tab = TasksTab(self)
         self.server_tab = ServerTab(self)
         self.chat_tab = ChatTab(self)
@@ -152,10 +156,11 @@ class MainWindow(QMainWindow):
         self.main_tab_widget.addTab(self.reporter_tab, "")
         self.main_tab_widget.addTab(self.grid_view_tab, "")
         self.main_tab_widget.addTab(self.accounts_tab, "")
+        self.main_tab_widget.addTab(self.tracking_tab, "")
         self.main_tab_widget.addTab(self.tasks_tab, "")
         self.main_tab_widget.addTab(self.server_tab, "")
         self.main_tab_widget.addTab(self.chat_tab, "")
-        self.main_tab_widget.addTab(self.config_tab, "")
+        # self.main_tab_widget.addTab(self.config_tab, "")
 
         self.setWindowTitle("Viewer")
         self.main_group_box.setTitle(" YesCom Viewer (no reporter)    ")  # FIXME: Why do I have to add spaces to make it not cut off?
@@ -163,10 +168,11 @@ class MainWindow(QMainWindow):
         self.main_tab_widget.setTabText(self.main_tab_widget.indexOf(self.reporter_tab), "Reporter")
         self.main_tab_widget.setTabText(self.main_tab_widget.indexOf(self.grid_view_tab), "Grid View")
         self.main_tab_widget.setTabText(self.main_tab_widget.indexOf(self.accounts_tab), "Accounts")
+        self.main_tab_widget.setTabText(self.main_tab_widget.indexOf(self.tracking_tab), "Tracking")
         self.main_tab_widget.setTabText(self.main_tab_widget.indexOf(self.tasks_tab), "Tasks")
         self.main_tab_widget.setTabText(self.main_tab_widget.indexOf(self.server_tab), "Server")
         self.main_tab_widget.setTabText(self.main_tab_widget.indexOf(self.chat_tab), "Chat")
-        self.main_tab_widget.setTabText(self.main_tab_widget.indexOf(self.config_tab), "Config")
+        # self.main_tab_widget.setTabText(self.main_tab_widget.indexOf(self.config_tab), "Config")
 
         self.main_outer_layout.addWidget(self.main_group_box)
         self.main_inner_layout.addWidget(self.main_tab_widget)
@@ -249,7 +255,11 @@ class MainWindow(QMainWindow):
             if event.event_type == PlayerEvent.EventType.ADDED:
                 self.player_added_emitter.emit(event.player)
             elif event.event_type == PlayerEvent.EventType.REMOVED:
-                self.player_removed_emitter.emit(event.player, event.reason)
+                self.player_removed_emitter.emit(event.player)
+            elif event.event_type == PlayerEvent.EventType.LOGIN:
+                self.player_logged_in_emitter.emit(event.player)
+            elif event.event_type == PlayerEvent.EventType.LOGOUT:
+                self.player_logged_out_emitter.emit(event.player, event.reason)
             else:
                 self.player_updated_emitter.emit(event.player)
 
@@ -289,8 +299,9 @@ class MainWindow(QMainWindow):
 
         with self.data_sync_lock:
             if not data_type in self._data_sync_queue:
-                self._data_sync_queue[data_type] = []
-            self._data_sync_queue[data_type].extend(data_ids)
+                self._data_sync_queue[data_type] = set()  # Fixed duplicate ID issue
+            self._data_sync_queue[data_type].update(data_ids)
+            # self._data_sync_queue[data_type].extend(data_ids)
 
     # ----------------------------- Threads ----------------------------- #
 

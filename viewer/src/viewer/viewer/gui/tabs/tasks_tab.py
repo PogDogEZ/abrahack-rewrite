@@ -87,7 +87,6 @@ class TasksTab(QWidget):
                 item_widget.addChild(QTreeWidgetItem([]))
 
         item_widget.child(0).setText(0, "Task ID: %i" % active_task.task_id)
-
         item_widget.child(1).setText(0, "Progress: %.1f%%" % active_task.progress)
 
         elapsed = datetime.timedelta(seconds=active_task.time_elapsed // 1000)
@@ -97,17 +96,24 @@ class TasksTab(QWidget):
         item_widget.child(2).setText(0, "Elapsed: %s" % elapsed)
         item_widget.child(3).setText(0, "Remaining: %s" % eta)
         item_widget.child(4).setText(0, "Loaded chunk task: %s" % active_task.loaded_chunk_task)
+        item_widget.child(4).setToolTip(0, "Whether or not the task involves checking for loaded chunks.")
         item_widget.child(5).setText(0, "Current position: %s" % ("N/A" if not active_task.loaded_chunk_task else
                                                                   "%i, %i" % (active_task.current_position.x,
                                                                               active_task.current_position.z)))
+        item_widget.child(5).setToolTip(0, "The current position of the task, if it is a loaded chunk task.")
 
         parameters_item_widget = item_widget.child(6)
         parameters_item_widget.setText(0, "Parameters: %i" % len(active_task.parameters))
+        parameters_item_widget.setToolTip(0, "The parameters the task was started with.")
+
         if parameters_item_widget.childCount() != len(active_task.parameters):
             parameters_item_widget.takeChildren()
             for parameter in active_task.parameters:
                 parameter_item_widget = QTreeWidgetItem([parameter.param_description.name])
-                parameter_item_widget.addChild(QTreeWidgetItem(["Description: %s" % parameter.param_description.description]))
+
+                description_item_widget = QTreeWidgetItem(["Description: %s" % parameter.param_description.description])
+                description_item_widget.setToolTip(0, parameter.param_description.description)
+                parameter_item_widget.addChild(description_item_widget)
 
                 if parameter.param_description.input_type == RegisteredTask.ParamDescription.InputType.SINGULAR:
                     parameter_item_widget.addChild(QTreeWidgetItem(["Value: %r" % parameter.value]))
@@ -120,10 +126,13 @@ class TasksTab(QWidget):
 
         results_item_widget = item_widget.child(7)
         results_item_widget.setText(0, "Results: %i" % len(active_task.results))
+        results_item_widget.setToolTip(0, "The formatted results that the task has produced.")
         if results_item_widget.childCount() != len(active_task.results):  # Only update if we have received new results
             results_item_widget.takeChildren()
             for result in active_task.results:
-                results_item_widget.addChild(QTreeWidgetItem([result]))
+                result_item_widget = QTreeWidgetItem([result])
+                result_item_widget.setToolTip(0, result)
+                results_item_widget.addChild(result_item_widget)
 
         return item_widget
 

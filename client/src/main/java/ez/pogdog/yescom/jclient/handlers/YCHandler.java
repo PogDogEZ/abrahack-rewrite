@@ -21,6 +21,7 @@ import javax.crypto.Cipher;
 import java.io.*;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -63,8 +64,6 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
     private boolean initialized;
     private boolean synced;
 
-    private long lastChunkStatesUpdate;
-
     public YCHandler(Connection connection, String handlerName) {
         this.connection = connection;
         this.handlerName = handlerName;
@@ -79,12 +78,9 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
         initializing = false;
         initialized = false;
         synced = false;
-
-        lastChunkStatesUpdate = System.currentTimeMillis();
     }
 
     @Override
-    @SuppressWarnings("SwitchStatementWithTooFewBranches")
     public void handlePacket(Packet packet) {
         if (packet instanceof YCInitResponsePacket) {
             if (!initializing && initialized) {
@@ -150,7 +146,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
                 yesCom.logger.finer("Done.");
 
                 yesCom.logger.finer("Syncing trackers...");
-                yesCom.trackingHandler.getTrackers().forEach(this::onTrackerAdded);
+                // yesCom.trackingHandler.getTrackers().forEach(this::onTrackerAdded);
                 yesCom.logger.finer("Done.");
 
                 yesCom.logger.finer("Syncing online players...");
@@ -331,14 +327,14 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
             yesCom.logger.fine("Got tracker action.");
 
             if (trackerAction.getAction() == TrackerActionPacket.Action.UNTRACK) {
-                ITracker tracker = yesCom.trackingHandler.getTracker(trackerAction.getTrackerID());
+                ITracker tracker = null; // yesCom.trackingHandler.getTracker(trackerAction.getTrackerID());
                 if (tracker == null) {
                     connection.sendPacket(new ActionResponsePacket(trackerAction.getActionID(), false, "Tracker not found."));
                     return;
                 }
 
                 yesCom.logger.fine(String.format("Untracking %s.", tracker));
-                yesCom.trackingHandler.untrack(tracker);
+                // yesCom.trackingHandler.untrack(tracker);
                 // Lol great message copilot
                 connection.sendPacket(new ActionResponsePacket(trackerAction.getActionID(), true, "Tracker untracked."));
             }
@@ -382,6 +378,20 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
                             "Successfully sent chat message."));
                     break;
                 }
+                case UNTRACK_PLAYER: {
+                    // This is here cos untracking trackers removes the entire tracker, but we want a way to untrack
+                    // just the tracked player too
+                    BigInteger trackedPlayerID;
+                    try {
+                        trackedPlayerID = Registry.VAR_INTEGER.read(inputStream);
+                    } catch (IOException error) {
+                        yesCom.logger.finer("Error while reading untrack player ID.");
+                        yesCom.logger.throwing(YCHandler.class.getSimpleName(), "handlePacket", error);
+                        connection.sendPacket(new ActionResponsePacket(actionRequest.getActionID(), false,
+                                "Invalid format for untracking a player."));
+                    }
+                    break;
+                }
             }
         }
     }
@@ -412,14 +422,10 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
             queuedChatMessages.clear();
         }
 
-        if (System.currentTimeMillis() - lastChunkStatesUpdate > 250) {
-            lastChunkStatesUpdate = System.currentTimeMillis();
-
-            if (!queuedChunkStates.isEmpty())
-                connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.CHUNK_STATE,
-                        queuedChunkStates, new ArrayList<>()));
-            queuedChunkStates.clear();
-        }
+        if (!queuedChunkStates.isEmpty())
+            connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.CHUNK_STATE,
+                    queuedChunkStates, new ArrayList<>()));
+        queuedChunkStates.clear();
 
         if (!queuedTrackedPlayers.isEmpty()) {
             connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.TRACKED_PLAYER,
@@ -652,7 +658,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
     }
 
     public synchronized void onPlayerRemoved(String username) {
-        queuedPackets.addFirst(new PlayerActionPacket(username));
+        queuedPackets.addLast(new PlayerActionPacket(username));
     }
 
     public synchronized void onPlayerLogin(Player player) {

@@ -34,10 +34,17 @@ def main() -> None:
     palette = app.palette()
 
     palette.setColor(QPalette.WindowText, QColor(*Config.TEXT_COLOUR))
+
+    palette.setColor(QPalette.ButtonText, QColor(*Config.TEXT_COLOUR))
+    palette.setColor(QPalette.Disabled, QPalette.ButtonText, QColor(*Config.DISABLED_TEXT_COLOUR))
     palette.setColor(QPalette.Button, QColor(*Config.BUTTON_COLOUR))
+
+    palette.setColor(QPalette.Highlight, QColor(*Config.HIGHLIGHT_COLOUR))
+
     palette.setColor(QPalette.Light, QColor(*Config.LIGHT_COLOUR))
     palette.setColor(QPalette.Dark, QColor(*Config.DARK_COLOUR))
     palette.setColor(QPalette.Mid, QColor(*Config.MID_COLOUR))
+
     palette.setColor(QPalette.Text, QColor(*Config.TEXT_COLOUR))
     palette.setColor(QPalette.BrightText, QColor(*Config.BRIGHT_TEXT_COLOUR))
     palette.setColor(QPalette.Base, QColor(*Config.BASE_COLOUR))

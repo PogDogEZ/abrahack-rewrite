@@ -189,6 +189,6 @@ public class StaticScanTask implements ILoadedChunkTask {
         if (yesCom.ycHandler != null) yesCom.ycHandler.onTaskResult(this, getFormattedResult(chunkPosition));
         onLoaded(chunkPosition, dimension);
 
-        yesCom.trackingHandler.onLoadedChunk(chunkPosition, dimension);
+        // yesCom.trackingHandler.onLoadedChunk(chunkPosition, dimension);
     }
 }

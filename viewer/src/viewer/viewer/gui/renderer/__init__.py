@@ -7,9 +7,14 @@ import numpy as np
 
 from . import layers
 from ...config import Config
+from ...util import Dimension
 
 
 class Renderer:
+
+    @property
+    def viewer(self):  # -> Viewer:
+        return self.main_window.viewer
 
     @property
     def layers(self) -> List[layers.Layer]:
@@ -17,6 +22,16 @@ class Renderer:
 
     def __init__(self, main_window) -> None:
         self.main_window = main_window
+
+        self.left_offset = (0, 0)
+        self.scale = (1, 1)
+        self.size = (500, 500)
+
+        self.current_dimension = Dimension.NETHER
+
+        self.nether_states = {}
+        self.overworld_states = {}
+        self.end_states = {}
 
         self._layers = [
             layers.StatesLayer(self),
@@ -35,8 +50,8 @@ class Renderer:
 
     def draw_rect(self, image: np.ndarray, chunk_pos1: Tuple[float, float], chunk_pos2: Tuple[float, float],
                   colour: tuple, line_width: int) -> np.ndarray:
-        scale = self.main_frame.scale
-        left_offset = self.main_frame.left_offset
+        scale = self.scale
+        left_offset = self.left_offset
 
         scaled_chunk_size = (Config.CHUNK_SIZE[0] * scale[0], Config.CHUNK_SIZE[1] * scale[1])
         diff = (scaled_chunk_size[0] * (max(chunk_pos1[0], chunk_pos2[0]) - min(chunk_pos1[0], chunk_pos2[0])),
@@ -66,13 +81,12 @@ class Renderer:
 
         return image
 
-    def render(self, size: Tuple[int, int], mouse_position: Tuple[int, int], left_offset: Tuple[float, float],
-               scale: Tuple[float, float]) -> np.ndarray:
+    def render(self, size: Tuple[int, int], mouse_position: Tuple[int, int]) -> np.ndarray:
         image = np.zeros((size[1], size[0], 3), np.uint8)
-        image[:] = Config.BACKGROUND_COLOUR
+        image[:] = Config.BASE_COLOUR[:3]
 
         for layer in self._layers:
-            image = layer.draw(image, mouse_position, left_offset, scale)
+            image = layer.draw(image, mouse_position, self.left_offset, self.scale)
 
         return image
 

@@ -82,21 +82,21 @@ class PlayerSpec(Type):
     def read(cls, fileobj: IO) -> Player:
         username = String.read(fileobj)
 
-        player = Player(username)
-
         uuid = UUID(bytes=Bytes.read(fileobj))
         display_name = String.read(fileobj)
 
-        player.set_profile_details(uuid, display_name)
+        player = Player(username, uuid, display_name)
+        player.logged_in = Boolean.read(fileobj)
 
-        player.position = PositionSpec.read(fileobj)
-        player.angle = AngleSpec.read(fileobj)
+        if player.logged_in:
+            player.position = PositionSpec.read(fileobj)
+            player.angle = AngleSpec.read(fileobj)
 
-        player.dimension = Short.read(fileobj)
+            player.dimension = Short.read(fileobj)
 
-        player.health = Float.read(fileobj)
-        player.food = UnsignedShort.read(fileobj)
-        player.saturation = Float.read(fileobj)
+            player.health = Float.read(fileobj)
+            player.food = UnsignedShort.read(fileobj)
+            player.saturation = Float.read(fileobj)
 
         return player
 
@@ -106,15 +106,17 @@ class PlayerSpec(Type):
 
         Bytes.write(player.uuid.bytes, fileobj)
         String.write(player.display_name, fileobj)
+        Boolean.write(player.logged_in, fileobj)
 
-        PositionSpec.write(player.position, fileobj)
-        AngleSpec.write(player.angle, fileobj)
+        if player.logged_in:
+            PositionSpec.write(player.position, fileobj)
+            AngleSpec.write(player.angle, fileobj)
 
-        Short.write(player.dimension, fileobj)
+            Short.write(player.dimension, fileobj)
 
-        Float.write(player.health, fileobj)
-        UnsignedShort.write(player.food, fileobj)
-        Float.write(player.saturation, fileobj)
+            Float.write(player.health, fileobj)
+            UnsignedShort.write(player.food, fileobj)
+            Float.write(player.saturation, fileobj)
 
 
 class ConfigRuleSpec(Type):

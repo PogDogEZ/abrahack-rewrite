@@ -107,6 +107,8 @@ class AccountsTab(QWidget):
         self.main_window.reporter_unselected_emitter.connect(self._update_accounts_header)
         self.main_window.player_added_emitter.connect(self._on_player_added)
         self.main_window.player_removed_emitter.connect(self._on_player_removed)
+        self.main_window.player_logged_in_emitter.connect(self._on_player_updated)
+        self.main_window.player_logged_out_emitter.connect(lambda player, reason: self._on_player_updated(player))
         self.main_window.player_updated_emitter.connect(self._on_player_updated)
 
         self.accounts_tree_widget.itemSelectionChanged.connect(self._on_item_selection_changed)
@@ -148,18 +150,26 @@ class AccountsTab(QWidget):
     # noinspection PyMethodMayBeStatic
     def _update_player_data(self, item_widget: QTreeWidgetItem, player: Player) -> QTreeWidgetItem:
         item_widget.setText(0, player.display_name)
+        required_children = 7 if player.logged_in else 1
 
-        if not item_widget.childCount():
-            for index in range(6):
+        if item_widget.childCount() != required_children:
+            item_widget.takeChildren()
+            for index in range(required_children):
                 item_widget.addChild(QTreeWidgetItem([]))
 
-        item_widget.child(0).setText(0, "Position: %.1f, %.1f, %.1f" % (player.position.x, player.position.y,
-                                                                       player.position.z))
-        item_widget.child(1).setText(0, "Angle: %.1f, %.1f" % (player.angle.yaw, player.angle.pitch))
-        item_widget.child(2).setText(0, "Dimension: %i" % player.dimension)
-        item_widget.child(3).setText(0, "Health: %.1f" % player.health)
-        item_widget.child(4).setText(0, "Hunger: %i" % player.food)
-        item_widget.child(5).setText(0, "Saturation: %.1f" % player.saturation)
+        item_widget.child(0).setText(0, "Logged in: %s" % player.logged_in)
+
+        if player.logged_in:
+            item_widget.child(1).setText(0, "Position: %.1f, %.1f, %.1f" % (player.position.x, player.position.y,
+                                                                           player.position.z))
+            item_widget.child(1).setToolTip(0, "%.1f, %.1f, %.1f" % (player.position.x, player.position.y,
+                                                                     player.position.z))
+            item_widget.child(2).setText(0, "Angle: %.1f, %.1f" % (player.angle.yaw, player.angle.pitch))
+            item_widget.child(2).setToolTip(0, "%.1f, %.1f" % (player.angle.yaw, player.angle.pitch))
+            item_widget.child(3).setText(0, "Dimension: %i" % player.dimension)
+            item_widget.child(4).setText(0, "Health: %.1f" % player.health)
+            item_widget.child(5).setText(0, "Hunger: %i" % player.food)
+            item_widget.child(6).setText(0, "Saturation: %.1f" % player.saturation)
 
         return item_widget
 
@@ -177,7 +187,7 @@ class AccountsTab(QWidget):
         # self._accounts_list.append(repr(player))
         # self.accounts_tree_view.setModel(QStringListModel(self._accounts_list))
 
-    def _on_player_removed(self, player: Player, reason: str) -> None:
+    def _on_player_removed(self, player: Player) -> None:
         item_widget = self._get_item_widget(player)
         if item_widget is not None:
             self.accounts_tree_widget.takeTopLevelItem(self.accounts_tree_widget.indexOfTopLevelItem(item_widget))

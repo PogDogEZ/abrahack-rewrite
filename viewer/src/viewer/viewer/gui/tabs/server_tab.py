@@ -165,8 +165,8 @@ class ServerTab(QWidget):
             return
 
         graph = np.zeros((tickrate_size.height() - 10, tickrate_size.width() - 10, 3), dtype=np.uint8)
-
         graph[:, :] = Config.BASE_COLOUR[:3]
+
         cv2.line(graph, (0, int(graph.shape[0] / 1.5)), (graph.shape[1], int(graph.shape[0] / 1.5)),
                  Config.DARK_COLOUR[:3], 1)
         cv2.line(graph, (0, int(graph.shape[0] / 3)), (graph.shape[1], int(graph.shape[0] / 3)),
@@ -194,8 +194,8 @@ class ServerTab(QWidget):
             return
 
         graph = np.zeros((tslp_size.height() - 10, tslp_size.width() - 10, 3), dtype=np.uint8)
-
         graph[:, :] = Config.BASE_COLOUR[:3]
+
         cv2.line(graph, (0, graph.shape[0] // 2), (graph.shape[1], graph.shape[0] // 2), Config.DARK_COLOUR[:3], 1)
 
         max_tslp = max(100, int(math.ceil(max(self.tslp_data) / 50) * 50))
@@ -218,8 +218,8 @@ class ServerTab(QWidget):
             return
 
         graph = np.zeros((queryrate_size.height() - 10, queryrate_size.width() - 10, 3), dtype=np.uint8)
-
         graph[:, :] = Config.BASE_COLOUR[:3]
+
         cv2.line(graph, (0, graph.shape[0] // 4), (graph.shape[1], graph.shape[0] // 4), Config.DARK_COLOUR[:3], 1)
         cv2.line(graph, (0, graph.shape[0] // 2), (graph.shape[1], graph.shape[0] // 2), Config.DARK_COLOUR[:3], 1)
         cv2.line(graph, (0, int(graph.shape[0] / (4 / 3))), (graph.shape[1], int(graph.shape[0] / (4 / 3))),

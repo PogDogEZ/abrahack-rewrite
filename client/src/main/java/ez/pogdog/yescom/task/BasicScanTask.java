@@ -150,7 +150,7 @@ public class BasicScanTask implements ILoadedChunkTask {
     public ChunkPosition getCurrentPosition() {
         return new ChunkPosition(
                 (currentIndex % (getMaxX() - getMinX()) + getMinX()) * chunkSkip,
-                (Math.floorDiv(currentIndex, getMaxZ() - getMinZ()) + getMinZ()) * chunkSkip
+                (Math.floorDiv(currentIndex, getMaxX() - getMinX()) + getMinZ()) * chunkSkip
         );
     }
 
@@ -161,7 +161,7 @@ public class BasicScanTask implements ILoadedChunkTask {
         if (yesCom.ycHandler != null) yesCom.ycHandler.onTaskResult(this, getFormattedResult(chunkPosition));
         onLoaded(chunkPosition, dimension);
 
-        yesCom.trackingHandler.onLoadedChunk(chunkPosition, dimension);
+        // yesCom.trackingHandler.onLoadedChunk(chunkPosition, dimension);
     }
 
     private int getMinX() {

@@ -297,6 +297,7 @@ public class YCListener extends YCHandler {
     @Override
     public void exit(String reason) {
         jServer.eventBus.unregister(this);
+        super.exit(reason);
     }
 
     @Override

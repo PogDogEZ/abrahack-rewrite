@@ -7,7 +7,7 @@ from threading import RLock
 
 from PyQt5.QtCore import Qt, QMetaObject, QThread, pyqtSignal
 from PyQt5.QtGui import QCloseEvent, QTextCursor
-from PyQt5.QtWidgets import QWidget, QDialog, QVBoxLayout, QLabel, QProgressBar, QTextEdit
+from PyQt5.QtWidgets import QWidget, QDialog, QVBoxLayout, QLabel, QProgressBar, QTextEdit, QApplication
 
 from ...config import Config
 
@@ -70,6 +70,7 @@ class ProgressDialog(QDialog):  # TODO: Make this a message box
         self.setWindowTitle(window_title)
         self.text_label.setText(progress_text)
 
+        QApplication.setOverrideCursor(Qt.WaitCursor)
         QMetaObject.connectSlotsByName(self)
 
         if show_log_messages:
@@ -81,6 +82,8 @@ class ProgressDialog(QDialog):  # TODO: Make this a message box
 
     def closeEvent(self, close_event: QCloseEvent) -> None:
         ProgressDialog.INSTANCE = None
+        QApplication.restoreOverrideCursor()
+
         self._log_handle_thread._close = True
         logging.getLogger("").removeHandler(self._fake_log_handler)
 

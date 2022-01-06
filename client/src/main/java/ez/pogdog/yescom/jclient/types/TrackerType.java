@@ -21,7 +21,7 @@ public class TrackerType extends Type<ITracker> {
         int IDsToRead = Registry.UNSIGNED_SHORT.read(inputStream);
         for (int index = 0; index < IDsToRead; ++index) Registry.VAR_INTEGER.read(inputStream);
 
-        return yesCom.trackingHandler.getTracker(trackerID);
+        return null; // yesCom.trackingHandler.getTracker(trackerID);
     }
 
     @Override

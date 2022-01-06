@@ -41,12 +41,7 @@ public class YesCom {
 
     private static final Map<Level, String> LEVEL_COLOURS = new HashMap<>();
 
-    public static YesCom getInstance() {
-        return instance;
-    }
-
-    public static void main(String[] args) {
-        // TODO: This colour stuff could prolly go in clinit
+    static {
         LEVEL_COLOURS.put(Level.SEVERE, Colour.Foreground.RED);
         LEVEL_COLOURS.put(Level.WARNING, Colour.Foreground.YELLOW);
         LEVEL_COLOURS.put(Level.INFO, Colour.RESET);
@@ -54,7 +49,13 @@ public class YesCom {
         LEVEL_COLOURS.put(Level.FINE, Colour.Foreground.BLUE);
         LEVEL_COLOURS.put(Level.FINER, Colour.Foreground.BLUE);
         LEVEL_COLOURS.put(Level.FINEST, Colour.Foreground.BLUE);
+    }
 
+    public static YesCom getInstance() {
+        return instance;
+    }
+
+    public static void main(String[] args) {
         // Set up the loggers
         Logger tempLogger = Logger.getLogger("yescom");
 
@@ -79,11 +80,11 @@ public class YesCom {
             }
         });
 
-        tempLogger.setLevel(Level.ALL);
+        // Add the console handler to all known loggers
         tempLogger.setUseParentHandlers(false);
         tempLogger.addHandler(consoleHandler);
-
-        Logger.getLogger("").setLevel(Level.ALL);
+        Connection.getLogger().setUseParentHandlers(false);
+        Connection.getLogger().addHandler(consoleHandler);
         Logger.getLogger("").setUseParentHandlers(false);
         Logger.getLogger("").addHandler(consoleHandler);
 
@@ -139,8 +140,9 @@ public class YesCom {
             try {
                 Level level = Level.parse(logLevel.toUpperCase(Locale.ROOT));
 
-                tempLogger.setLevel(level);
                 consoleHandler.setLevel(level);
+                tempLogger.setLevel(level);
+                Connection.getLogger().setLevel(level);
                 Logger.getLogger("").setLevel(level);
 
             } catch (IllegalArgumentException | NullPointerException ignored) {

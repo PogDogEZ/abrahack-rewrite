@@ -1048,6 +1048,7 @@ class ReporterSyncPacket(Packet):
                     if registered_task.name == task_name:
                         self._active_tasks.append(ActiveTask(registered_task, task_id, parameters, progress,
                                                              time_elapsed, results))
+                        break
 
             players_to_read = UnsignedShort.read(fileobj)
             for index in range(players_to_read):

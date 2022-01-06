@@ -86,6 +86,7 @@ class ChatTab(QWidget):
         self.main_window.chat_data_bounds_emitter.connect(self._on_chat_data_bounds)
         self.main_window.player_added_emitter.connect(self._on_player_added)
         self.main_window.player_removed_emitter.connect(self._on_player_removed)
+        self.main_window.player_logged_out_emitter.connect(self._on_player_logged_out)
 
         self.player_name_completer.activated.connect(self._on_player_name_activated)
         self.chat_edit.textEdited.connect(self._on_text_edited)
@@ -170,13 +171,16 @@ class ChatTab(QWidget):
 
         self._update_chat_browser()
 
-    def _on_player_removed(self, player: Player, reason: str) -> None:
+    def _on_player_removed(self, player: Player) -> None:
         for display_name, player2 in self._available_accounts:
             if player == player2:
                 self.players_combo_box.removeItem(self.players_combo_box.findText(display_name))
                 self._available_accounts.remove((display_name, player))
 
         self._update_chat_browser()
+
+    def _on_player_logged_out(self, player: Player, reason: str) -> None:
+        ...
 
     # ----------------------------- Widget emitters ----------------------------- #
 
@@ -225,7 +229,10 @@ class ChatTab(QWidget):
         else:
             # Lol this is bad practice to send with the display name, but the client accepts display names anyway so
             # whatever, I'm lazy
-            self.main_window.viewer.send_chat_message(self.players_combo_box.currentText(), message)
+            try:
+                self.main_window.viewer.send_chat_message(self.players_combo_box.currentText(), message)
+            except Exception as error:
+                QMessageBox.warning(self, "Can't Send", str(error))
 
     # ----------------------------- Threads ----------------------------- #
 

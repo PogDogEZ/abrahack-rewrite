@@ -101,7 +101,7 @@ public class ConnectionHandler implements IHandler {
         switch (action) {
             case ADD: {
                 if (yesCom.ycHandler != null) yesCom.ycHandler.onPlayerJoin(uuid, UUIDtoNameCache.get(uuid));
-                yesCom.trackingHandler.onPlayerJoin(uuid);
+                // yesCom.trackingHandler.onPlayerJoin(uuid);
                 if (recentLeaves.containsKey(uuid) && System.currentTimeMillis() - recentLeaves.get(uuid) < 2000) {
                     recentLeaves.remove(uuid);
                     return;

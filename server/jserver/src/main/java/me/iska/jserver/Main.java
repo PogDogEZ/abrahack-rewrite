@@ -4,10 +4,11 @@ import me.iska.jserver.network.Server;
 import me.iska.jserver.util.Colour;
 import org.apache.commons.cli.*;
 
-import java.io.Console;
 import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.*;
@@ -88,6 +89,10 @@ public class Main {
         portOption.setType(Integer.class);
         options.addOption(portOption);
 
+        Option fileLoggingOption = new Option("fl", "fileLogging", false, "Enable file logging.");
+        fileLoggingOption.setType(Boolean.class);
+        options.addOption(fileLoggingOption);
+
         CommandLineParser parser = new DefaultParser();
 
         try {
@@ -95,13 +100,50 @@ public class Main {
 
             String serverName = cmd.getOptionValue("name");
             String protocolVersion = cmd.getOptionValue("protocolVersion");
-            String workingDirectory = cmd.getOptionValue("workingDirectory");
             String host = cmd.getOptionValue("host");
             String port = cmd.getOptionValue("port");
+            boolean fileLogging = cmd.hasOption("fileLogging");
+
+            File workingDirectory = cmd.getOptionValue("workingDirectory") == null ? new File(".") : new File(cmd.getOptionValue("workingDirectory"));
+
+            if (fileLogging) {
+                try {
+                    File logsDirectory = new File(workingDirectory, "logs");
+                    if (!logsDirectory.exists()) logsDirectory.mkdirs();
+                    File logFile = new File(logsDirectory, String.format("log-%s.txt",
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH-mm-ss").format(LocalDateTime.now())));
+
+                    FileHandler fileHandler = new FileHandler(logFile.getAbsolutePath(), true);
+                    fileHandler.setLevel(Level.ALL);
+                    fileHandler.setFormatter(new Formatter() {
+                        @Override
+                        @SuppressWarnings("StringConcatenationInLoop")
+                        public String format(LogRecord record) {
+                            String message = String.format("[%s] [%s] %s\n",
+                                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.now()),
+                                    record.getLevel(), record.getMessage());
+
+                            if (record.getThrown() != null) {
+                                message += record.getThrown();
+                                for (StackTraceElement element : record.getThrown().getStackTrace())
+                                    message += String.format("\tat %s.%s(%s:%d)\n", element.getClassName(), element.getMethodName(),
+                                            element.getFileName(), element.getLineNumber());
+                            }
+
+                            return message;
+                        }
+                    });
+
+                    logger.addHandler(fileHandler);
+                } catch (IOException error) {
+                    logger.warning("Couldn't set up file logging.");
+                    logger.throwing(JServer.class.getName(), "main", error);
+                }
+            }
 
             JServer jServer = new JServer(serverName,
                     protocolVersion == null ? 6 : Integer.parseInt(protocolVersion),
-                    workingDirectory == null ? new File(".") : new File(workingDirectory),
+                    workingDirectory,
                     host == null ? "localhost" : host,
                     port == null ? 5001 : Integer.parseInt(port));
             Runtime.getRuntime().addShutdownHook(new Thread(jServer::exit));

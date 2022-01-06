@@ -12,6 +12,9 @@ import ez.pogdog.yescom.util.Dimension;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Responsible for finding players when they get lost by the main tracker.
+ */
 public class PanicTracker implements ITracker {
 
     private final YesCom yesCom = YesCom.getInstance();
@@ -61,7 +64,7 @@ public class PanicTracker implements ITracker {
             if (newRenderDistance != null) {
                 trackedPlayer.setRenderDistance(newRenderDistance);
                 trackedPlayer.setDimension(currentResolver.getDimension());
-                yesCom.trackingHandler.trackBasic(trackedPlayer);
+                // yesCom.trackingHandler.trackBasic(trackedPlayer);
 
             } else {
                 doLogout();
@@ -83,13 +86,8 @@ public class PanicTracker implements ITracker {
         return Collections.singletonList(trackedPlayer);
     }
 
-    @Override
-    public Health getHealth() {
-        return Health.GOOD;
-    }
-
     private void doLogout() {
-        yesCom.trackingHandler.handleLogout(trackedPlayer);
-        yesCom.trackingHandler.removeTracker(this);
+        // yesCom.trackingHandler.handleLogout(trackedPlayer);
+        // yesCom.trackingHandler.removeTracker(this);
     }
 }

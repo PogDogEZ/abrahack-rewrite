@@ -47,67 +47,66 @@ class GridLayer(Layer):
 
     def draw(self, image: np.ndarray, mouse_position: Tuple[int, int], left_offset: Tuple[float, float],
              scale: Tuple[float, float]) -> np.ndarray:
-        scale = self.renderer.main_frame.scale
-        left_offset = self.renderer.main_frame.left_offset
-        size = self.renderer.main_frame.size
-
         if scale[0] > Config.GRID_SCALE[0]:
             # FIXME: Clean up this
-            for x in range(int(size[0] / (Config.CHUNK_SIZE[0] * scale[0])) + 1):
-                image = cv2.line(image,
-                                 (int((x + (left_offset[0] % 1)) * Config.CHUNK_SIZE[0] * scale[0]), 0),
-                                 (int((x + (left_offset[0] % 1)) * Config.CHUNK_SIZE[0] * scale[0]), size[1]),
+            for x in range(int(image.shape[1] / (Config.CHUNK_SIZE[0] * scale[0])) + 1):
+                image = cv2.line(image, (int((x + (left_offset[0] % 1)) * Config.CHUNK_SIZE[0] * scale[0]), 0),
+                                 (int((x + (left_offset[0] % 1)) * Config.CHUNK_SIZE[0] * scale[0]), image.shape[0]),
                                  Config.LINE_COLOUR, 2)
 
         if scale[1] > Config.GRID_SCALE[1]:
-            for y in range(int(size[1] / (Config.CHUNK_SIZE[1] * scale[1])) + 1):
-                image = cv2.line(image,
-                                 (0, int((y + (left_offset[1] % 1)) * Config.CHUNK_SIZE[1] * scale[1])),
-                                 (size[0], int((y + (left_offset[1] % 1)) * Config.CHUNK_SIZE[1] * scale[1])),
+            for y in range(int(image.shape[0] / (Config.CHUNK_SIZE[1] * scale[1])) + 1):
+                image = cv2.line(image, (0, int((y + (left_offset[1] % 1)) * Config.CHUNK_SIZE[1] * scale[1])),
+                                 (image.shape[1], int((y + (left_offset[1] % 1)) * Config.CHUNK_SIZE[1] * scale[1])),
                                  Config.LINE_COLOUR, 2)
         return image
 
 
 class StatesLayer(Layer):
+    """
+    Draws the chunk states.
+    """
 
     def __init__(self, renderer) -> None:
         super().__init__(renderer, "states", {})
 
     def draw(self, image: np.ndarray, mouse_position: Tuple[int, int], left_offset: Tuple[float, float],
              scale: Tuple[float, float]) -> np.ndarray:
+        if self.renderer.viewer is None:
+            return image
         current_reporter = self.renderer.viewer.current_reporter
         if current_reporter is None:
             return image
 
-        # FIXME: Faster rendering
+        # TODO: Removed for backwards compatibility, add again later
+        """
+        match self.renderer.current_dimension:  # Yoooo this new syntax is so cool
+            case Dimension.NETHER:
+                states = self.renderer.nether_states
+            case Dimension.OVERWORLD:
+                states = self.renderer.overworld_states
+            case Dimension.END:
+                states = self.renderer.end_states
+        """
 
-        for active_task in current_reporter.get_active_tasks():
-            if active_task.loaded_chunk_task:
-                self.renderer.draw_rect(image, active_task.current_position.x, active_task.current_position.z,
-                                        active_task.current_position.x + 1, active_task.current_position.z + 1,
-                                        Config.CURRENT_SCAN_COLOUR, -1)
+        if self.renderer.current_dimension == Dimension.NETHER:
+            states = self.renderer.nether_states
+        elif self.renderer.current_dimension == Dimension.OVERWORLD:
+            states = self.renderer.overworld_states
+        else:
+            states = self.renderer.end_states
 
-            if active_task.registered_task.name in ("static_scan",):
-                try:
-                    scanning_chunks = active_task.get_parameter("positions").values
-                    dimension = active_task.get_parameter("dimension").value
-                except LookupError:
-                    continue
-
-                if dimension == Dimension.value_to_mc(self.renderer.main_frame.current_dimension):
-                    for chunk_position in scanning_chunks:
-                        self.renderer.draw_rect(image, chunk_position.x, chunk_position.z, chunk_position.x + 1,
-                                                chunk_position.z + 1, Config.WAITING_COLOUR, -1)
-
-        for chunk_state in current_reporter.get_states(Dimension.value_to_mc(self.renderer.main_frame.current_dimension)):
-            if chunk_state.chunk_position in self.renderer.main_frame.selected_chunks:
-                continue
-
-            chunk_position = chunk_state.chunk_position
-            self.renderer.draw_rect(image, chunk_position.x, chunk_position.z, chunk_position.x + 1,
-                                    chunk_position.z + 1,
-                                    (Config.LOADED_COLOUR if chunk_state.state == ChunkState.State.LOADED else
-                                     Config.UNLOADED_COLOUR), -1)
+        chunk_size = (image.shape[1] / (Config.CHUNK_SIZE[0] * scale[0]), image.shape[0] / (Config.CHUNK_SIZE[1] * scale[1]))
+        for x in range(chunk_size[0] // Config.REGION_SIZE[0]):
+            for y in range(chunk_size[1] // Config.REGION_SIZE[1]):
+                coords = (int(left_offset[0]) + x, int(left_offset[1]) + y)
+                # noinspection PyUnboundLocalVariable
+                if coords in states:
+                    region = states[coords]
+                    if chunk_size[0] > Config.REGION_SIZE[0]:
+                        ...
+                    if chunk_size[1] > Config.REGION_SIZE[1]:
+                        ...
 
         return image
 
@@ -119,15 +118,11 @@ class HighwaysLayer(Layer):
 
     def draw(self, image: np.ndarray, mouse_position: Tuple[int, int], left_offset: Tuple[float, float],
              scale: Tuple[float, float]) -> np.ndarray:
-        scale = self.renderer.main_frame.scale
-        left_offset = self.renderer.main_frame.left_offset
-        size = self.renderer.main_frame.size
-
         image = cv2.line(image, (math.floor(left_offset[0] * Config.CHUNK_SIZE[0] * scale[0]), 0),
-                         (math.floor(left_offset[0] * Config.CHUNK_SIZE[0] * scale[0]), size[1]),
+                         (math.floor(left_offset[0] * Config.CHUNK_SIZE[0] * scale[0]), image.shape[0]),
                          Config.HIGHWAY_COLOUR, self.renderer.scaled_line_width(*scale, -.75), cv2.LINE_AA)
         image = cv2.line(image, (0, math.floor(left_offset[1] * Config.CHUNK_SIZE[1] * scale[1])),
-                         (size[0], math.floor(left_offset[1] * Config.CHUNK_SIZE[1] * scale[1])),
+                         (image.shape[1], math.floor(left_offset[1] * Config.CHUNK_SIZE[1] * scale[1])),
                          Config.HIGHWAY_COLOUR, self.renderer.scaled_line_width(*scale, -.75), cv2.LINE_AA)
 
         return image
@@ -140,17 +135,14 @@ class PlayersLayer(Layer):
 
     def draw(self, image: np.ndarray, mouse_position: Tuple[int, int], left_offset: Tuple[float, float],
              scale: Tuple[float, float]) -> np.ndarray:
-        players = []
+        if self.renderer.viewer is None:
+            return image
+        current_reporter = self.renderer.viewer.current_reporter
+        if current_reporter is None:
+            return image
 
-        if self.renderer.viewer.current_reporter != -1:
-            reporter = self.renderer.viewer.get_reporter(handler_id=self.renderer.viewer.current_reporter)
-            players = reporter.players
-
-        scale = self.renderer.main_frame.scale
-        left_offset = self.renderer.main_frame.left_offset
-
-        for player in players:
-            if player.dimension == self.renderer.main_frame.current_dimension - 1:  # Very hacky but shut up
+        for player in current_reporter.get_players():
+            if player.dimension == Dimension.value_to_mc(self.renderer.current_dimension):
                 adjusted_coords = (int(((player.position.x / 16 + left_offset[0]) * Config.CHUNK_SIZE[0]) * scale[0]),
                                    int(((player.position.z / 16 + left_offset[1]) * Config.CHUNK_SIZE[1]) * scale[1]))
                 image = cv2.circle(image, adjusted_coords, round(scale[0] * 2), Config.PLAYER_COLOUR, -1, cv2.LINE_AA)
@@ -166,16 +158,13 @@ class TrackedPlayersLayer(Layer):
 
     def draw(self, image: np.ndarray, mouse_position: Tuple[int, int], left_offset: Tuple[float, float],
              scale: Tuple[float, float]) -> np.ndarray:
-        trackers = []
+        if self.renderer.viewer is None:
+            return image
+        current_reporter = self.renderer.viewer.current_reporter
+        if current_reporter is None:
+            return image
 
-        if self.renderer.viewer.current_reporter != -1:
-            reporter = self.renderer.viewer.get_reporter(handler_id=self.renderer.viewer.current_reporter)
-            trackers = reporter.get_trackers()
-
-        scale = self.renderer.main_frame.scale
-        left_offset = self.renderer.main_frame.left_offset
-
-        for tracker in trackers:
+        for tracker in current_reporter.get_trackers():
             tracked_player = tracker.tracked_player
             position = tracked_player.render_distance.center_position
             render_distance = tracked_player.render_distance.render_distance
@@ -216,9 +205,9 @@ class SelectedLayer(Layer):
 
     def draw(self, image: np.ndarray, mouse_position: Tuple[int, int], left_offset: Tuple[float, float],
              scale: Tuple[float, float]) -> np.ndarray:
-        for selected in self.renderer.main_frame.selected_chunks:
-            self.renderer.draw_rect(image, selected.x, selected.z, selected.x + 1, selected.z + 1, (0, 255, 0),
-                                    self.renderer.scaled_line_width(*self.renderer.main_frame.scale, 2))
+        # for selected in self.renderer.main_frame.selected_chunks:
+        #     self.renderer.draw_rect(image, selected.x, selected.z, selected.x + 1, selected.z + 1, (0, 255, 0),
+        #                             self.renderer.scaled_line_width(*self.renderer.main_frame.scale, 2))
 
         return image
 
@@ -253,6 +242,7 @@ class CursorLayer(Layer):
             int(math.floor(mouse_position[1] / Config.CHUNK_SIZE[1] / scale[1] - left_offset[1]))
         ]
 
-        return self.renderer.draw_rect(image, mouse_pos[0], mouse_pos[1], mouse_pos[0] + 1, mouse_pos[1] + 1,
-                                       ((0, 0, 255) if not self.renderer.main_frame.mouse_grabbed else (0, 255, 0)),
-                                       min(255, self.renderer.scaled_line_width(*scale, 1)))
+        # return self.renderer.draw_rect(image, mouse_pos[0], mouse_pos[1], mouse_pos[0] + 1, mouse_pos[1] + 1,
+        #                                ((0, 0, 255) if not self.renderer.main_frame.mouse_grabbed else (0, 255, 0)),
+        #                                min(255, self.renderer.scaled_line_width(*scale, 1)))
+        return image
