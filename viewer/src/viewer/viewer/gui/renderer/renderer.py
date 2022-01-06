@@ -534,4 +534,3 @@ class Renderer(QGraphicsView):
 
             except Exception as error:
                 self.error_emitter.emit(repr(error))
-                raise error

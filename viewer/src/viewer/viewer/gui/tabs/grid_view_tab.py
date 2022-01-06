@@ -16,6 +16,9 @@ from ...util import ChunkState, Dimension
 
 
 class GridViewTab(QWidget):
+    """
+    The grid view tab, shows a grid (detailing loaded chunks and tracked players) and a list of trackers.
+    """
 
     def __init__(self, main_window) -> None:
         super().__init__()
