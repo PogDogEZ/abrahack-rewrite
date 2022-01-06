@@ -25,6 +25,7 @@ import ez.pogdog.yescom.util.Angle;
 import ez.pogdog.yescom.util.BlockPosition;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -150,8 +151,7 @@ public class PlayerHandle {
             // If we have read more than 5 packets expect that we weren't sent a position rotation packet (note that it
             // should only be 2 as we receive the sound packet before the close window, but better safe than sorry).
             if (packetsSinceCloseWindow >= 5) {
-                yesCom.logger.warning(String.format("%s probably dropping packets, expected TP ID %d but didn't find one!",
-                        this, expectedTeleportID));
+                yesCom.logger.warning(String.format("%s packet loss (1), expected: %d.", this, expectedTeleportID));
                 reSync();
 
                 expectedTeleportID = -1;
@@ -166,14 +166,21 @@ public class PlayerHandle {
             if (query != null) {
                 switch (expectedTeleportID) {
                     case -2: { // Loaded no resync check
-                        query.setResult(IsLoadedQuery.Result.LOADED);
-
-                        // Ok so yeah we may have guessed wrong but there is really nothing we can do about it if we have
-                        if (!yesCom.configHandler.ARZI_MODE && !yesCom.configHandler.ARZI_MODE_NO_WID_RESYNC) {
-                            yesCom.logger.finest("Found loaded, invalidating all previous queries and resyncing...");
+                        // This should NOT happen unless something has gone wrong
+                        if (yesCom.configHandler.ARZI_MODE && !yesCom.configHandler.ARZI_MODE_NO_WID_RESYNC) {
+                            yesCom.logger.warning(String.format("%s packet loss (2), got: %d.", this, positionRotation.getTeleportId()));
                             reSync();
+                            query.reschedule();
+                            break;
                         }
 
+                        // Ok so yeah we may have guessed wrong but there is really nothing we can do about it if we have
+                        query.setResult(IsLoadedQuery.Result.LOADED);
+
+                        if (!yesCom.configHandler.ARZI_MODE) {
+                            yesCom.logger.finest(String.format("%s found loaded, invalidating all previous queries and resyncing...", this));
+                            reSync();
+                        }
                         break;
                     }
                     case -1: { // Unloaded
@@ -182,11 +189,12 @@ public class PlayerHandle {
                     }
                     default: { // Loaded + resync check
                         if (positionRotation.getTeleportId() != expectedTeleportID) {
-                            yesCom.logger.warning(String.format("%s misaligned IDs, (expected: %d, actual: %d), possible packet loss.",
+                            yesCom.logger.warning(String.format("%s packet loss (3), expected: %d, got: %d.",
                                     this, expectedTeleportID, positionRotation.getTeleportId()));
                             reSync();
                             query.reschedule();
                         } else {
+                            yesCom.logger.finer(String.format("%s found loaded with ID %d.", this, expectedTeleportID));
                             query.setResult(IsLoadedQuery.Result.LOADED);
                         }
                         break;
@@ -195,7 +203,7 @@ public class PlayerHandle {
 
             } else {
                 // Happens on joining the world, as well as just unknown teleports
-                yesCom.logger.finest(String.format("%s got unknown TP ID, (expected: %d, actual: %d)!", this,
+                yesCom.logger.warning(String.format("%s packet loss (4), expected: %d, got: %d.", this,
                         expectedTeleportID < 0 ? player.getEstimatedTP() : expectedTeleportID, positionRotation.getTeleportId()));
                 reSync();
             }
@@ -258,7 +266,7 @@ public class PlayerHandle {
         player.setAngle(angle);
         player.sendPacket(new ClientPlayerRotationPacket(true, angle.getYaw(), angle.getPitch()));
 
-        yesCom.logger.finest(String.format("Required angle: %s.", angle));
+        yesCom.logger.finest(String.format("%s required angle: %s.", this, angle));
 
         facingStorage = true;
     }
@@ -314,13 +322,17 @@ public class PlayerHandle {
             }
 
             synchronized (this) {
+                AtomicInteger rescheduled = new AtomicInteger();
                 new HashMap<>(queryMap).forEach((teleportID, query) -> {
                     if (player.getCurrentTP() > teleportID || query.getTickingTime() > yesCom.configHandler.INVALID_MOVE_TIMEOUT) {
-                        yesCom.logger.finest(String.format("%s has timed out (packet loss?), cancelling.", query));
+                        yesCom.logger.finest(String.format("%s has timed out (packet loss?), rescheduling.", query));
                         queryMap.remove(teleportID);
                         query.reschedule();
+                        rescheduled.addAndGet(1);
                     }
                 });
+                if (rescheduled.get() > 0)
+                    yesCom.logger.warning(String.format("%s packet loss (5), rescheduled: %d.", this, rescheduled.get()));
             }
         }
     }
@@ -356,7 +368,7 @@ public class PlayerHandle {
     }
 
     public synchronized void reSync() {
-        yesCom.logger.finest(String.format("Resynchronizing (rescheduling %d queries)...", queryMap.size()));
+        yesCom.logger.finest(String.format("%s resynchronizing (rescheduling %d queries)...", this, queryMap.size()));
 
         player.setEstimatedTP(player.getCurrentTP());
         player.setEstimatedWindowID(player.getCurrentWindowID());
