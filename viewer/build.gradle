@@ -1,5 +1,16 @@
+apply plugin: "java" // So we can add the src dir
 apply plugin: "idea"
 apply plugin: "ru.vyarus.use-python"
+
+jar.enabled = false
+
+sourceSets {
+    main {
+        java {
+            srcDir "src"
+        }
+    }
+}
 
 python {
     installVirtualenv = true

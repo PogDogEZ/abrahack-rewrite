@@ -24,41 +24,31 @@ public class QuickResolver implements IResolver {
     private final int maxStage;
     private final Consumer<QuickResolver> callBack;
 
-    private final float renderDistance;
+    private RenderDistance renderDistance;
 
     private int checksTaken;
-
-    private double xCenter;
-    private double zCenter;
-    private float xDist;
-    private float zDist;
-    private float errorX;
-    private float errorZ;
+    private int phase;
+    private float distX;
+    private float distZ;
 
     private ChunkPosition xResolve;
     private ChunkPosition zResolve;
-    private int phase;
 
     public QuickResolver(ChunkPosition initialLoaded, Dimension dimension, int maxPhase, Consumer<QuickResolver> callBack) {
         this.initialLoaded = initialLoaded;
         this.dimension = dimension;
-        this.maxStage = Math.min(20, maxPhase); // Anything more than 20 is ludicrous
+        this.maxStage = Math.min((int)Math.ceil(Math.log(yesCom.configHandler.RENDER_DISTANCE) / Math.log(2)), maxPhase);
         this.callBack = callBack;
-
-        renderDistance = (float)yesCom.configHandler.RENDER_DISTANCE;
 
         loadedCache.add(initialLoaded);
 
         checksTaken = 0;
-
-        xCenter = initialLoaded.getX();
-        zCenter = initialLoaded.getZ();
-        xDist = renderDistance / 2.0f;
-        zDist = renderDistance / 2.0f;
-        errorX = 0.0f;
-        errorZ = 0.0f;
-
         phase = 0;
+
+        float halfRender = yesCom.configHandler.RENDER_DISTANCE / 2.0f;
+        distX = halfRender;
+        distZ = halfRender;
+
         queryPositions();
     }
 
@@ -74,7 +64,7 @@ public class QuickResolver implements IResolver {
 
     @Override
     public RenderDistance getRenderDistance() {
-        return new RenderDistance(new ChunkPosition((int)xCenter, (int)zCenter), (int)renderDistance, errorX, errorZ);
+        return renderDistance;
     }
 
     @Override
@@ -85,47 +75,52 @@ public class QuickResolver implements IResolver {
     private void queryPositions() {
         if (xResolve != null || zResolve != null) return;
         if (isComplete()) {
+            float error = yesCom.configHandler.RENDER_DISTANCE / (float)Math.pow(2, phase);
+            float halfRender = yesCom.configHandler.RENDER_DISTANCE / 2.0f;
+
+            renderDistance = yesCom.dataHandler.newRenderDistance(initialLoaded.subtract((int)(distX - halfRender), (int)(distZ - halfRender)),
+                    yesCom.configHandler.RENDER_DISTANCE, error, error);
+
             callBack.accept(this);
             return;
         }
 
         ++phase;
 
-        xResolve = initialLoaded.add((int)xDist, 0);
-        zResolve = initialLoaded.add(0, (int)zDist);
+        xResolve = initialLoaded.add((int)distX, 0);
+        zResolve = initialLoaded.add(0, (int)distZ);
 
-        if (xResolve.equals(zResolve)) {
-            if (loadedCache.contains(xResolve)) {
-                onLoaded(xResolve);
-                onLoaded(zResolve);
+        boolean equal = xResolve.equals(zResolve);
 
-            } else if (unloadedCache.contains(zResolve)) {
-                onUnloaded(xResolve);
-                onUnloaded(zResolve);
+        if (loadedCache.contains(xResolve)) {
+            onLoaded(xResolve);
+            xResolve = null;
 
-            } else {
-                yesCom.queryHandler.addQuery(new IsLoadedQuery(xResolve, dimension, IQuery.Priority.HIGH, yesCom.configHandler.TYPE,
-                        this::onResult));
-            }
+        } else if (unloadedCache.contains(xResolve)) {
+            onUnloaded(xResolve);
+            xResolve = null;
+        }
 
+        if (loadedCache.contains(zResolve)) {
+            onLoaded(zResolve);
+            zResolve = null;
+
+        } else if (unloadedCache.contains(zResolve)) {
+            onUnloaded(zResolve);
+            zResolve = null;
+        }
+
+        if (equal && xResolve != null && zResolve != null) {
+            yesCom.queryHandler.addQuery(new IsLoadedQuery(xResolve, dimension, IQuery.Priority.HIGH, yesCom.configHandler.TYPE,
+                    this::onResult));
+        } else if (xResolve != null) {
+            yesCom.queryHandler.addQuery(new IsLoadedQuery(xResolve, dimension, IQuery.Priority.HIGH, yesCom.configHandler.TYPE,
+                    this::onResult));
+        } else if (zResolve != null) {
+            yesCom.queryHandler.addQuery(new IsLoadedQuery(zResolve, dimension, IQuery.Priority.HIGH, yesCom.configHandler.TYPE,
+                    this::onResult));
         } else {
-            if (loadedCache.contains(xResolve)) {
-                onLoaded(xResolve);
-            } else if (unloadedCache.contains(xResolve)) {
-                onUnloaded(xResolve);
-            } else {
-                yesCom.queryHandler.addQuery(new IsLoadedQuery(xResolve, dimension, IQuery.Priority.HIGH, yesCom.configHandler.TYPE,
-                        this::onResult));
-            }
-
-            if (loadedCache.contains(zResolve)) {
-                onLoaded(zResolve);
-            } else if (unloadedCache.contains(zResolve)) {
-                onUnloaded(zResolve);
-            } else {
-                yesCom.queryHandler.addQuery(new IsLoadedQuery(zResolve, dimension, IQuery.Priority.HIGH, yesCom.configHandler.TYPE,
-                        this::onResult));
-            }
+            queryPositions();
         }
     }
 
@@ -141,52 +136,29 @@ public class QuickResolver implements IResolver {
                 break;
             }
         }
+
+        if (query.getChunkPosition().equals(xResolve)) xResolve = null;
+        if (query.getChunkPosition().equals(zResolve)) zResolve = null;
+
+        queryPositions();
     }
 
     private void onLoaded(ChunkPosition position) {
         if (position == null) return;
         if (!loadedCache.contains(position)) loadedCache.add(position);
 
-        float dist = renderDistance / (float)Math.pow(2, phase);
-
-        if (position.equals(xResolve)) {
-            xDist += dist;
-
-            xCenter += dist;
-            xResolve = null;
-        }
-
-        if (position.equals(zResolve)) {
-            zDist += dist;
-
-            zCenter += dist;
-            zResolve = null;
-        }
-
-        queryPositions();
+        float dist = yesCom.configHandler.RENDER_DISTANCE / (float)Math.pow(2, phase);
+        if (position.equals(xResolve)) distX += dist;
+        if (position.equals(zResolve)) distZ += dist;
     }
 
     private void onUnloaded(ChunkPosition position) {
         if (position == null) return;
         if (!unloadedCache.contains(position)) unloadedCache.add(position);
 
-        float dist = (float)Math.floor(renderDistance) / (float)Math.pow(2, phase);
-
-        if (position.equals(xResolve)) {
-            xDist -= dist;
-
-            xCenter -= dist;
-            xResolve = null;
-        }
-
-        if (position.equals(zResolve)) {
-            zDist -= dist;
-
-            zCenter -= dist;
-            zResolve = null;
-        }
-
-        queryPositions();
+        float dist = yesCom.configHandler.RENDER_DISTANCE / (float)Math.pow(2, phase);
+        if (position.equals(xResolve)) distX -= dist;
+        if (position.equals(zResolve)) distZ -= dist;
     }
 
     public ChunkPosition getInitialLoaded() {

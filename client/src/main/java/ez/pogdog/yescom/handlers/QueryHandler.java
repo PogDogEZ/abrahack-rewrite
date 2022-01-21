@@ -6,6 +6,9 @@ import ez.pogdog.yescom.query.IQuery;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
+/**
+ * Responsible for handling queries, including starting and limiting the number of concurrent queries.
+ */
 public class QueryHandler implements IHandler {
 
     private final YesCom yesCom = YesCom.getInstance();
@@ -110,8 +113,13 @@ public class QueryHandler implements IHandler {
     public void onExit() {
     }
 
-    public synchronized void addQuery(IQuery query) {
+    public synchronized void addQuery(IQuery query, boolean reschedule) {
         if (!query.isFinished()) {
+            if (reschedule) {
+                waiting.add(0, query);
+                return;
+            }
+
             int priorityOrdinal = query.getPriority().ordinal();
 
             for (int index = 0; index < waiting.size(); ++index) {
@@ -123,6 +131,10 @@ public class QueryHandler implements IHandler {
 
             waiting.add(query);
         }
+    }
+
+    public void addQuery(IQuery query) {
+        addQuery(query, false);
     }
 
     public int getWaitingSize() {

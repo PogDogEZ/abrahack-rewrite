@@ -17,7 +17,6 @@ import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerUpdate
 import com.github.steveice10.packetlib.Session;
 import com.github.steveice10.packetlib.packet.Packet;
 import ez.pogdog.yescom.YesCom;
-import ez.pogdog.yescom.data.serializable.ChatMessage;
 import ez.pogdog.yescom.util.Angle;
 import ez.pogdog.yescom.util.Dimension;
 import ez.pogdog.yescom.util.Position;
@@ -32,6 +31,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
+/**
+ * A player connected to the server.
+ */
 public class Player {
 
     private final YesCom yesCom = YesCom.getInstance();
@@ -112,6 +114,9 @@ public class Player {
 
     private void notifyJoinLeaveListeners(PlayerAction action, UUID uuid) {
         joinLeaveListeners.forEach((listenerID, listener) -> listener.accept(action, uuid));
+    }
+
+    private void whyDoIHaveToDoThis() throws ClassNotFoundException {
     }
 
     /* ------------------------ Events ------------------------ */
@@ -272,7 +277,13 @@ public class Player {
      * @param reason The given reason that will be logged.
      */
     public void disconnect(String reason) {
-        session.disconnect(reason);
+        try {
+            session.disconnect(reason);
+            whyDoIHaveToDoThis();
+        } catch (ClassNotFoundException | NoClassDefFoundError error) { // This is a workaround for MCProtocolLib's weirdness
+            yesCom.logger.warning(String.format("Failed to disconnect %s: %s", this, error.getMessage()));
+            yesCom.logger.throwing(this.getClass().getSimpleName(), "disconnect", error);
+        }
     }
 
     public void disconnect() {

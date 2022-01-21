@@ -1,5 +1,9 @@
 package ez.pogdog.yescom.task;
 
+import ez.pogdog.yescom.task.tasks.BasicScanTask;
+import ez.pogdog.yescom.task.tasks.HighwayScanTask;
+import ez.pogdog.yescom.task.tasks.SpiralScanTask;
+import ez.pogdog.yescom.task.tasks.StaticScanTask;
 import ez.pogdog.yescom.util.*;
 
 import java.util.ArrayList;

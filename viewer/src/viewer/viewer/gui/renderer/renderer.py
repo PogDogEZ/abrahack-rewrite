@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import logging
 import math
 from enum import Enum
 from typing import Dict, Tuple, List
@@ -8,10 +7,10 @@ from typing import Dict, Tuple, List
 import bresenham
 import cv2
 import numpy as np
-from PIL import ImageFont, ImageDraw, Image
-from PyQt5.QtCore import Qt, QObject, QEvent, QThread, pyqtSignal
-from PyQt5.QtGui import QMouseEvent, QMoveEvent, QWheelEvent, QContextMenuEvent
-from PyQt5.QtWidgets import QGraphicsView, QWidget, QApplication, QMenu, QAction, QActionGroup, QMessageBox
+from PIL import ImageFont
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt5.QtGui import QMouseEvent, QWheelEvent, QContextMenuEvent
+from PyQt5.QtWidgets import QGraphicsView, QWidget, QApplication, QMenu, QMessageBox
 
 from ..util import get_font_paths, draw_font
 from ...config import Config
@@ -402,7 +401,7 @@ class Renderer(QGraphicsView):
                     image = cv2.rectangle(image, chunk_coords,
                                           (math.floor(chunk_coords[0] + chunk_size[0] * Config.INTERPOLATION_SIZE[0]),
                                            math.floor(chunk_coords[1] + chunk_size[1] * Config.INTERPOLATION_SIZE[1])),
-                                          Config.SELECTION_COLOUR, self._scaled_line_width(2))
+                                          Config.SELECTION_COLOUR, 2)
 
         elif self._selection_mode == Renderer.Selection.BOX:
             if len(self._selection) > 1:

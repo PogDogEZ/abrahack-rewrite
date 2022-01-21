@@ -128,7 +128,7 @@ public class IsLoadedQuery implements IQuery {
         if (rescheduled || cancelled) {
             startTime = System.currentTimeMillis();
 
-            if (!cancelled) yesCom.queryHandler.addQuery(this);
+            if (!cancelled) yesCom.queryHandler.addQuery(this, true);
 
             rescheduled = false;
             cancelled = false;

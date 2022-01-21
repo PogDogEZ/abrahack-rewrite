@@ -392,7 +392,7 @@ class Viewer(Handler):
                 else:
                     for uuid in packet.get_online_players():
                         self._post_event(OnlinePlayerEvent(OnlinePlayerEvent.EventType.REMOVED, uuid,
-                                                           self._uuid_to_username_cache[uuid]))
+                                                           self._uuid_to_username_cache.get(uuid, "")))
                         current_reporter.remove_online_player(uuid)
 
         elif isinstance(packet, ActionResponsePacket):
