@@ -106,7 +106,7 @@ public class YCReporter extends YCHandler {
                     } else {
                         if (!requests.containsKey(dataExchange.getRequestID())) {
                             logger.warning(String.format("Received data exchange packet for unknown request ID %d.", dataExchange.getRequestID()));
-                            connection.exit("Invalid data request ID.");
+                            // connection.exit("Invalid data request ID.");
                             return;
                         }
 
@@ -148,7 +148,7 @@ public class YCReporter extends YCHandler {
             switch (configAction.getAction()) {
                 case SET_RULE:
                 case GET_RULE: {
-                    connection.exit(String.format("Invalid config action: %s", configAction.getAction()));
+                    // connection.exit(String.format("Invalid config action: %s", configAction.getAction()));
                     break;
                 }
                 case SYNC_RULE: {
@@ -161,7 +161,7 @@ public class YCReporter extends YCHandler {
                     } else {
                         if (!actions.containsKey(configAction.getActionID())) {
                             logger.warning(String.format("Received config action packet for unknown action ID %d.", configAction.getActionID()));
-                            connection.exit("Invalid config action ID.");
+                            // connection.exit("Invalid config action ID.");
                             return;
                         }
 
@@ -205,13 +205,13 @@ public class YCReporter extends YCHandler {
             switch (taskAction.getAction()) {
                 case START:
                 case STOP: {
-                    connection.exit(String.format("Invalid task action: %s", taskAction.getAction()));
+                    // connection.exit(String.format("Invalid task action: %s", taskAction.getAction()));
                     break;
                 }
                 case ADD: {
                     RegisteredTask registeredTask = getRegisteredTask(taskAction.getTaskName());
                     if (registeredTask == null) {
-                        connection.exit(String.format("Invalid task name: %s", taskAction.getTaskName()));
+                        // connection.exit(String.format("Invalid task name: %s", taskAction.getTaskName()));
                         return;
                     }
 
@@ -225,7 +225,7 @@ public class YCReporter extends YCHandler {
                 }
                 case REMOVE: {
                     if (!activeTasks.containsKey(taskAction.getTaskID())) {
-                        connection.exit(String.format("Invalid task ID: %d", taskAction.getTaskID()));
+                        // connection.exit(String.format("Invalid task ID: %d", taskAction.getTaskID()));
 
                     } else {
                         ActiveTask task = activeTasks.get(taskAction.getTaskID());
@@ -239,7 +239,7 @@ public class YCReporter extends YCHandler {
                 case UPDATE: {
                     ActiveTask activeTask = activeTasks.get(taskAction.getTaskID());
                     if (activeTask == null) {
-                        connection.exit(String.format("Invalid task ID: %d", taskAction.getTaskID()));
+                        // connection.exit(String.format("Invalid task ID: %d", taskAction.getTaskID()));
                         return;
                     }
 
@@ -255,7 +255,7 @@ public class YCReporter extends YCHandler {
                 case RESULT: {
                     ActiveTask activeTask = activeTasks.get(taskAction.getTaskID());
                     if (activeTask == null) {
-                        connection.exit(String.format("Invalid task ID: %d", taskAction.getTaskID()));
+                        // connection.exit(String.format("Invalid task ID: %d", taskAction.getTaskID()));
                         return;
                     }
 
@@ -281,7 +281,7 @@ public class YCReporter extends YCHandler {
             } else {
                 Player player = getPlayer(playerAction.getPlayerName());
                 if (player == null) {
-                    connection.exit("Invalid player name: " + playerAction.getPlayerName());
+                    // connection.exit("Invalid player name: " + playerAction.getPlayerName());
                     return;
                 }
 
@@ -343,7 +343,7 @@ public class YCReporter extends YCHandler {
 
             switch (trackerAction.getAction()) {
                 case UNTRACK: {
-                    connection.exit("Invalid tracker action: UNTRACK");
+                    // connection.exit("Invalid tracker action: UNTRACK");
                     return;
                 }
                 case ADD: {
@@ -356,7 +356,7 @@ public class YCReporter extends YCHandler {
                 case REMOVE: {
                     Tracker tracker = getTracker(trackerAction.getTrackerID());
                     if (tracker == null) {
-                        connection.exit(String.format("Invalid tracker ID: %d", trackerAction.getTrackerID()));
+                        // connection.exit(String.format("Invalid tracker ID: %d", trackerAction.getTrackerID()));
                         return;
                     }
 
@@ -369,7 +369,7 @@ public class YCReporter extends YCHandler {
                 case UPDATE: {
                     Tracker tracker = getTracker(trackerAction.getTrackerID());
                     if (tracker == null) {
-                        connection.exit(String.format("Invalid tracker ID: %d", trackerAction.getTrackerID()));
+                        // connection.exit(String.format("Invalid tracker ID: %d", trackerAction.getTrackerID()));
                         return;
                     }
 
@@ -417,7 +417,7 @@ public class YCReporter extends YCHandler {
             logger.finer(String.format("%s got action response.", this));
             if (!actions.containsKey(actionResponse.getActionID()) && actionResponse.getActionID() != -1) {
                 logger.warning(String.format("Received action response packet for unknown action ID %d.", actionResponse.getActionID()));
-                connection.exit("Invalid action ID.");
+                // connection.exit("Invalid action ID.");
                 return;
             }
 

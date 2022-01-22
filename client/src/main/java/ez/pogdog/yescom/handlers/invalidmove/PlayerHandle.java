@@ -209,7 +209,14 @@ public class PlayerHandle {
             if (arziMode && widResync) {
                 if (recievedWindowID == -1) {
                     yesCom.logger.warning(String.format("%s packet loss (2), got: %d.", this, teleportID));
-                    resync(false);
+                    // We can be sure that the storage isn't open, as we got not window ID, but that doesn't mean we
+                    // should cancel ALL queries, as we can assume that they're still ok, so just reschedule the/
+                    // corresponding query one
+                    if (queryMap.containsKey(teleportID)) {
+                        IsLoadedQuery query = queryMap.get(teleportID);
+                        query.reschedule();
+                        queryMap.remove(teleportID);
+                    }
                     return;
                 }
 
@@ -224,12 +231,16 @@ public class PlayerHandle {
                     yesCom.logger.warning(String.format("%s packet loss (3), expected: %d, got: %d.", this,
                             expectedTeleportID, teleportID));
 
+                    /* // This probably isn't valid
                     if (expectedWindowID != -1) {
                         teleportID = windowToTPIDMap.get(expectedWindowID);
                     } else {
                         resync(false);
                         return;
                     }
+                     */
+
+                    resync(false); // TODO: I mean do we really need to cancel ALL queries?
 
                 // No valid teleport ID and no valid window ID, completely clueless, could have been teleported or
                 // joined a new world

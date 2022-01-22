@@ -42,7 +42,9 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
     private final YesCom yesCom = YesCom.getInstance();
 
-    private final Deque<Packet> queuedPackets = new ArrayDeque<>();
+    private final Deque<Packet> highPriorityPackets = new ArrayDeque<>();
+    private final Deque<Packet> mediumPriorityPackets = new ArrayDeque<>();
+    private final Deque<Packet> lowPriorityPackets = new ArrayDeque<>();
 
     private final List<ChatMessage> queuedChatMessages = new ArrayList<>();
     private final List<ChunkState> queuedChunkStates = new ArrayList<>();
@@ -413,30 +415,38 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
             syncedOnlinePlayers.clear();
         }
 
-        while (!queuedPackets.isEmpty()) connection.sendPacket(queuedPackets.pop());
+        // Send the general queued packets
+        while (!highPriorityPackets.isEmpty()) connection.sendPacket(highPriorityPackets.pop());
+        while (!mediumPriorityPackets.isEmpty()) connection.sendPacket(mediumPriorityPackets.pop());
+        while (!lowPriorityPackets.isEmpty()) connection.sendPacket(lowPriorityPackets.pop());
 
+        // Broadcast new chat messages
         if (!queuedChatMessages.isEmpty()) {
             connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.CHAT, queuedChatMessages,
                     new ArrayList<>()));
             queuedChatMessages.clear();
         }
 
+        // Broadcast new chunk states
         if (!queuedChunkStates.isEmpty())
             connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.CHUNK_STATE,
                     queuedChunkStates, new ArrayList<>()));
         queuedChunkStates.clear();
 
+        // Broadcast new tracked players
         if (!queuedTrackedPlayers.isEmpty()) {
             connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.TRACKED_PLAYER,
                     queuedTrackedPlayers, new ArrayList<>()));
             queuedTrackedPlayers.clear();
         }
 
+        // Broadcast new players joining the server
         if (!queuedJoins.isEmpty()) {
             connection.sendPacket(new OnlinePlayersActionPacket(OnlinePlayersActionPacket.Action.ADD, queuedJoins));
             queuedJoins.clear();
         }
 
+        // Broadcast players leaving the server
         if (!queuedLeaves.isEmpty()) {
             connection.sendPacket(new OnlinePlayersActionPacket(queuedLeaves));
             queuedLeaves.clear();
@@ -629,81 +639,149 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
     /* ----------------------------- Task Events ----------------------------- */
 
+    /**
+     * Called when a task is added to the task list.
+     * @param task The task that was added.
+     */
     public synchronized void onTaskAdded(ITask task) {
-        queuedPackets.addFirst(new TaskActionPacket(TaskActionPacket.Action.ADD, task));
+        highPriorityPackets.add(new TaskActionPacket(TaskActionPacket.Action.ADD, task));
     }
 
+    /**
+     * Called when a task is removed from the task list.
+     * @param task The task that was removed.
+     */
     public synchronized void onTaskRemoved(ITask task) {
-        queuedPackets.addLast(new TaskActionPacket(TaskActionPacket.Action.REMOVE, task));
+        lowPriorityPackets.add(new TaskActionPacket(TaskActionPacket.Action.REMOVE, task));
     }
 
+    /**
+     * Called when a task is updated.
+     * @param task The task that was updated.
+     */
     public synchronized void onTaskUpdate(ITask task) {
         if (task instanceof ILoadedChunkTask) {
-            queuedPackets.addLast(new TaskActionPacket(task, task.getProgress(), task.getTimeElapsed(),
+            mediumPriorityPackets.add(new TaskActionPacket(task, task.getProgress(), task.getTimeElapsed(),
                     ((ILoadedChunkTask)task).getCurrentPosition()));
         } else {
-            queuedPackets.addLast(new TaskActionPacket(task, task.getProgress(), task.getTimeElapsed()));
+            mediumPriorityPackets.add(new TaskActionPacket(task, task.getProgress(), task.getTimeElapsed()));
         }
     }
 
+    /**
+     * Called when a task has produced a new result.
+     * @param task The task that produced the result.
+     * @param result The result produced by the task.
+     */
     public synchronized void onTaskResult(ITask task, String result) {
-        queuedPackets.addLast(new TaskActionPacket(task, result));
+        mediumPriorityPackets.add(new TaskActionPacket(task, result));
     }
 
     /* ----------------------------- Player Events ----------------------------- */
 
+    /**
+     * Called when a player is added.
+     * @param username The username of the player.
+     * @param uuid The UUID of the player.
+     * @param displayName The display name of the player.
+     */
     public synchronized void onPlayerAdded(String username, UUID uuid, String displayName) {
-        queuedPackets.addFirst(new PlayerActionPacket(username, uuid, displayName));
+        highPriorityPackets.addFirst(new PlayerActionPacket(username, uuid, displayName));
     }
 
+    /**
+     * Called when a player is removed
+     * @param username The username of the player that was removed.
+     */
     public synchronized void onPlayerRemoved(String username) {
-        queuedPackets.addLast(new PlayerActionPacket(username));
+        lowPriorityPackets.addLast(new PlayerActionPacket(username));
     }
 
+    /**
+     * Called when a player logs in to the server.
+     * @param player The player that logged in.
+     */
     public synchronized void onPlayerLogin(Player player) {
-        queuedPackets.addLast(new PlayerActionPacket(PlayerActionPacket.Action.LOGIN, player));
+        highPriorityPackets.addLast(new PlayerActionPacket(PlayerActionPacket.Action.LOGIN, player));
     }
 
+    /**
+     * Called when a player logs out of the server.
+     * @param player The player.
+     * @param reason The reason the player logged out.
+     */
     public synchronized void onPlayerLogout(Player player, String reason) {
-        queuedPackets.addLast(new PlayerActionPacket(player, reason));
+        lowPriorityPackets.addFirst(new PlayerActionPacket(player, reason));
     }
 
+    /**
+     * Called when a player's position is changed.
+     * @param player The player.
+     */
     public synchronized void onPositionChanged(Player player) {
-        queuedPackets.addLast(new PlayerActionPacket(player.getAuthService().getUsername(), player.getPosition(), player.getAngle()));
+        mediumPriorityPackets.add(new PlayerActionPacket(player.getAuthService().getUsername(), player.getPosition(), player.getAngle()));
     }
 
+    /**
+     * Called when a player's dimension is changed.
+     * @param player The player.
+     */
     public synchronized void onDimensionChanged(Player player) {
-        queuedPackets.addLast(new PlayerActionPacket(player.getAuthService().getUsername(), player.getDimension()));
+        mediumPriorityPackets.add(new PlayerActionPacket(player.getAuthService().getUsername(), player.getDimension()));
     }
 
+    /**
+     * Called when a player's health is changed.
+     * @param player The player
+     */
     public synchronized void onHealthChanged(Player player) {
-        queuedPackets.addLast(new PlayerActionPacket(player.getAuthService().getUsername(), player.getFoodStats()));
+        mediumPriorityPackets.add(new PlayerActionPacket(player.getAuthService().getUsername(), player.getFoodStats()));
     }
 
     /* ----------------------------- Chunk Events ----------------------------- */
 
+    /**
+     * Called when a chunk state is found.
+     * @param chunkState The chunk state.
+     */
     public synchronized void onChunkState(ChunkState chunkState) {
         if (yesCom.configHandler.BROADCAST_CHUNK_STATES) queuedChunkStates.add(chunkState);
     }
 
     /* ----------------------------- Tracked Player Events ----------------------------- */
 
+    /**
+     * Called when a tracked player is found.
+     * @param trackedPlayer The tracked player.
+     */
     public synchronized void onTrackedPlayer(TrackedPlayer trackedPlayer) {
         if (yesCom.configHandler.BROADCAST_TRACKED_PLAYERS) queuedTrackedPlayers.add(trackedPlayer);
     }
 
     /* ----------------------------- Tracker Events ----------------------------- */
 
+    /**
+     * Called when a tracker is added.
+     * @param tracker The tracker that was added.
+     */
     public synchronized void onTrackerAdded(ITracker tracker) {
-        queuedPackets.addFirst(new TrackerActionPacket(TrackerActionPacket.Action.ADD, tracker));
+        highPriorityPackets.add(new TrackerActionPacket(TrackerActionPacket.Action.ADD, tracker));
     }
 
+    /**
+     * Called when a tracker is removed.
+     * @param tracker The tracker that was removed.
+     */
     public synchronized void onTrackerRemoved(ITracker tracker) {
-        queuedPackets.addLast(new TrackerActionPacket(TrackerActionPacket.Action.REMOVE, tracker));
+        lowPriorityPackets.add(new TrackerActionPacket(TrackerActionPacket.Action.REMOVE, tracker));
     }
 
+    /**
+     * Called when a tracker is updated.
+     * @param tracker The tracker that was updated.
+     */
     public synchronized void onTrackerUpdate(ITracker tracker) {
-        queuedPackets.addLast(new TrackerActionPacket(TrackerActionPacket.Action.UPDATE, tracker));
+        mediumPriorityPackets.add(new TrackerActionPacket(TrackerActionPacket.Action.UPDATE, tracker));
     }
 
     /* ----------------------------- Info Events ----------------------------- */
@@ -712,19 +790,44 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
     }
 
+    /**
+     * Called when a chat message is received.
+     * @param chatMessage The chat message.
+     */
     public synchronized void onChatMessage(ChatMessage chatMessage) {
         queuedChatMessages.add(chatMessage);
     }
 
+    /**
+     * Called when updating the current information.
+     * @param waitingQueries The number of queries waiting to be processed.
+     * @param tickingQueries The number of queries that are currently being processed.
+     * @param queriesPerSecond The number of queries that are being processed per second.
+     * @param tickRate The tick rate of the server.
+     * @param serverPing The server ping.
+     * @param timeSinceLastPacket The time since the last packet was received.
+     */
     public synchronized void onInfoUpdate(int waitingQueries, int tickingQueries, float queriesPerSecond, float tickRate,
                                           float serverPing,int timeSinceLastPacket) {
-        queuedPackets.addLast(new InfoUpdatePacket(waitingQueries, tickingQueries, queriesPerSecond, tickRate, serverPing, timeSinceLastPacket));
+        mediumPriorityPackets.add(new InfoUpdatePacket(waitingQueries, tickingQueries, queriesPerSecond, tickRate, serverPing,
+                timeSinceLastPacket));
     }
 
+    /**
+     * Called when updating the current information, but no server data is available (cos we aren't online).
+     * @param waitingQueries The number of queries waiting to be processed.
+     * @param tickingQueries The number of queries that are currently being processed.
+     * @param queriesPerSecond The number of queries that are being processed per second.
+     */
     public synchronized void onInfoUpdate(int waitingQueries, int tickingQueries, float queriesPerSecond) {
-        queuedPackets.addLast(new InfoUpdatePacket(waitingQueries, tickingQueries, queriesPerSecond));
+        mediumPriorityPackets.add(new InfoUpdatePacket(waitingQueries, tickingQueries, queriesPerSecond));
     }
 
+    /**
+     * Called when a player joins the server.
+     * @param uuid The UUID of the player that joined.
+     * @param name The display name of the player that joined.
+     */
     public synchronized void onPlayerJoin(UUID uuid, String name) {
         if (!syncedOnlinePlayers.contains(uuid)) {
             syncedOnlinePlayers.add(uuid);
@@ -733,6 +836,10 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
         }
     }
 
+    /**
+     * Called when a player leaves the server.
+     * @param uuid The UUID of the player that left.
+     */
     public synchronized void onPlayerLeave(UUID uuid) {
         if (syncedOnlinePlayers.contains(uuid)) {
             syncedOnlinePlayers.remove(uuid);
