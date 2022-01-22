@@ -11,6 +11,8 @@ public class PlayerUpdatedEvent extends ReporterEvent {
     private final Player player;
     private final UpdateType updateType;
 
+    private final boolean canLogin;
+
     private final Position newPosition;
     private final Angle newAngle;
 
@@ -20,20 +22,40 @@ public class PlayerUpdatedEvent extends ReporterEvent {
     private final int newHunger;
     private final float newSaturation;
 
+    public PlayerUpdatedEvent(YCReporter reporter, Player player, boolean canLogin) {
+        super(reporter);
+
+        this.player = player;
+        updateType = UpdateType.TOGGLE_LOGIN;
+
+        this.canLogin = canLogin;
+
+        newPosition = new Position(0, 0, 0);
+        newAngle = new Angle(0, 0);
+
+        newDimension = 0;
+
+        newHealth = 20.0f;
+        newHunger = 20;
+        newSaturation = 5.0f;
+    }
+
     public PlayerUpdatedEvent(YCReporter reporter, Player player, Position newPosition, Angle newAngle) {
         super(reporter);
 
         this.player = player;
         updateType = UpdateType.POSITION;
 
+        canLogin = true;
+
         this.newPosition = newPosition;
         this.newAngle = newAngle;
 
-        this.newDimension = 0;
+        newDimension = 0;
 
-        this.newHealth = 20.0f;
-        this.newHunger = 20;
-        this.newSaturation = 5.0f;
+        newHealth = 20.0f;
+        newHunger = 20;
+        newSaturation = 5.0f;
     }
 
     public PlayerUpdatedEvent(YCReporter reporter, Player player, int newDimension) {
@@ -42,14 +64,16 @@ public class PlayerUpdatedEvent extends ReporterEvent {
         this.player = player;
         updateType = UpdateType.DIMENSION;
 
-        this.newPosition = new Position(0, 0, 0);
-        this.newAngle = new Angle(0, 0);
+        canLogin = true;
+
+        newPosition = new Position(0, 0, 0);
+        newAngle = new Angle(0, 0);
 
         this.newDimension = newDimension;
 
-        this.newHealth = 20.0f;
-        this.newHunger = 20;
-        this.newSaturation = 5.0f;
+        newHealth = 20.0f;
+        newHunger = 20;
+        newSaturation = 5.0f;
     }
 
     public PlayerUpdatedEvent(YCReporter reporter, Player player, float newHealth, int newHunger, float newSaturation) {
@@ -58,10 +82,12 @@ public class PlayerUpdatedEvent extends ReporterEvent {
         this.player = player;
         updateType = UpdateType.HEALTH;
 
-        this.newPosition = new Position(0, 0, 0);
-        this.newAngle = new Angle(0, 0);
+        canLogin = true;
 
-        this.newDimension = 0;
+        newPosition = new Position(0, 0, 0);
+        newAngle = new Angle(0, 0);
+
+        newDimension = 0;
 
         this.newHealth = newHealth;
         this.newHunger = newHunger;
@@ -74,6 +100,10 @@ public class PlayerUpdatedEvent extends ReporterEvent {
 
     public UpdateType getUpdateType() {
         return updateType;
+    }
+
+    public boolean getCanLogin() {
+        return canLogin;
     }
 
     public Position getNewPosition() {
@@ -101,6 +131,6 @@ public class PlayerUpdatedEvent extends ReporterEvent {
     }
 
     public enum UpdateType {
-        POSITION, DIMENSION, HEALTH;
+        TOGGLE_LOGIN, POSITION, DIMENSION, HEALTH;
     }
 }

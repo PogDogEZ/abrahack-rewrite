@@ -16,6 +16,8 @@ public class BasicScanTask implements ILoadedChunkTask {
 
     private final YesCom yesCom = YesCom.getInstance();
 
+    private final List<IsLoadedQuery> currentQueries = new ArrayList<>();
+
     private final ChunkPosition startPos;
     private final ChunkPosition endPos;
     private final IQuery.Priority priority;
@@ -28,7 +30,6 @@ public class BasicScanTask implements ILoadedChunkTask {
 
     private int taskID;
 
-    private int currentQueries;
     private int currentIndex;
 
     /**
@@ -54,7 +55,6 @@ public class BasicScanTask implements ILoadedChunkTask {
         yesCom.logger.fine(String.format("Dimension: %s.", dimension));
         yesCom.logger.fine(String.format("Max index: %d.", maxIndex));
 
-        currentQueries = 0;
         currentIndex = 0;
     }
 
@@ -66,22 +66,19 @@ public class BasicScanTask implements ILoadedChunkTask {
 
     @Override
     public void onTick() {
-        while (currentQueries < 200 && currentIndex < maxIndex) {
+        while (currentQueries.size() < 20 && currentIndex < maxIndex) {
             ChunkPosition position = getCurrentPosition();
             ++currentIndex;
 
             synchronized (this) {
-                ++currentQueries;
-
-                yesCom.queryHandler.addQuery(new IsLoadedQuery(position, dimension, priority, yesCom.configHandler.TYPE,
+                IsLoadedQuery isLoadedQuery = new IsLoadedQuery(position, dimension, priority, yesCom.configHandler.TYPE,
                         (query, result) -> {
-                            synchronized (this) {
-                                --currentQueries;
+                            currentQueries.remove(query);
+                            if (result == IsLoadedQuery.Result.LOADED) onLoaded(query.getChunkPosition());
+                        });
 
-                                if (result == IsLoadedQuery.Result.LOADED)
-                                    onLoaded(new ChunkPosition(query.getPosition().getX() / 16, query.getPosition().getZ() / 16));
-                            }
-                        }));
+                currentQueries.add(isLoadedQuery);
+                yesCom.queryHandler.addQuery(isLoadedQuery);
             }
         }
 
@@ -94,6 +91,7 @@ public class BasicScanTask implements ILoadedChunkTask {
 
     @Override
     public void onFinished() {
+        currentQueries.forEach(IsLoadedQuery::cancel);
     }
 
     @Override
@@ -130,7 +128,7 @@ public class BasicScanTask implements ILoadedChunkTask {
 
     @Override
     public boolean isFinished() {
-        return currentIndex >= maxIndex && currentQueries <= 0;
+        return currentIndex >= maxIndex && currentQueries.isEmpty();
     }
 
     @Override

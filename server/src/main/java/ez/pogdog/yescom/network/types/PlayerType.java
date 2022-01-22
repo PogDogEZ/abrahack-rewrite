@@ -22,6 +22,7 @@ public class PlayerType extends Type<Player> {
 
         Player player = new Player(username, uuid, displayName);
         player.setLoggedIn(Registry.BOOLEAN.read(inputStream));
+        player.setCanLogin(Registry.BOOLEAN.read(inputStream));
 
         if (player.isLoggedIn()) {
             player.setPosition(YCRegistry.POSITION.read(inputStream));
@@ -45,6 +46,7 @@ public class PlayerType extends Type<Player> {
                 .array(), outputStream);
         Registry.STRING.write(value.getDisplayName(), outputStream);
         Registry.BOOLEAN.write(value.isLoggedIn(), outputStream);
+        Registry.BOOLEAN.write(value.getCanLogin(), outputStream);
 
         if (value.isLoggedIn()) {
             YCRegistry.POSITION.write(value.getPosition(), outputStream);

@@ -31,6 +31,8 @@ public class PlayerActionPacket extends Packet {
 
     private String disconnectReason;
 
+    private boolean canLogin;
+
     private Position newPosition;
     private Angle newAngle;
 
@@ -41,13 +43,14 @@ public class PlayerActionPacket extends Packet {
     private float newSaturation;
 
     public PlayerActionPacket(Action action, String playerName, UUID uuid, String displayName,
-                              String disconnectReason, Position newPosition, Angle newAngle, int newDimension,
+                              String disconnectReason, boolean canLogin, Position newPosition, Angle newAngle, int newDimension,
                               float newHealth, int newHunger, float newSaturation) {
         this.action = action;
         this.playerName = playerName;
         this.uuid = uuid;
         this.displayName = displayName;
         this.disconnectReason = disconnectReason;
+        this.canLogin = canLogin;
         this.newPosition = newPosition;
         this.newAngle = newAngle;
         this.newDimension = newDimension;
@@ -57,46 +60,53 @@ public class PlayerActionPacket extends Packet {
     }
 
     public PlayerActionPacket(Action action, Player player) {
-        this(action, player.getUsername(), player.getUUID(), player.getDisplayName(), "",
+        this(action, player.getUsername(), player.getUUID(), player.getDisplayName(), "", player.getCanLogin(),
                 player.getPosition(), player.getAngle(), player.getDimension(), player.getHealth(), player.getFood(),
                 player.getSaturation());
     }
 
     public PlayerActionPacket(String username, UUID uuid, String displayName) {
-        this(Action.ADD, username, uuid, displayName, "", new Position(0, 0, 0),
+        this(Action.ADD, username, uuid, displayName, "", true, new Position(0, 0, 0),
                 new Angle(0, 0), 0, 20.0f, 20, 5.0f);
     }
 
     public PlayerActionPacket(Player player) {
-        this(Action.REMOVE, player.getUsername(), player.getUUID(), player.getDisplayName(), "",
+        this(Action.REMOVE, player.getUsername(), player.getUUID(), player.getDisplayName(), "", player.getCanLogin(),
                 player.getPosition(), player.getAngle(), player.getDimension(), player.getHealth(), player.getFood(),
                 player.getSaturation());
     }
 
     public PlayerActionPacket(Player player, String disconnectReason) {
-        this(Action.LOGOUT, player.getUsername(), player.getUUID(), player.getDisplayName(), disconnectReason,
+        this(Action.LOGOUT, player.getUsername(), player.getUUID(), player.getDisplayName(), disconnectReason, player.getCanLogin(),
                 player.getPosition(), player.getAngle(), player.getDimension(), player.getHealth(), player.getFood(),
                 player.getSaturation());
     }
 
+    public PlayerActionPacket(String playerName, boolean canLogin) {
+        this(Action.TOGGLE_LOGIN, playerName, null, "", "", canLogin,
+                new Position(0, 0, 0), new Angle(0.0f, 0.0f), 0, 20.0f,
+                20, 5.0f);
+    }
+
     public PlayerActionPacket(String playerName, Position newPosition, Angle newAngle) {
-        this(Action.UPDATE_POSITION, playerName, null, "", "", newPosition,
+        this(Action.UPDATE_POSITION, playerName, null, "", "", true, newPosition,
                 newAngle, 0, 20.0f, 20, 5.0f);
     }
 
     public PlayerActionPacket(String playerName, int newDimension) {
-        this(Action.UPDATE_DIMENSION, playerName, null, "","",
+        this(Action.UPDATE_DIMENSION, playerName, null, "","", true,
                 new Position(0, 0,0), new Angle(0.0f, 0.0f), newDimension, 20.0f,
                 20, 5.0f);
     }
 
     public PlayerActionPacket(String playerName, float newHealth, int newHunger, float newSaturation) {
-        this(Action.UPDATE_HEALTH, playerName, null, "", "", new Position(0, 0, 0),
-                new Angle(0.0f, 0.0f), 0, newHealth, newHunger, newSaturation);
+        this(Action.UPDATE_HEALTH, playerName, null, "", "", true,
+                new Position(0, 0, 0), new Angle(0.0f, 0.0f), 0, newHealth, newHunger,
+                newSaturation);
     }
 
     public PlayerActionPacket() {
-        this(Action.ADD, "", null, "", "", new Position(0, 0, 0),
+        this(Action.ADD, "", null, "", "", true, new Position(0, 0, 0),
                 new Angle(0.0f, 0.0f), 0, 20.0f, 20, 5.0f);
     }
 
@@ -113,6 +123,10 @@ public class PlayerActionPacket extends Packet {
             }
             case LOGOUT: {
                 disconnectReason = Registry.STRING.read(inputStream);
+                break;
+            }
+            case TOGGLE_LOGIN: {
+                canLogin = Registry.BOOLEAN.read(inputStream);
                 break;
             }
             case UPDATE_POSITION: {
@@ -149,6 +163,10 @@ public class PlayerActionPacket extends Packet {
             }
             case LOGOUT: {
                 Registry.STRING.write(disconnectReason, outputStream);
+                break;
+            }
+            case TOGGLE_LOGIN: {
+                Registry.BOOLEAN.write(canLogin, outputStream);
                 break;
             }
             case UPDATE_POSITION: {
@@ -225,6 +243,17 @@ public class PlayerActionPacket extends Packet {
     }
 
     /**
+     * @return Whether or not the player can log in automatically.
+     */
+    public boolean getCanLogin() {
+        return canLogin;
+    }
+
+    public void setCanLogin(boolean canLogin) {
+        this.canLogin = canLogin;
+    }
+
+    /**
      * @return The updated position of the player.
      */
     public Position getNewPosition() {
@@ -293,6 +322,7 @@ public class PlayerActionPacket extends Packet {
     public enum Action {
         ADD, REMOVE,
         LOGIN, LOGOUT,
+        TOGGLE_LOGIN,
         UPDATE_POSITION,
         UPDATE_DIMENSION,
         UPDATE_HEALTH;

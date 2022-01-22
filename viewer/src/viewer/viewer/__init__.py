@@ -16,7 +16,7 @@ from .util import ActiveTask, RegisteredTask, Player
 from ..pyclient.networking.connection import Connection
 from ..pyclient.networking.handlers import Handler
 from ..pyclient.networking.packets import Packet
-from ..pyclient.networking.types.basic import String, Integer
+from ..pyclient.networking.types.basic import String, Boolean
 
 
 class Viewer(Handler):
@@ -329,6 +329,11 @@ class Viewer(Handler):
                         player.logged_in = False
 
                         self._post_event(PlayerEvent(PlayerEvent.EventType.LOGOUT, player, packet.disconnect_reason))
+
+                    elif packet.action == PlayerActionPacket.Action.TOGGLE_LOGIN:
+                        player.can_login = packet.can_login
+
+                        self._post_event(PlayerEvent(PlayerEvent.EventType.UPDATED, player))
 
                     elif packet.action == PlayerActionPacket.Action.UPDATE_POSITION:
                         player.position = packet.new_position
@@ -914,6 +919,44 @@ class Viewer(Handler):
             raise error
 
         while self._tracker_action:
+            time.sleep(0.01)
+
+        if self._action_success:
+            return self._action_message
+        else:
+            raise Exception(self._action_message)
+
+    def toggle_login(self, username: str, can_login: bool) -> str:
+        """
+        Toggles the ability for a player to login automatically.
+
+        :param username: The username of the player.
+        :param can_login: Whether or not they will have the ability to login automatically.
+        :return: The success message.
+        """
+
+        if not self._initialized or self._initializing:
+            raise Exception("Not initialized.")
+
+        if self._account_action or self._config_action or self._task_action or self._tracker_action or \
+                self._other_action is not None:
+            raise Exception("Already waiting for an action to complete.")
+
+        if self.current_reporter is None:
+            raise Exception("No current reporter.")
+
+        self._other_action = ActionRequestPacket.Action.TOGGLE_LOGIN
+        fileobj = io.BytesIO()
+        try:
+            String.write(fileobj, username)
+            Boolean.write(fileobj, can_login)
+            self.connection.send_packet(ActionRequestPacket(action=ActionRequestPacket.Action.TOGGLE_LOGIN,
+                                                            data=fileobj.getvalue()))
+        except Exception as error:
+            self._other_action = None
+            raise error
+
+        while self._other_action is not None:
             time.sleep(0.01)
 
         if self._action_success:

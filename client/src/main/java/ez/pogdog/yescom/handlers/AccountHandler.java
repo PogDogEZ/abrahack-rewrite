@@ -3,6 +3,7 @@ package ez.pogdog.yescom.handlers;
 import com.github.steveice10.mc.auth.exception.request.RequestException;
 import com.github.steveice10.mc.auth.service.AuthenticationService;
 import ez.pogdog.yescom.YesCom;
+import ez.pogdog.yescom.handlers.connection.Player;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -137,9 +138,7 @@ public class AccountHandler implements IHandler {
             userMap.put(username, password);
             accountCache.add(authService);
 
-            if (yesCom.ycHandler != null)
-                yesCom.ycHandler.onPlayerAdded(authService.getUsername(), authService.getSelectedProfile().getId(),
-                        authService.getSelectedProfile().getName());
+            yesCom.connectionHandler.addPlayer(new Player(authService));
         }
     }
 
@@ -177,9 +176,12 @@ public class AccountHandler implements IHandler {
         foundAuthService.ifPresent(authService -> {
             userMap.remove(username);
             accountCache.remove(authService);
-            yesCom.connectionHandler.logout(authService.getSelectedProfile().getId());
 
-            if (yesCom.ycHandler != null) yesCom.ycHandler.onPlayerRemoved(username);
+            Player player = yesCom.connectionHandler.getPlayer(username);
+            if (player != null) {
+                yesCom.connectionHandler.logout(player);
+                yesCom.connectionHandler.removePlayer(player);
+            }
         });
     }
 

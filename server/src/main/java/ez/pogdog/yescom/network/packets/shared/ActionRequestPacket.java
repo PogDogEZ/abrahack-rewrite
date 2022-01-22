@@ -80,6 +80,6 @@ public class ActionRequestPacket extends Packet {
     }
 
     public enum Action {
-        SEND_CHAT_MESSAGE;
+        TOGGLE_LOGIN, SEND_CHAT_MESSAGE, UNTRACK_PLAYER;
     }
 }

@@ -11,6 +11,7 @@ public class Player {
     private final UUID uuid;
     private final String displayName;
 
+    private boolean canLogin;
     private boolean loggedIn;
 
     private Position position;
@@ -26,6 +27,7 @@ public class Player {
         this.uuid = uuid;
         this.displayName = displayName;
 
+        canLogin = true;
         loggedIn = false;
         position = new Position(0, 0, 0);
         angle = new Angle(0, 0);
@@ -50,6 +52,14 @@ public class Player {
 
     public String getDisplayName() {
         return displayName;
+    }
+
+    public boolean getCanLogin() {
+        return canLogin;
+    }
+
+    public void setCanLogin(boolean canLogin) {
+        this.canLogin = canLogin;
     }
 
     public boolean isLoggedIn() {

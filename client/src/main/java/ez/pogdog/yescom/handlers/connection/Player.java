@@ -46,9 +46,11 @@ public class Player {
     private final Map<Integer, BiConsumer<PlayerAction, UUID>> joinLeaveListeners = new ConcurrentHashMap<>();
 
     private final AuthenticationService authService;
-    private final Session session;
+    private Session session;
 
     private final FoodStats foodStats;
+
+    private boolean canLogin;
 
     private int packetListenerID;
     private int joinLeaveListenerID;
@@ -73,9 +75,11 @@ public class Player {
     private long lastLoginTime;
     private long lastPacketTime;
 
-    public Player(AuthenticationService authService, Session session) {
+    public Player(AuthenticationService authService) {
         this.authService = authService;
-        this.session = session;
+
+        session = null;
+        canLogin = true;
 
         packetListenerID = 0;
         joinLeaveListenerID = 0;
@@ -272,11 +276,19 @@ public class Player {
         return session;
     }
 
+    public void setSession(Session session) {
+        if (this.session != null && this.session.isConnected()) disconnect("Reconnect");
+        this.session = session;
+        lastLoginTime = System.currentTimeMillis();
+    }
+
     /**
      * Disconnects the session from the server.
      * @param reason The given reason that will be logged.
      */
     public void disconnect(String reason) {
+        if (session == null) return;
+
         try {
             session.disconnect(reason);
             whyDoIHaveToDoThis();
@@ -284,6 +296,8 @@ public class Player {
             yesCom.logger.warning(String.format("Failed to disconnect %s: %s", this, error.getMessage()));
             yesCom.logger.throwing(this.getClass().getSimpleName(), "disconnect", error);
         }
+
+        session = null;
     }
 
     public void disconnect() {
@@ -306,7 +320,7 @@ public class Player {
     }
 
     public boolean isConnected() {
-        return session.isConnected();
+        return session != null && session.isConnected();
     }
 
     /**
@@ -429,6 +443,18 @@ public class Player {
     }
 
     /* ------------------------ Other setters and getters ------------------------ */
+
+    /**
+     * @return Whether or not this player can automatically login.
+     */
+    public boolean getCanLogin() {
+        return canLogin;
+    }
+
+    public void setCanLogin(boolean canLogin) {
+        if (canLogin != this.canLogin) yesCom.ycHandler.onPlayerToggleCanLogin(this);
+        this.canLogin = canLogin;
+    }
 
     public int getServerPing() {
         return serverPing;

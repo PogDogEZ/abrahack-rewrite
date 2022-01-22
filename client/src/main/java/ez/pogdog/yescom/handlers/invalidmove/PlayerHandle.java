@@ -121,7 +121,7 @@ public class PlayerHandle {
                     }
                 });
                 if (rescheduled.get() > 0)
-                    yesCom.logger.warning(String.format("%s packet loss (6), rescheduled: %d.", this, rescheduled.get()));
+                    yesCom.logger.warning(String.format("%s packet loss (7), rescheduled: %d.", this, rescheduled.get()));
             }
         }
     }

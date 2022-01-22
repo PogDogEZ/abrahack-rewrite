@@ -87,6 +87,7 @@ class PlayerSpec(Type):
 
         player = Player(username, uuid, display_name)
         player.logged_in = Boolean.read(fileobj)
+        player.can_login = Boolean.read(fileobj)
 
         if player.logged_in:
             player.position = PositionSpec.read(fileobj)
@@ -107,6 +108,7 @@ class PlayerSpec(Type):
         Bytes.write(player.uuid.bytes, fileobj)
         String.write(player.display_name, fileobj)
         Boolean.write(player.logged_in, fileobj)
+        Boolean.write(player.can_login, fileobj)
 
         if player.logged_in:
             PositionSpec.write(player.position, fileobj)

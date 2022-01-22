@@ -307,6 +307,14 @@ public class YCReporter extends YCHandler {
                         jServer.eventBus.post(new PlayerLogoutEvent(this, player, playerAction.getDisconnectReason()));
                         break;
                     }
+                    case TOGGLE_LOGIN: {
+                        logger.finer(String.format("Toggling player %s login.", player));
+
+                        jServer.eventBus.post(new PlayerUpdatedEvent(this, player, playerAction.getCanLogin()));
+
+                        player.setCanLogin(playerAction.getCanLogin());
+                        break;
+                    }
                     case UPDATE_POSITION: {
                         // logger.finer(String.format("Updating player position: %s", player));
 

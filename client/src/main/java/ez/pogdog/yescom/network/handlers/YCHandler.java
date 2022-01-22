@@ -143,7 +143,15 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
                 yesCom.logger.finer("Syncing players...");
                 yesCom.accountHandler.getAccounts().forEach(authService -> onPlayerAdded(authService.getUsername(),
                         authService.getSelectedProfile().getId(), authService.getSelectedProfile().getName()));
-                yesCom.connectionHandler.getPlayers().forEach(this::onPlayerLogin);
+                yesCom.connectionHandler.getPlayers().forEach(player -> {
+                    if (player.isConnected()) {
+                        onPlayerLogin(player);
+                        // onPlayerToggleCanLogin(player);
+                        onPositionChanged(player);
+                        onDimensionChanged(player);
+                        onHealthChanged(player);
+                    }
+                });
                 yesCom.logger.finer("Done.");
 
                 yesCom.logger.finer("Syncing trackers...");
@@ -346,6 +354,33 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
             ByteArrayInputStream inputStream = new ByteArrayInputStream(actionRequest.getData());
 
             switch (actionRequest.getAction()) { // It'll prolly have more stuff in the future
+                case TOGGLE_LOGIN: {
+                    String username;
+                    boolean canLogin;
+                    try {
+                        username = Registry.STRING.read(inputStream);
+                        canLogin = Registry.BOOLEAN.read(inputStream);
+                    } catch (IOException error) {
+                        yesCom.logger.finer("Error while reading toggle login action.");
+                        yesCom.logger.throwing(YCHandler.class.getSimpleName(), "handlePacket", error);
+                        connection.sendPacket(new ActionResponsePacket(actionRequest.getActionID(), false,
+                                "Invalid format toggle login action."));
+                        return;
+                    }
+
+                    Player player = yesCom.connectionHandler.getPlayer(username);
+                    if (player == null) {
+                        yesCom.logger.finer(String.format("Attempted to toggle login for invalid username: %s.", username));
+                        connection.sendPacket(new ActionResponsePacket(actionRequest.getActionID(), false,
+                                "Player not found."));
+                        return;
+                    }
+
+                    player.setCanLogin(canLogin);
+                    connection.sendPacket(new ActionResponsePacket(actionRequest.getActionID(), true,
+                            "Successfully toggled login."));
+                    break;
+                }
                 case SEND_CHAT_MESSAGE: {
                     String username;
                     String message;
@@ -353,7 +388,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
                         username = Registry.STRING.read(inputStream);
                         message = Registry.STRING.read(inputStream);
                     } catch (IOException error) {
-                        yesCom.logger.finer("Error while reading chat message.");
+                        yesCom.logger.finer("Error while reading chat message action.");
                         yesCom.logger.throwing(YCHandler.class.getSimpleName(), "handlePacket", error);
                         connection.sendPacket(new ActionResponsePacket(actionRequest.getActionID(), false,
                                 "Invalid format for chat message."));
@@ -697,6 +732,10 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
         lowPriorityPackets.addLast(new PlayerActionPacket(username));
     }
 
+    public synchronized void onPlayerToggleCanLogin(Player player) {
+        mediumPriorityPackets.addLast(new PlayerActionPacket(PlayerActionPacket.Action.TOGGLE_LOGIN, player));
+    }
+
     /**
      * Called when a player logs in to the server.
      * @param player The player that logged in.
@@ -808,7 +847,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
      * @param timeSinceLastPacket The time since the last packet was received.
      */
     public synchronized void onInfoUpdate(int waitingQueries, int tickingQueries, float queriesPerSecond, float tickRate,
-                                          float serverPing,int timeSinceLastPacket) {
+                                          float serverPing, int timeSinceLastPacket) {
         mediumPriorityPackets.add(new InfoUpdatePacket(waitingQueries, tickingQueries, queriesPerSecond, tickRate, serverPing,
                 timeSinceLastPacket));
     }

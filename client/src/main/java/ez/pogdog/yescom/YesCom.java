@@ -200,8 +200,8 @@ public class YesCom {
         logger.fine("Done.");
 
         configHandler = new ConfigHandler(configFilePath);
-        accountHandler = new AccountHandler(accountFilePath);
         connectionHandler = new ConnectionHandler(host, port);
+        accountHandler = new AccountHandler(accountFilePath);
         invalidMoveHandler = new InvalidMoveHandler();
         queryHandler = new QueryHandler();
         dataHandler = new DataHandler();

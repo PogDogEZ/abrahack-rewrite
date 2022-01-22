@@ -235,6 +235,7 @@ class Player:
         self._display_name = display_name
 
         self.logged_in = False
+        self.can_login = True
 
         self.position = Position(0, 0, 0)
         self.angle = Angle(0, 0)

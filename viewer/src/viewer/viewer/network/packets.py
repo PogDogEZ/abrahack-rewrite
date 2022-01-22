@@ -600,8 +600,9 @@ class PlayerActionPacket(Packet):
     SIDE = Side.BOTH
 
     def __init__(self, action=0, player_name: str = "", uuid: UUID = None, display_name: str = "",
-                 disconnect_reason: str = "", new_position: Position = Position(0, 0, 0), new_angle: Angle = Angle(0, 0),
-                 new_dimension: int = 0, new_health: float = 20, new_hunger: int = 20, new_saturation: float = 20) -> None:
+                 disconnect_reason: str = "", can_login: bool = True, new_position: Position = Position(0, 0, 0),
+                 new_angle: Angle = Angle(0, 0), new_dimension: int = 0, new_health: float = 20, new_hunger: int = 20,
+                 new_saturation: float = 20) -> None:
         super().__init__()
 
         self.action = action
@@ -611,6 +612,8 @@ class PlayerActionPacket(Packet):
         self.display_name = display_name
 
         self.disconnect_reason = disconnect_reason
+
+        self.can_login = can_login
 
         self.new_position = new_position
         self.new_angle = new_angle
@@ -637,6 +640,9 @@ class PlayerActionPacket(Packet):
 
         elif self.action == PlayerActionPacket.Action.LOGOUT:
             self.disconnect_reason = String.read(fileobj)
+
+        elif self.action == PlayerActionPacket.Action.TOGGLE_LOGIN:
+            self.can_login = Boolean.read(fileobj)
 
         elif self.action == PlayerActionPacket.Action.UPDATE_POSITION:
             self.new_position = PositionSpec.read(fileobj)
@@ -667,6 +673,9 @@ class PlayerActionPacket(Packet):
         elif self.action == PlayerActionPacket.Action.LOGOUT:
             String.write(self.disconnect_reason, fileobj)
 
+        elif self.action == PlayerActionPacket.Action.TOGGLE_LOGIN:
+            Boolean.write(self.can_login, fileobj)
+
         elif self.action == PlayerActionPacket.Action.UPDATE_POSITION:
             PositionSpec.write(self.new_position, fileobj)
             AngleSpec.write(self.new_angle, fileobj)
@@ -684,9 +693,10 @@ class PlayerActionPacket(Packet):
         REMOVE = 1
         LOGIN = 2
         LOGOUT = 3
-        UPDATE_POSITION = 4
-        UPDATE_DIMENSION = 5
-        UPDATE_HEALTH = 6
+        TOGGLE_LOGIN = 4
+        UPDATE_POSITION = 5
+        UPDATE_DIMENSION = 6
+        UPDATE_HEALTH = 7
 
 
 class TrackerActionPacket(Packet):
@@ -894,7 +904,9 @@ class ActionRequestPacket(Packet):
         Bytes.write(self.data, fileobj)
 
     class Action(Enum):
-        SEND_CHAT_MESSAGE = 0
+        TOGGLE_LOGIN = 0
+        SEND_CHAT_MESSAGE = 1
+        UNTRACK_PLAYER = 2
 
 
 class ActionResponsePacket(Packet):

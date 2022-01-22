@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * Class responsible for handling connections to the Minecraft server. Can provide info about the Minecraft server and
@@ -56,43 +57,44 @@ public class ConnectionHandler implements IHandler {
     }
 
     @Override
-    public void onTick() {
+    public synchronized void onTick() {
+        // Tick health logout
         new HashMap<>(healthLogout).forEach((uuid, logoutTime) -> {
             // Assume that someone has logged in and healed them
             if (System.currentTimeMillis() - logoutTime > 500 && isPlayerOnline(uuid)) healthLogout.remove(uuid);
         });
-        new ArrayList<>(players).forEach(player -> {
+
+        // Tick players
+        players.forEach(player -> {
             if (player.getFoodStats().getHealth() <= yesCom.configHandler.LOG_OUT_HEALTH) {
                 yesCom.logger.warning(String.format("%s logged out as health was below %.1f.",
                         player.getAuthService().getSelectedProfile().getName(), yesCom.configHandler.LOG_OUT_HEALTH));
                 healthLogout.put(player.getAuthService().getSelectedProfile().getId(), System.currentTimeMillis());
                 player.disconnect(String.format("Health disconnect at health: %.1f.", player.getFoodStats().getHealth()));
             }
-        });
-        yesCom.accountHandler.getAccounts().forEach(authService -> {
-            if (System.currentTimeMillis() - lastLoginTime > yesCom.configHandler.LOGIN_TIME) login(authService);
+
+            if (!player.isConnected() && System.currentTimeMillis() - lastLoginTime > yesCom.configHandler.LOGIN_TIME)
+                login(player);
         });
 
-        synchronized (this) {
-            new HashMap<>(recentJoins).forEach((uuid, time) -> {
-                if (System.currentTimeMillis() - time > yesCom.configHandler.LOGIN_CACHE_TIME) recentJoins.remove(uuid);
-            });
-            new HashMap<>(recentLeaves).forEach((uuid, time) -> {
-                if (System.currentTimeMillis() - time > yesCom.configHandler.LOGOUT_CACHE_TIME)
-                    recentLeaves.remove(uuid);
-            });
-        }
+        // Check recent leaves and joins
+        new HashMap<>(recentJoins).forEach((uuid, time) -> {
+            if (System.currentTimeMillis() - time > yesCom.configHandler.LOGIN_CACHE_TIME) recentJoins.remove(uuid);
+        });
+        new HashMap<>(recentLeaves).forEach((uuid, time) -> {
+            if (System.currentTimeMillis() - time > yesCom.configHandler.LOGOUT_CACHE_TIME)
+                recentLeaves.remove(uuid);
+        });
     }
 
     @Override
     public void onExit() {
     }
 
-    private boolean isOnline(AuthenticationService authService) {
-        return players.stream().anyMatch(player -> player.getAuthService().equals(authService));
-    }
+    /* ------------------------ Private methods ------------------------ */
 
-    private boolean healthLogin(AuthenticationService authService) {
+    private boolean healthLogin(Player player) {
+        AuthenticationService authService = player.getAuthService();
         return !healthLogout.containsKey(authService.getSelectedProfile().getId()) ||
                 System.currentTimeMillis() - healthLogout.get(authService.getSelectedProfile().getId()) > yesCom.configHandler.HEALTH_RELOG_TIME;
     }
@@ -121,7 +123,7 @@ public class ConnectionHandler implements IHandler {
         }
     }
 
-    /* ------------------------ Server Stuff ------------------------ */
+    /* ------------------------ Server stuff ------------------------ */
 
     /**
      * Returns whether a player, given by their in game name, is currently online in the server, can include players not
@@ -163,13 +165,43 @@ public class ConnectionHandler implements IHandler {
         return (float)players.stream().mapToDouble(Player::getServerPing).sum() / Math.max(1.0f, players.size());
     }
 
-    /* ------------------------ Account and Player Stuff ------------------------ */
+    /* ------------------------ Account and player stuff ------------------------ */
 
-    public void login(AuthenticationService authService) {
-        if (authService == null) return;
+    /**
+     * Adds a known player.
+     * @param player The player to add.
+     */
+    public synchronized void addPlayer(Player player) {
+        if (!players.contains(player)) {
+            players.add(player);
 
-        if (System.currentTimeMillis() - lastLoginTime > yesCom.configHandler.LOGIN_TIME && !isOnline(authService) &&
-                healthLogin(authService) && !isPlayerOnline(authService.getSelectedProfile().getId())) {
+            if (yesCom.ycHandler != null) {
+                AuthenticationService authService = player.getAuthService();
+                yesCom.ycHandler.onPlayerAdded(authService.getUsername(), authService.getSelectedProfile().getId(),
+                        authService.getSelectedProfile().getName());
+            }
+        }
+    }
+
+    /**
+     * Removes a player.
+     * @param player The player to remove.
+     */
+    public synchronized void removePlayer(Player player) {
+        players.remove(player);
+        if (yesCom.ycHandler != null) yesCom.ycHandler.onPlayerRemoved(player.getAuthService().getUsername());
+    }
+
+    /**
+     * Logs in a player, and adds them if they are not known.
+     * @param player The player to login.
+     */
+    public void login(Player player) {
+        addPlayer(player);
+        AuthenticationService authService = player.getAuthService();
+
+        if (System.currentTimeMillis() - lastLoginTime > yesCom.configHandler.LOGIN_TIME && !player.isConnected() &&
+                player.getCanLogin() && healthLogin(player) && !isPlayerOnline(authService.getSelectedProfile().getId())) {
             yesCom.logger.fine(String.format("Logging in %s...", authService.getSelectedProfile().getName()));
             lastLoginTime = System.currentTimeMillis();
             // healthLogout.remove(authService.getSelectedProfile().getId());
@@ -178,11 +210,7 @@ public class ConnectionHandler implements IHandler {
             Session session = new TcpClientSession(host, port, protocol, new Client(host, port, protocol,
                     new TcpSessionFactory(null)), null);
 
-            Player player = new Player(authService, session);
-            synchronized (this) {
-                players.add(player);
-            }
-
+            player.setSession(session);
             player.addJoinLeaveListener(this::onJoinLeave);
 
             // coordExploit.ceHandler.onPlayerAdded(player);
@@ -208,31 +236,9 @@ public class ConnectionHandler implements IHandler {
         }
     }
 
-    /**
-     * Logs in an account given their username (email address). If the account is not cached in the account handler
-     * nothing happens.
-     * @param username The account username (email).
-     */
-    public void login(String username) {
-        login(yesCom.accountHandler.getAccount(username));
-    }
-
     public void logout(Player player) {
         if (player == null || !players.contains(player)) return;
-
-        synchronized (this) {
-            players.remove(player);
-        }
-
         player.disconnect("Logged out.");
-    }
-
-    public void logout(UUID uuid) {
-        logout(getPlayer(uuid));
-    }
-
-    public void logout(String name) {
-        logout(getPlayer(name));
     }
 
     /**
@@ -382,10 +388,6 @@ public class ConnectionHandler implements IHandler {
                     player.getAuthService().getSelectedProfile().getName(), event.getReason()));
             yesCom.invalidMoveHandler.removeHandle(player);
             lastLoginTime = System.currentTimeMillis(); // Do this because if we get chain kicked we don't want to try and login immediately
-
-            synchronized (yesCom.connectionHandler) {
-                players.remove(player);
-            }
         }
 
         public Player getPlayer() {

@@ -410,6 +410,10 @@ public class YCListener extends YCHandler {
     public void onPlayerUpdate(PlayerUpdatedEvent event) {
         if (event.getReporter() == currentReporter) {
             switch (event.getUpdateType()) {
+                case TOGGLE_LOGIN: {
+                    connection.sendPacket(new PlayerActionPacket(event.getPlayer().getUsername(), event.getCanLogin()));
+                    break;
+                }
                 case POSITION: {
                     connection.sendPacket(new PlayerActionPacket(event.getPlayer().getUsername(), event.getNewPosition(),
                             event.getNewAngle()));
