@@ -67,20 +67,9 @@ public class DataExchangePacket extends Packet {
                 BigInteger.ZERO, BigInteger.ZERO);
     }
 
-    public DataExchangePacket(DataType dataType, int requestID, List<?> data, List<BigInteger> invalidDataIDs) {
-        this(dataType, requestID, data, invalidDataIDs, 0L, 0L, 0);
-    }
-
     public DataExchangePacket(DataType dataType, List<?> data, List<BigInteger> invalidDataIDs) {
-        this(dataType, -1, data, invalidDataIDs);
-    }
-
-    public DataExchangePacket(DataType dataType, int requestID, List<?> data, long startTime, long endTime, int updateInterval) {
-        this(dataType, requestID, data, new ArrayList<>(), startTime, endTime, updateInterval);
-    }
-
-    public DataExchangePacket(DataType dataType, List<?> data, long startTime, long endTime, int updateInterval) {
-        this(dataType, -1, data, startTime, endTime, updateInterval);
+        this(RequestType.UPLOAD, dataType, 0, data, invalidDataIDs, new ArrayList<>(), 0L, 0L,
+                0, BigInteger.ZERO, BigInteger.ZERO);
     }
 
     public DataExchangePacket(DataType dataType, int requestID, List<BigInteger> dataIDs, long startTime, long endTime) {
@@ -88,65 +77,18 @@ public class DataExchangePacket extends Packet {
                 BigInteger.ZERO, BigInteger.ZERO);
     }
 
-    public DataExchangePacket(DataType dataType, List<BigInteger> dataIDs, long startTime, long endTime) {
-        this(dataType, -1, dataIDs, startTime, endTime);
-    }
-
-    public DataExchangePacket(DataType dataType, int requestID, List<BigInteger> dataIDs) {
-        this(dataType, requestID, dataIDs, 0L, 0L);
-    }
-
-    public DataExchangePacket(DataType dataType, List<BigInteger> dataIDs) {
-        this(dataType, -1, dataIDs);
-    }
-
-    public DataExchangePacket(DataType dataType, int requestID, long startTime, long endTime) {
-        this(dataType, requestID, new ArrayList<>(), startTime, endTime);
-    }
-
-    public DataExchangePacket(DataType dataType, long startTime, long endTime) {
-        this(dataType, -1, startTime, endTime);
-    }
-
     public DataExchangePacket(DataType dataType, int requestID) {
         this(RequestType.GET_BOUNDS, dataType, requestID, new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
                 0L, 0L, 0, BigInteger.ZERO, BigInteger.ZERO);
     }
 
-    public DataExchangePacket(DataType dataType) {
-        this(dataType, -1);
-    }
-
-    public DataExchangePacket(DataType dataType, int requestID, long startTime, long endTime, int updateInterval,
-                              BigInteger maxDataID, BigInteger minDataID) {
-        this(RequestType.SET_BOUNDS, dataType, requestID, new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
+    public DataExchangePacket(DataType dataType, long startTime, long endTime, int updateInterval, BigInteger maxDataID,
+                              BigInteger minDataID) {
+        this(RequestType.SET_BOUNDS, dataType, 0, new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
                 startTime, endTime, updateInterval, maxDataID, minDataID);
     }
 
-    public DataExchangePacket(DataType dataType, long startTime, long endTime, int updateInterval, BigInteger maxDataID,
-                              BigInteger minDataID) {
-        this(dataType, -1, startTime, endTime, updateInterval, maxDataID, minDataID);
-    }
-
-    public DataExchangePacket(DataType dataType, int requestID, long startTime, long endTime, int updateInterval) {
-        this(dataType, requestID, startTime, endTime, updateInterval, BigInteger.ZERO, BigInteger.ZERO);
-    }
-
-    public DataExchangePacket(DataType dataType, long startTime, long endTime, int updateInterval) {
-        this(dataType, -1, startTime, endTime, updateInterval);
-    }
-
-    public DataExchangePacket(DataType dataType, int requestID, BigInteger maxDataID, BigInteger minDataID) {
-        this(dataType, requestID, 0L, 0L, 0, maxDataID, minDataID);
-    }
-
-    public DataExchangePacket(DataType dataType, BigInteger maxDataID, BigInteger minDataID) {
-        this(dataType, -1, maxDataID, minDataID);
-    }
-
     public DataExchangePacket() {
-        this(RequestType.DOWNLOAD, DataType.TICK_DATA, -1, new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
-                0L, 0L, 0, BigInteger.ZERO, BigInteger.ZERO);
     }
 
     @Override

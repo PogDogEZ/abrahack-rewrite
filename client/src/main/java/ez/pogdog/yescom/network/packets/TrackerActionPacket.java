@@ -48,7 +48,6 @@ public class TrackerActionPacket extends Packet {
     }
 
     public TrackerActionPacket() {
-        this(Action.ADD, -1, null, 0, new ArrayList<>());
     }
 
     @Override

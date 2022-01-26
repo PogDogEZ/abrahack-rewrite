@@ -57,7 +57,7 @@ public class ConnectionHandler implements IHandler {
     }
 
     @Override
-    public synchronized void onTick() {
+    public synchronized void tick() {
         // Tick health logout
         new HashMap<>(healthLogout).forEach((uuid, logoutTime) -> {
             // Assume that someone has logged in and healed them
@@ -88,7 +88,7 @@ public class ConnectionHandler implements IHandler {
     }
 
     @Override
-    public void onExit() {
+    public void exit() {
     }
 
     /* ------------------------ Private methods ------------------------ */

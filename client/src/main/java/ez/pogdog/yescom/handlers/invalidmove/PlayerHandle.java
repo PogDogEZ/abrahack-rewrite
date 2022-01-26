@@ -20,7 +20,7 @@ import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerMultiB
 import com.github.steveice10.packetlib.packet.Packet;
 import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.handlers.connection.Player;
-import ez.pogdog.yescom.query.IsLoadedQuery;
+import ez.pogdog.yescom.query.queries.IsLoadedQuery;
 import ez.pogdog.yescom.util.Angle;
 import ez.pogdog.yescom.util.BlockPosition;
 
@@ -425,7 +425,7 @@ public class PlayerHandle {
 
     public synchronized boolean addQuery(IsLoadedQuery query) {
         if (expectingOpen || !facingStorage || !storageOpen || query.isFinished() || query.getType() != IsLoadedQuery.Type.INVALID_MOVE ||
-                queriesDone++ >= yesCom.configHandler.QUERIES_PER_TICK)
+                queriesDone++ >= yesCom.configHandler.LOADED_QUERIES_PER_TICK)
             return false;
 
         player.setEstimatedTP(player.getEstimatedTP() + 1);

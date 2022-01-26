@@ -36,12 +36,7 @@ public class YCInitRequestPacket extends Packet {
         this.hostPort = hostPort;
     }
 
-    public YCInitRequestPacket(String handlerName, String hostName, int hostPort) {
-        this(ClientType.LISTENING, new byte[0], new byte[0], handlerName, hostName, hostPort);
-    }
-
     public YCInitRequestPacket() {
-        this(ClientType.REPORTING, new byte[0], new byte[0], "", "localhost", 25565);
     }
 
     @Override

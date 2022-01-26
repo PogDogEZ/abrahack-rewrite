@@ -29,7 +29,6 @@ public class ActionRequestPacket extends Packet {
     }
 
     public ActionRequestPacket() {
-        this(Action.SEND_CHAT_MESSAGE, -1, new byte[0]);
     }
 
     @Override

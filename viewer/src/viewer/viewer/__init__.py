@@ -12,7 +12,7 @@ from .network.packets import ReporterActionPacket, YCInitRequestPacket, YCInitRe
     DataExchangePacket, ConfigActionPacket, TaskActionPacket, PlayerActionPacket, TrackerActionPacket, InfoUpdatePacket, \
     ActionResponsePacket, AccountActionPacket, OnlinePlayersActionPacket, ActionRequestPacket
 from .reporter import Reporter
-from .util import ActiveTask, RegisteredTask, Player
+from .util import ActiveTask, RegisteredTask, Player, ChunkPosition
 from ..pyclient.networking.connection import Connection
 from ..pyclient.networking.handlers import Handler
 from ..pyclient.networking.packets import Packet
@@ -274,7 +274,7 @@ class Viewer(Handler):
             if current_reporter is not None:
                 if packet.action == TaskActionPacket.Action.ADD:
                     active_task = ActiveTask(current_reporter.get_registered_task(packet.task_name), packet.task_id,
-                                             packet.get_task_params(), 0, 0, [])
+                                             packet.get_task_params(), 0, False, 0, False, ChunkPosition(0, 0), [])
                     current_reporter.add_active_task(active_task)
 
                     self._post_event(TaskEvent(TaskEvent.EventType.ADDED, active_task))
@@ -287,8 +287,8 @@ class Viewer(Handler):
 
                 elif packet.action == TaskActionPacket.Action.UPDATE:
                     active_task = current_reporter.get_active_task(packet.task_id)
-                    active_task.update(packet.loaded_chunk_task, packet.progress, packet.time_elapsed,
-                                       packet.current_position)
+                    active_task.update(packet.time_elapsed, packet.has_progress, packet.progress,
+                                       packet.has_current_position, packet.current_position)
 
                     self._post_event(TaskEvent(TaskEvent.EventType.UPDATED, active_task))
 
@@ -379,9 +379,9 @@ class Viewer(Handler):
             current_reporter = self.current_reporter
 
             if current_reporter is not None:
-                current_reporter.update_info(packet.waiting_queries, packet.ticking_queries, packet.queries_per_second,
-                                             packet.connected, packet.tick_rate, packet.server_ping,
-                                             packet.time_since_last_packet)
+                current_reporter.update_info(packet.waiting_queries, packet.ticking_queries, packet.query_rate,
+                                             packet.dropped_queries, packet.connected, packet.tick_rate,
+                                             packet.server_ping, packet.time_since_last_packet)
 
         elif isinstance(packet, OnlinePlayersActionPacket):
             current_reporter = self.current_reporter

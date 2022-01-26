@@ -50,11 +50,11 @@ public class AccountHandler implements IHandler {
     }
 
     @Override
-    public void onTick() {
+    public void tick() {
     }
 
     @Override
-    public void onExit() {
+    public void exit() {
     }
 
     /* ------------------------ Private Methods ------------------------ */
@@ -158,9 +158,7 @@ public class AccountHandler implements IHandler {
             // userMap.put(username, accessToken);
             accountCache.add(authService);
 
-            if (yesCom.ycHandler != null)
-                yesCom.ycHandler.onPlayerAdded(authService.getUsername(), authService.getSelectedProfile().getId(),
-                        authService.getSelectedProfile().getName());
+            yesCom.connectionHandler.addPlayer(new Player(authService));
         }
     }
 

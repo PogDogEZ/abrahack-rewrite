@@ -1,9 +1,11 @@
 package ez.pogdog.yescom.task.tasks;
 
 import ez.pogdog.yescom.YesCom;
+import ez.pogdog.yescom.data.serializable.ChunkState;
+import ez.pogdog.yescom.event.Emitters;
 import ez.pogdog.yescom.query.IQuery;
-import ez.pogdog.yescom.query.IsLoadedQuery;
-import ez.pogdog.yescom.task.ILoadedChunkTask;
+import ez.pogdog.yescom.query.queries.IsLoadedQuery;
+import ez.pogdog.yescom.task.ITask;
 import ez.pogdog.yescom.task.TaskRegistry;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
@@ -12,9 +14,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class SpiralScanTask implements ILoadedChunkTask {
+public class SpiralScanTask implements ITask {
 
     private final YesCom yesCom = YesCom.getInstance();
+
+    private final List<Object> results = new ArrayList<>();
 
     private final ChunkPosition startPos;
     private final int chunkSkip;
@@ -66,7 +70,7 @@ public class SpiralScanTask implements ILoadedChunkTask {
     /* ------------------------ Implementations ------------------------ */
 
     @Override
-    public void onTick() {
+    public void tick() {
         while (currentQueries < 200) {
             tickSpiral();
             ++currentIndex;
@@ -75,15 +79,21 @@ public class SpiralScanTask implements ILoadedChunkTask {
                 currentPosition = getNextSpiral();
                 ++currentQueries;
 
-                yesCom.queryHandler.addQuery(new IsLoadedQuery(currentPosition, dimension, priority, yesCom.configHandler.TYPE,
+                yesCom.queryHandler.addQuery(new IsLoadedQuery(this, currentPosition, dimension, priority,
+                        yesCom.configHandler.TYPE,
                         (query, result) -> {
-                            synchronized (this) {
-                                --currentQueries;
+                    synchronized (this) {
+                        --currentQueries; // TODO: New system
 
-                                if (result == IsLoadedQuery.Result.LOADED)
-                                    onLoaded(new ChunkPosition(query.getPosition().getX() / 16, query.getPosition().getZ() / 16));
-                            }
-                        }));
+                        ChunkState chunkState = yesCom.dataHandler.newChunkState(
+                                result == IsLoadedQuery.Result.LOADED ? ChunkState.State.LOADED : ChunkState.State.UNLOADED,
+                                query.getChunkPosition(), dimension, System.currentTimeMillis());
+                        Emitters.CHUNK_STATE_EMITTER.emit(chunkState);
+
+                        if (result == IsLoadedQuery.Result.LOADED)
+                            onLoaded(query.getChunkPosition());
+                    }
+                }));
             }
         }
 
@@ -95,7 +105,7 @@ public class SpiralScanTask implements ILoadedChunkTask {
     }
 
     @Override
-    public void onFinished() {
+    public void finish() {
     }
 
     @Override
@@ -132,8 +142,18 @@ public class SpiralScanTask implements ILoadedChunkTask {
     }
 
     @Override
+    public List<Object> getResults() {
+        return results;
+    }
+
+    @Override
     public int getTimeElapsed() {
         return (int)(System.currentTimeMillis() - startTime);
+    }
+
+    @Override
+    public boolean hasProgress() {
+        return false;
     }
 
     @Override
@@ -142,8 +162,8 @@ public class SpiralScanTask implements ILoadedChunkTask {
     }
 
     @Override
-    public String getFormattedResult(Object result) {
-        return String.format("Found loaded (spiral): %s (dim %s).", result, dimension);
+    public boolean hasCurrentPosition() {
+        return true;
     }
 
     @Override
@@ -154,12 +174,10 @@ public class SpiralScanTask implements ILoadedChunkTask {
     /* ------------------------ Private methods ------------------------ */
 
     private void onLoaded(ChunkPosition chunkPosition) {
-        yesCom.logger.info(getFormattedResult(chunkPosition));
-        if (yesCom.ycHandler != null) yesCom.ycHandler.onTaskResult(this, getFormattedResult(chunkPosition));
-        onLoaded(chunkPosition, dimension);
+        yesCom.logger.info(String.format("Found loaded (spiral): %s (dim %s).", chunkPosition, dimension));
+        results.add(chunkPosition);
 
-        //TODO: Can remove me later, just for testing and felt like afking it
-        yesCom.dataHandler.saveUncompressed(getFormattedResult(chunkPosition.getPosition()), "SpiralScanLog");
+        // yesCom.dataHandler.saveUncompressed(getFormattedResult(chunkPosition.getPosition()), "SpiralScanLog");
     }
 
     private ChunkPosition getNextSpiral() {

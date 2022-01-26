@@ -48,12 +48,7 @@ public class TrackerActionPacket extends Packet {
         this(action, actionID, null, trackerID, new ArrayList<>());
     }
 
-    public TrackerActionPacket(Action action, long trackerID) {
-        this(action, -1, trackerID);
-    }
-
     public TrackerActionPacket() {
-        this(Action.ADD, -1, null, 0, new ArrayList<>());
     }
 
     @Override

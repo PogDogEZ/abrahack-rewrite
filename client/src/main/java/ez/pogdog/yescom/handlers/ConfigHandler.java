@@ -1,9 +1,7 @@
 package ez.pogdog.yescom.handlers;
 
 import ez.pogdog.yescom.YesCom;
-import ez.pogdog.yescom.query.IQuery;
-import ez.pogdog.yescom.query.IsLoadedQuery;
-import ez.pogdog.yescom.task.TaskRegistry;
+import ez.pogdog.yescom.query.queries.IsLoadedQuery;
 import ez.pogdog.yescom.util.*;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -16,6 +14,10 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.lang.reflect.Field;
 import java.nio.file.Paths;
 import java.util.*;
@@ -26,18 +28,34 @@ public class ConfigHandler implements IHandler {
 
     /* ------------------------ Config ------------------------ */
 
+    @Unsettable
     public boolean DONT_SHOW_EMAILS = true;
 
+    @Unsettable
     public int RSA_KEY_SIZE = 2048;
+    @Ungettable
+    @Unsettable
     public String IDENTITY_DIRECTORY = "identity";
 
+    @Ungettable
+    @Unsettable
     public String HOST_NAME = "localhost";
+    @Ungettable
+    @Unsettable
     public int HOST_PORT = 5001;
+    @Ungettable
+    @Unsettable
     public String USERNAME = "node";
+    @Ungettable
+    @Unsettable
     public String GROUP_NAME = "local";
+    @Ungettable
+    @Unsettable
     public String PASSWORD = "t";
 
+    @Unsettable
     public boolean BROADCAST_CHUNK_STATES = true;
+    @Unsettable
     public boolean BROADCAST_TRACKED_PLAYERS = false; // The viewer should request these when trackers get added anyway
 
     /**
@@ -55,8 +73,8 @@ public class ConfigHandler implements IHandler {
      */
     public int MAX_PACKET_TIME = 1000;
 
-    public double QUERIES_PER_TICK = 1.0f;
-    public int MAX_FINISHED_CACHE = 50;
+    public double LOADED_QUERIES_PER_TICK = 1.0;
+    public double BLOCK_STATE_QUERIES_PER_TICK = 1.0;
 
     /**
      * How often to update numerical data such as tickrate.
@@ -93,34 +111,35 @@ public class ConfigHandler implements IHandler {
      */
     public int RENDER_DISTANCE = 13;
 
-    public int MAX_RESTART_CHECK_TIME = 5000;
+    /**
+     * The minimum amount of time (in milliseconds) to wait before updating an AFK tracker.
+     */
+    public int MIN_AFK_UPDATE = 1000;
 
     /**
-     * How long to wait since the last loaded chunk before checking if the player is online. Recommended lower if
-     * inverted is on.
+     * How many single chunk checks to make, before resolving the render distance fully.
      */
-    public int BASIC_TRACKER_ONLINE_CHECK_TIME = 1000;
+    public int AFK_RESOLVE_COUNT = 5;
+
     /**
-     * How far to check from known chunks.
+     * The maximum amount of time (in milliseconds) to wait before updating an AFK tracker.
      */
-    public int BASIC_TRACKER_DIST = 5;
-
-    public double ADAPTIVE_TRACKER_PHASE_CHANGE_NORMAL = -0.01;
-    public double ADAPTIVE_TRACKER_PHASE_CHANGE_GROW = 0.5;
-    public double ADAPTIVE_TRACKER_PHASE_CHANGE_SHRINK = -0.1;
-
-    public double ADAPTIVE_TRACKER_MIN_EXPECTED = 0.6;
-    public double ADAPTIVE_TRACKER_MAX_EXPECTED = 0.95;
-
-    public int ADAPTIVE_TRACKER_EARLY_SAMPLES = 1;
-    public int ADAPTIVE_TRACKER_LATE_SAMPLES = 12;
+    public int MAX_AFK_UPDATE = 60000;
 
     /**
      * The data directories for saving things like raw chunk records + player records.
      */
+    @Ungettable
+    @Unsettable
     public String MAIN_DIRECTORY = "data";
+    @Ungettable
+    @Unsettable
     public String RAW_DIRECTORY = "data/raw";
+    @Ungettable
+    @Unsettable
     public String PLAYER_DIRECTORY = "data/players";
+    @Ungettable
+    @Unsettable
     public String TRACKERS_DIRECTORY = "data/trackers";
 
     /* ------------------------ Other Fields ------------------------ */
@@ -145,7 +164,7 @@ public class ConfigHandler implements IHandler {
     }
 
     @Override
-    public void onTick() {
+    public void tick() {
         if (System.currentTimeMillis() - autoSaveTime > 180000) {
             try {
                 dumpConfig();
@@ -161,7 +180,7 @@ public class ConfigHandler implements IHandler {
     }
 
     @Override
-    public void onExit() {
+    public void exit() {
     }
 
     /* ----------------------------- Private methods ----------------------------- */
@@ -346,6 +365,7 @@ public class ConfigHandler implements IHandler {
     public ConfigRule getConfigRule(String name) {
         for (Field field : ConfigHandler.class.getFields()) {
             field.setAccessible(true);
+            if (field.isAnnotationPresent(Ungettable.class)) continue;
 
             if (field.getName().equalsIgnoreCase(name)) return getConfigRuleFromField(field);
         }
@@ -373,10 +393,11 @@ public class ConfigHandler implements IHandler {
      * @param value The value to set the rule to.
      * @throws IllegalArgumentException If the given value is not valid for the rule.
      */
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({ "unchecked", "rawtypes" })
     public void setConfigRuleValue(ConfigRule configRule, Object value) throws IllegalArgumentException {
         for (Field field : ConfigHandler.class.getFields()) {
             field.setAccessible(true);
+            if (field.isAnnotationPresent(Unsettable.class)) continue; // Throw an exception instead?
 
             if (field.getName().equalsIgnoreCase(configRule.getName())) {
                 Class<?> clazz = field.getType();
@@ -407,6 +428,24 @@ public class ConfigHandler implements IHandler {
 
     public File getConfigFile() {
         return configFile;
+    }
+
+    /* ----------------------------- Classes ----------------------------- */
+
+    /**
+     * Used to denote that a field cannot be obtained reflectively (from the server/viewers).
+     */
+    @Target(ElementType.FIELD)
+    @Retention(RetentionPolicy.RUNTIME)
+    public @interface Ungettable {
+    }
+
+    /**
+     * Used to denote that a field cannot be updated reflectively.
+     */
+    @Target(ElementType.FIELD)
+    @Retention(RetentionPolicy.RUNTIME)
+    public @interface Unsettable {
     }
 
     /**

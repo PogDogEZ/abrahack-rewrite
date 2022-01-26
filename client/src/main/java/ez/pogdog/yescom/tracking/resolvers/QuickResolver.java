@@ -3,14 +3,14 @@ package ez.pogdog.yescom.tracking.resolvers;
 import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.data.serializable.RenderDistance;
 import ez.pogdog.yescom.query.IQuery;
-import ez.pogdog.yescom.query.IsLoadedQuery;
+import ez.pogdog.yescom.query.queries.IsLoadedQuery;
 import ez.pogdog.yescom.tracking.IResolver;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 public class QuickResolver implements IResolver {
 
@@ -22,7 +22,8 @@ public class QuickResolver implements IResolver {
     private final ChunkPosition initialLoaded;
     private final Dimension dimension;
     private final int maxStage;
-    private final Consumer<QuickResolver> callBack;
+    private final IQuery.Priority priority;
+    private final BiConsumer<QuickResolver, RenderDistance> callBack;
 
     private RenderDistance renderDistance;
 
@@ -34,10 +35,12 @@ public class QuickResolver implements IResolver {
     private ChunkPosition xResolve;
     private ChunkPosition zResolve;
 
-    public QuickResolver(ChunkPosition initialLoaded, Dimension dimension, int maxPhase, Consumer<QuickResolver> callBack) {
+    public QuickResolver(ChunkPosition initialLoaded, Dimension dimension, int maxPhase, IQuery.Priority priority,
+                         BiConsumer<QuickResolver, RenderDistance> callBack) {
         this.initialLoaded = initialLoaded;
         this.dimension = dimension;
         this.maxStage = Math.min((int)Math.ceil(Math.log(yesCom.configHandler.RENDER_DISTANCE) / Math.log(2)), maxPhase);
+        this.priority = priority;
         this.callBack = callBack;
 
         loadedCache.add(initialLoaded);
@@ -48,8 +51,12 @@ public class QuickResolver implements IResolver {
         float halfRender = yesCom.configHandler.RENDER_DISTANCE / 2.0f;
         distX = halfRender;
         distZ = halfRender;
+    }
 
-        queryPositions();
+    @Override
+    public void resolve() {
+        // Are we currently running, we don't want to be started twice
+        if (!isComplete() && xResolve == null && zResolve == null) queryPositions();
     }
 
     @Override
@@ -81,7 +88,7 @@ public class QuickResolver implements IResolver {
             renderDistance = yesCom.dataHandler.newRenderDistance(initialLoaded.subtract((int)(distX - halfRender), (int)(distZ - halfRender)),
                     yesCom.configHandler.RENDER_DISTANCE, error, error);
 
-            callBack.accept(this);
+            callBack.accept(this, renderDistance);
             return;
         }
 
@@ -111,13 +118,13 @@ public class QuickResolver implements IResolver {
         }
 
         if (equal && xResolve != null && zResolve != null) {
-            yesCom.queryHandler.addQuery(new IsLoadedQuery(xResolve, dimension, IQuery.Priority.HIGH, yesCom.configHandler.TYPE,
+            yesCom.queryHandler.addQuery(new IsLoadedQuery(this, xResolve, dimension, priority, yesCom.configHandler.TYPE,
                     this::onResult));
         } else if (xResolve != null) {
-            yesCom.queryHandler.addQuery(new IsLoadedQuery(xResolve, dimension, IQuery.Priority.HIGH, yesCom.configHandler.TYPE,
+            yesCom.queryHandler.addQuery(new IsLoadedQuery(this, xResolve, dimension, priority, yesCom.configHandler.TYPE,
                     this::onResult));
         } else if (zResolve != null) {
-            yesCom.queryHandler.addQuery(new IsLoadedQuery(zResolve, dimension, IQuery.Priority.HIGH, yesCom.configHandler.TYPE,
+            yesCom.queryHandler.addQuery(new IsLoadedQuery(this, zResolve, dimension, priority, yesCom.configHandler.TYPE,
                     this::onResult));
         } else {
             queryPositions();

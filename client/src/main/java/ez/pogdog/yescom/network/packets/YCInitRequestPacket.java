@@ -41,7 +41,6 @@ public class YCInitRequestPacket extends Packet {
     }
 
     public YCInitRequestPacket() {
-        this(ClientType.REPORTING, new byte[0], new byte[0], "", "localhost", 25565);
     }
 
     @Override

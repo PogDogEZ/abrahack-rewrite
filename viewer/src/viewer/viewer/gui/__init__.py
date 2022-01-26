@@ -324,9 +324,11 @@ class MainWindow(QMainWindow):
 
                 if self.main_window.viewer is not None and self.main_window.viewer.current_reporter is not None:
                     current_reporter = self.main_window.viewer.current_reporter
-                    state_str = "tick: %.1ftps, ping: %.1fms, query: %.1fqps" % (current_reporter.tick_rate,
-                                                                                 current_reporter.server_ping,
-                                                                                 current_reporter.queries_per_second)
+                    total_queries = current_reporter.ticking_queries + current_reporter.waiting_queries
+                    percentage_loss = min(2, current_reporter.dropped_queries / max(1, total_queries)) * 100
+                    state_str = "tick: %.1ftps, ping: %.1fms, query: %.1fqps, loss: %.1f%%" % (
+                        current_reporter.tick_rate, current_reporter.server_ping, current_reporter.query_rate,
+                        percentage_loss)
 
                     if current_reporter.time_since_last_packet > Config.LAG_THRESHOLD:
                         state_str += ", lag: %is" % (current_reporter.time_since_last_packet // 1000)

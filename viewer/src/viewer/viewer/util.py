@@ -456,12 +456,16 @@ class ActiveTask:
         return self._parameters.copy()
 
     @property
-    def loaded_chunk_task(self) -> bool:
+    def time_elapsed(self) -> int:
         """
-        :return: Whether this is a loaded chunk task.
+        :return: The time elapsed, in milliseconds.
         """
 
-        return self._loaded_chunk_task
+        return self._time_elapsed
+
+    @property
+    def has_progress(self) -> bool:
+        return self._has_progress
 
     @property
     def progress(self) -> float:
@@ -472,8 +476,8 @@ class ActiveTask:
         return self._progress
 
     @property
-    def time_elapsed(self) -> int:
-        return self._time_elapsed
+    def has_current_position(self) -> bool:
+        return self._has_current_position
 
     @property
     def current_position(self) -> ChunkPosition:
@@ -491,15 +495,19 @@ class ActiveTask:
 
         return self._results.copy()
 
-    def __init__(self, registered_task: RegisteredTask, task_id: int, parameters: List, progress: float,
-                 time_elapsed: int, results: List[str]) -> None:
+    def __init__(self, registered_task: RegisteredTask, task_id: int, parameters: List, time_elapsed: int,
+                 has_progress: bool, progress: float, has_current_position: bool, current_position: ChunkPosition,
+                 results: List[str]) -> None:
         self._registered_task = registered_task
         self._task_id = task_id
         self._parameters = parameters.copy()
-        self._loaded_chunk_task = False
 
-        self._progress = progress
         self._time_elapsed = time_elapsed
+
+        self._has_progress = has_progress
+        self._progress = progress
+
+        self._has_current_position = has_current_position
         self._current_position = ChunkPosition(0, 0)
 
         self._results = results.copy()
@@ -510,20 +518,22 @@ class ActiveTask:
         else:
             return other._registered_task == self._registered_task and other._task_id == self._task_id
 
-    def update(self, loaded_chunk_task: bool, progress: float, time_elapsed: int,
+    def update(self, time_elapsed: int, has_progress: bool, progress: float, has_current_position: bool,
                current_position: ChunkPosition) -> None:
         """
         Updates the progress of this task.
 
-        :param loaded_chunk_task: Whether this is a loaded chunk task.
-        :param progress: The completed progress of this task.
         :param time_elapsed: The time elapsed since this task started.
+        :param has_progress: Whether this task has a progress.
+        :param progress: The completed progress of this task.
+        :param has_current_position: Whether or not this task has a current position.
         :param current_position: The current position of this task, this is only applicable to loaded chunk tasks.
         """
 
-        self._loaded_chunk_task = loaded_chunk_task
-        self._progress = progress
         self._time_elapsed = time_elapsed
+        self._has_progress = has_progress
+        self._progress = progress
+        self._has_current_position = has_current_position
         self._current_position = current_position
 
     def add_result(self, result: str) -> None:

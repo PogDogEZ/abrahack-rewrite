@@ -17,20 +17,27 @@ public class ActiveTask {
     private final RegisteredTask registeredTask;
     private final int taskID;
 
-    private boolean loadedChunkTask;
-
-    private float progress;
     private int timeElapsed;
+
+    private boolean hasProgress;
+    private float progress;
+
+    private boolean hasCurrentPosition;
     private ChunkPosition currentPosition;
 
-    public ActiveTask(RegisteredTask registeredTask, int taskID, List<Parameter> parameters, float progress, int timeElapsed,
+    public ActiveTask(RegisteredTask registeredTask, int taskID, List<Parameter> parameters, int timeElapsed,
+                      boolean hasProgress, float progress, boolean hasCurrentPosition, ChunkPosition currentPosition,
                       List<String> results) {
         this.registeredTask = registeredTask;
         this.taskID = taskID;
         this.parameters.addAll(parameters);
 
-        this.progress = progress;
         this.timeElapsed = timeElapsed;
+        this.hasProgress = hasProgress;
+        this.progress = progress;
+        this.hasCurrentPosition = hasCurrentPosition;
+        this.currentPosition = currentPosition;
+
         this.results.addAll(results);
     }
 
@@ -85,14 +92,25 @@ public class ActiveTask {
     }
 
     /**
-     * @return Whether or not this is a loaded chunk task.
+     * @return The time elapsed in milliseconds.
      */
-    public boolean isLoadedChunkTask() {
-        return loadedChunkTask;
+    public int getTimeElapsed() {
+        return timeElapsed;
     }
 
-    public void setLoadedChunkTask(boolean loadedChunkTask) {
-        this.loadedChunkTask = loadedChunkTask;
+    public void setTimeElapsed(int timeElapsed) {
+        this.timeElapsed = timeElapsed;
+    }
+
+    /**
+     * @return Whether or not the task has progress.
+     */
+    public boolean getHasProgress() {
+        return hasProgress;
+    }
+
+    public void setHasProgress(boolean hasProgress) {
+        this.hasProgress = hasProgress;
     }
 
     /**
@@ -107,14 +125,14 @@ public class ActiveTask {
     }
 
     /**
-     * @return The time elapsed in milliseconds.
+     * @return Whether or not the task has a current position.
      */
-    public int getTimeElapsed() {
-        return timeElapsed;
+    public boolean getHasCurrentPosition() {
+        return hasCurrentPosition;
     }
 
-    public void setTimeElapsed(int timeElapsed) {
-        this.timeElapsed = timeElapsed;
+    public void setHasCurrentPosition(boolean hasCurrentPosition) {
+        this.hasCurrentPosition = hasCurrentPosition;
     }
 
     /**

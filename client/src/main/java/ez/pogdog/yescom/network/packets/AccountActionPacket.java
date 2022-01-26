@@ -53,7 +53,6 @@ public class AccountActionPacket extends Packet {
     }
 
     public AccountActionPacket() {
-        this(Action.LOGIN, 0, "", false, "", "", "");
     }
 
     @Override

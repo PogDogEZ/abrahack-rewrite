@@ -16,41 +16,43 @@ public class InfoUpdatePacket extends Packet {
 
     private int waitingQueries;
     private int tickingQueries;
-    private float queriesPerSecond;
+    private float queryRate;
+    private float droppedQueries;
     private boolean isConnected;
     private float tickRate;
     private float serverPing;
     private int timeSinceLastPacket;
 
-    public InfoUpdatePacket(int waitingQueries, int tickingQueries, float queriesPerSecond, boolean isConnected, float tickRate,
-                            float serverPing, int timeSinceLastPacket) {
+    public InfoUpdatePacket(int waitingQueries, int tickingQueries, float queryRate, float droppedQueries,
+                            boolean isConnected, float tickRate, float serverPing, int timeSinceLastPacket) {
         this.waitingQueries = waitingQueries;
         this.tickingQueries = tickingQueries;
-        this.queriesPerSecond = queriesPerSecond;
+        this.queryRate = queryRate;
+        this.droppedQueries = droppedQueries;
         this.isConnected = isConnected;
         this.tickRate = tickRate;
         this.serverPing = serverPing;
         this.timeSinceLastPacket = timeSinceLastPacket;
     }
 
-    public InfoUpdatePacket(int waitingQueries, int tickingQueries, float queriesPerSecond, float tickRate, float serverPing,
-                            int timeSinceLastPacket) {
-        this(waitingQueries, tickingQueries, queriesPerSecond, true, tickRate, serverPing, timeSinceLastPacket);
+    public InfoUpdatePacket(int waitingQueries, int tickingQueries, float queryRate, float droppedQueries, float tickRate,
+                            float serverPing, int timeSinceLastPacket) {
+        this(waitingQueries, tickingQueries, queryRate, droppedQueries, true, tickRate, serverPing, timeSinceLastPacket);
     }
 
-    public InfoUpdatePacket(int waitingQueries, int tickingQueries, float queriesPerSecond) {
-        this(waitingQueries, tickingQueries, queriesPerSecond, false, 20.0f, 0.0f, 0);
+    public InfoUpdatePacket(int waitingQueries, int tickingQueries, float queryRate, float droppedQueries) {
+        this(waitingQueries, tickingQueries, queryRate, droppedQueries, false, 20.0f, 0.0f, 0);
     }
 
     public InfoUpdatePacket() {
-        this(0, 0, 0.0f, false, 20.0f, 0.0f,0);
     }
 
     @Override
     public void read(InputStream inputStream) throws IOException {
         waitingQueries = Registry.UNSIGNED_SHORT.read(inputStream);
         tickingQueries = Registry.UNSIGNED_SHORT.read(inputStream);
-        queriesPerSecond = Registry.FLOAT.read(inputStream);
+        queryRate = Registry.FLOAT.read(inputStream);
+        droppedQueries = Registry.FLOAT.read(inputStream);
         isConnected = Registry.BOOLEAN.read(inputStream);
 
         if (isConnected) {
@@ -64,7 +66,8 @@ public class InfoUpdatePacket extends Packet {
     public void write(OutputStream outputStream) throws IOException {
         Registry.UNSIGNED_SHORT.write(waitingQueries, outputStream);
         Registry.UNSIGNED_SHORT.write(tickingQueries, outputStream);
-        Registry.FLOAT.write(queriesPerSecond, outputStream);
+        Registry.FLOAT.write(queryRate, outputStream);
+        Registry.FLOAT.write(droppedQueries, outputStream);
         Registry.BOOLEAN.write(isConnected, outputStream);
 
         if (isConnected) {
@@ -99,12 +102,23 @@ public class InfoUpdatePacket extends Packet {
     /**
      * @return The current QPS rate.
      */
-    public float getQueriesPerSecond() {
-        return queriesPerSecond;
+    public float getQueryRate() {
+        return queryRate;
     }
 
-    public void setQueriesPerSecond(float queriesPerSecond) {
-        this.queriesPerSecond = queriesPerSecond;
+    public void setQueryRate(float queryRate) {
+        this.queryRate = queryRate;
+    }
+
+    /**
+     * @return The number of queries being dropped per second.
+     */
+    public float getDroppedQueries() {
+        return droppedQueries;
+    }
+
+    public void setDroppedQueries(float droppedQueries) {
+        this.droppedQueries = droppedQueries;
     }
 
     /**

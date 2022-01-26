@@ -1,24 +1,42 @@
 package ez.pogdog.yescom.query;
 
 import ez.pogdog.yescom.YesCom;
+import ez.pogdog.yescom.util.Dimension;
 
 /**
  * The template for a query. Queries are handled by the QueryHandler in the main thread, in synchronous with the tick.
  */
 public interface IQuery {
 
+    /**
+     * @return The name of this type of query.
+     */
     String getName();
+
+    /**
+     * The dimension this query is relevant in.
+     */
+    Dimension getDimension();
+
+    /**
+     * @return The object that requested this query be scheduled.
+     */
+    IRequester getRequester();
+
     HandleAction handle();
     TickAction tick();
 
-    boolean isFinished();
+    /**
+     * Cancels the query.
+     */
+    void cancel();
 
     /**
-     * Basically for different dimensional queries as a quick and easy fix, so that queries in other dimensions don't
-     * slow down each other.
-     * @return The "channel", an integer specifying which query weight to add to when this is handled.
+     * Reschedules the query.
      */
-    int getChannel();
+    void reschedule();
+
+    boolean isFinished();
 
     /**
      * The priority of handling queries. Higher priority queries will be handled first.
@@ -28,14 +46,7 @@ public interface IQuery {
         return Priority.MEDIUM;
     }
 
-    /**
-     * How much "weight" each query takes up. If the weight reaches above 1.0f then the query handler will stop
-     * processing queries that tick. This is to avoid sending too many packets at once.
-     * @return The weight of this query.
-     */
-    default float getWeight() {
-        return 1.0f / (float)YesCom.getInstance().configHandler.QUERIES_PER_TICK;
-    }
+    /* ------------------------ Classes ------------------------ */
 
     enum HandleAction {
         AWAIT, START, REMOVE;
@@ -46,6 +57,28 @@ public interface IQuery {
     }
 
     enum Priority {
-        USER, HIGH, MEDIUM, LOW;
+        EXTREME, HIGH, MEDIUM, LOW;
+    }
+
+    /**
+     * Static information accessor for queries.
+     */
+
+    interface IQueryInfo {
+        /**
+         * The "weight" of a query.
+         * @param query The query, can be null.
+         * @param dimension The dimension.
+         * @return The weight of the query.
+         */
+        float getWeight(IQuery query, Dimension dimension);
+
+        // TODO: If it's inversely proportional to the weight, why not just calculate it form the weight instead?
+        /**
+         * The max throughput of queries for a given dimension, should be inversely proportional to the weight.
+         * @param dimension The dimension.
+         * @return The max throughput.
+         */
+        float getMaxThroughPut(Dimension dimension);
     }
 }

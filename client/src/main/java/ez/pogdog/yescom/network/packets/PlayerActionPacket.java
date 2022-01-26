@@ -77,24 +77,7 @@ public class PlayerActionPacket extends Packet {
                 player.getAngle(), player.getDimension(), player.getFoodStats());
     }
 
-    public PlayerActionPacket(String playerName, Position newPosition, Angle newAngle) {
-        this(Action.UPDATE_POSITION, playerName, null, "", "", true, newPosition,
-                newAngle, Dimension.OVERWORLD, null);
-    }
-
-    public PlayerActionPacket(String playerName, Dimension newDimension) {
-        this(Action.UPDATE_DIMENSION, playerName, null, "", "", true,
-                new Position(0, 0,0), new Angle(0.0f, 0.0f), newDimension, null);
-    }
-
-    public PlayerActionPacket(String playerName, Player.FoodStats newStats) {
-        this(Action.UPDATE_HEALTH, playerName, null, "", "", true,
-                new Position(0, 0, 0), new Angle(0.0f, 0.0f), Dimension.OVERWORLD, newStats);
-    }
-
     public PlayerActionPacket() {
-        this(Action.ADD, "", null, "", "", true, new Position(0, 0, 0),
-                new Angle(0.0f, 0.0f), Dimension.OVERWORLD, null);
     }
 
     @Override

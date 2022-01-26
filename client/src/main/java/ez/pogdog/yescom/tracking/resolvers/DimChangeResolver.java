@@ -2,8 +2,7 @@ package ez.pogdog.yescom.tracking.resolvers;
 
 import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.data.serializable.RenderDistance;
-import ez.pogdog.yescom.query.IQuery;
-import ez.pogdog.yescom.query.IsLoadedQuery;
+import ez.pogdog.yescom.query.queries.IsLoadedQuery;
 import ez.pogdog.yescom.tracking.IResolver;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
@@ -30,31 +29,11 @@ public class DimChangeResolver implements IResolver {
 
         checksTaken = 0;
         quickResolver = null;
-
-        startQueries();
     }
 
     @Override
-    public boolean isComplete() {
-        return queries.isEmpty() && (quickResolver == null || quickResolver.isComplete());
-    }
+    public void resolve() {
 
-    @Override
-    public int getChecksTaken() {
-        return checksTaken;
-    }
-
-    @Override
-    public RenderDistance getRenderDistance() {
-        return quickResolver == null ? null : quickResolver.getRenderDistance();
-    }
-
-    @Override
-    public Dimension getDimension() {
-        return dimension;
-    }
-
-    private void startQueries() {
         int renderDistance;
 
         switch (dimension) {
@@ -112,6 +91,26 @@ public class DimChangeResolver implements IResolver {
             z += dz;
         }
          */
+    }
+
+    @Override
+    public boolean isComplete() {
+        return queries.isEmpty() && (quickResolver == null || quickResolver.isComplete());
+    }
+
+    @Override
+    public int getChecksTaken() {
+        return checksTaken;
+    }
+
+    @Override
+    public RenderDistance getRenderDistance() {
+        return quickResolver == null ? null : quickResolver.getRenderDistance();
+    }
+
+    @Override
+    public Dimension getDimension() {
+        return dimension;
     }
 
     public ChunkPosition getStartPosition() {

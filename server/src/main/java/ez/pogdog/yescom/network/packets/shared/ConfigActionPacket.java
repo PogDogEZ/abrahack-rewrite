@@ -43,20 +43,11 @@ public class ConfigActionPacket extends Packet {
         this(action, -1, rule, value, rule.getName());
     }
 
-    public ConfigActionPacket(Action action, long actionID, ConfigRule rule) {
-        this(action, actionID, rule, null, rule.getName());
-    }
-
-    public ConfigActionPacket(Action action, ConfigRule rule) {
-        this(action, -1, rule, null, rule.getName());
-    }
-
     public ConfigActionPacket(long actionID, String ruleName) {
         this(Action.GET_RULE, actionID, null, null, ruleName);
     }
 
     public ConfigActionPacket() {
-        this(Action.SET_RULE, -1, null, null, "");
     }
 
     @Override

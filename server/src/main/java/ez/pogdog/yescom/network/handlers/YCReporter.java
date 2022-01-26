@@ -15,6 +15,7 @@ import ez.pogdog.yescom.events.tracker.TrackerRemovedEvent;
 import ez.pogdog.yescom.events.tracker.TrackerUpdatedEvent;
 import ez.pogdog.yescom.network.packets.reporting.*;
 import ez.pogdog.yescom.network.packets.shared.*;
+import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.ConfigRule;
 import ez.pogdog.yescom.util.Player;
 import ez.pogdog.yescom.util.Tracker;
@@ -216,7 +217,8 @@ public class YCReporter extends YCHandler {
                     }
 
                     ActiveTask activeTask = new ActiveTask(registeredTask, taskAction.getTaskID(), taskAction.getTaskParameters(),
-                            0.0f, 0, new ArrayList<>());
+                            0, false, 0.0f, false, new ChunkPosition(0, 0),
+                            new ArrayList<>());
                     logger.finer(String.format("Adding active task: %s", activeTask));
                     activeTasks.put(taskAction.getTaskID(), activeTask);
 
@@ -243,13 +245,17 @@ public class YCReporter extends YCHandler {
                         return;
                     }
 
-                    jServer.eventBus.post(new TaskUpdatedEvent(this, activeTask, taskAction.isLoadedChunkTask(),
-                            taskAction.getProgress(), taskAction.getTimeElapsed(), taskAction.getCurrentPosition()));
+                    jServer.eventBus.post(new TaskUpdatedEvent(this, activeTask, taskAction.getTimeElapsed(),
+                            taskAction.getHasProgress(), taskAction.getProgress(), taskAction.getHasCurrentPosition(),
+                            taskAction.getCurrentPosition()));
 
-                    activeTask.setLoadedChunkTask(taskAction.isLoadedChunkTask());
-                    activeTask.setProgress(taskAction.getProgress());
                     activeTask.setTimeElapsed(taskAction.getTimeElapsed());
-                    if (taskAction.isLoadedChunkTask()) activeTask.setCurrentPosition(taskAction.getCurrentPosition());
+
+                    activeTask.setHasProgress(taskAction.getHasProgress());
+                    if (activeTask.getHasProgress()) activeTask.setProgress(taskAction.getProgress());
+
+                    activeTask.setHasCurrentPosition(taskAction.getHasCurrentPosition());
+                    if (activeTask.getHasCurrentPosition()) activeTask.setCurrentPosition(taskAction.getCurrentPosition());
                     break;
                 }
                 case RESULT: {
@@ -393,8 +399,8 @@ public class YCReporter extends YCHandler {
             InfoUpdatePacket infoUpdate = (InfoUpdatePacket)packet;
 
             jServer.eventBus.post(new InfoUpdateEvent(this, infoUpdate.getWaitingQueries(), infoUpdate.getTickingQueries(),
-                    infoUpdate.getQueriesPerSecond(), infoUpdate.getIsConnected(), infoUpdate.getTickRate(), infoUpdate.getServerPing(),
-                    infoUpdate.getTimeSinceLastPacket()));
+                    infoUpdate.getQueryRate(), infoUpdate.getDroppedQueries(), infoUpdate.getIsConnected(),
+                    infoUpdate.getTickRate(), infoUpdate.getServerPing(), infoUpdate.getTimeSinceLastPacket()));
 
         } else if (packet instanceof OnlinePlayersActionPacket) {
             OnlinePlayersActionPacket onlinePlayersAction = (OnlinePlayersActionPacket)packet;
@@ -577,7 +583,7 @@ public class YCReporter extends YCHandler {
      */
     public synchronized void stopTask(int originatorID, int taskID) {
         actions.put(actionID, new Action(actionID, originatorID));
-        connection.sendPacket(new TaskActionPacket(TaskActionPacket.Action.STOP, actionID, taskID));
+        connection.sendPacket(new TaskActionPacket(actionID, taskID));
 
         if (++actionID == Long.MAX_VALUE) actionID = 0;
     }

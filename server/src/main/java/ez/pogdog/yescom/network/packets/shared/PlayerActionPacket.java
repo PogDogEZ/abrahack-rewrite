@@ -65,11 +65,6 @@ public class PlayerActionPacket extends Packet {
                 player.getSaturation());
     }
 
-    public PlayerActionPacket(String username, UUID uuid, String displayName) {
-        this(Action.ADD, username, uuid, displayName, "", true, new Position(0, 0, 0),
-                new Angle(0, 0), 0, 20.0f, 20, 5.0f);
-    }
-
     public PlayerActionPacket(Player player) {
         this(Action.REMOVE, player.getUsername(), player.getUUID(), player.getDisplayName(), "", player.getCanLogin(),
                 player.getPosition(), player.getAngle(), player.getDimension(), player.getHealth(), player.getFood(),
@@ -82,32 +77,7 @@ public class PlayerActionPacket extends Packet {
                 player.getSaturation());
     }
 
-    public PlayerActionPacket(String playerName, boolean canLogin) {
-        this(Action.TOGGLE_LOGIN, playerName, null, "", "", canLogin,
-                new Position(0, 0, 0), new Angle(0.0f, 0.0f), 0, 20.0f,
-                20, 5.0f);
-    }
-
-    public PlayerActionPacket(String playerName, Position newPosition, Angle newAngle) {
-        this(Action.UPDATE_POSITION, playerName, null, "", "", true, newPosition,
-                newAngle, 0, 20.0f, 20, 5.0f);
-    }
-
-    public PlayerActionPacket(String playerName, int newDimension) {
-        this(Action.UPDATE_DIMENSION, playerName, null, "","", true,
-                new Position(0, 0,0), new Angle(0.0f, 0.0f), newDimension, 20.0f,
-                20, 5.0f);
-    }
-
-    public PlayerActionPacket(String playerName, float newHealth, int newHunger, float newSaturation) {
-        this(Action.UPDATE_HEALTH, playerName, null, "", "", true,
-                new Position(0, 0, 0), new Angle(0.0f, 0.0f), 0, newHealth, newHunger,
-                newSaturation);
-    }
-
     public PlayerActionPacket() {
-        this(Action.ADD, "", null, "", "", true, new Position(0, 0, 0),
-                new Angle(0.0f, 0.0f), 0, 20.0f, 20, 5.0f);
     }
 
     @Override

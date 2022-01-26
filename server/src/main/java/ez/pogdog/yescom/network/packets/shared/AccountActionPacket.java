@@ -29,8 +29,8 @@ public class AccountActionPacket extends Packet {
     private String accessToken;
     private String clientToken;
 
-    public AccountActionPacket(Action action, long actionID, String username, boolean legacy, String password, String accessToken,
-                               String clientToken) {
+    public AccountActionPacket(Action action, long actionID, String username, boolean legacy, String password,
+                               String accessToken, String clientToken) {
         this.action = action;
         this.actionID = actionID;
         this.username = username;
@@ -44,10 +44,6 @@ public class AccountActionPacket extends Packet {
         this(Action.LOGIN, actionID, username, true, password, "", "");
     }
 
-    public AccountActionPacket(String username, String password) {
-        this(Action.LOGIN, -1, username, true, password, "", "");
-    }
-
     public AccountActionPacket(long actionID, String username, String accessToken, String clientToken) {
         this(Action.LOGIN, actionID, username, false, "", accessToken, clientToken);
     }
@@ -57,7 +53,6 @@ public class AccountActionPacket extends Packet {
     }
 
     public AccountActionPacket() {
-        this(Action.LOGIN, 0, "", false, "", "", "");
     }
 
     @Override

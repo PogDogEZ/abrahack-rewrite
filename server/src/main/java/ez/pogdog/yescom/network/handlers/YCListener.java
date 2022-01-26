@@ -372,8 +372,8 @@ public class YCListener extends YCHandler {
     @Listener
     public void onTaskUpdate(TaskUpdatedEvent event) {
         if (event.getReporter() == currentReporter)
-            connection.sendPacket(new TaskActionPacket(event.getTask().getID(), event.isLoadedChunkTask(),
-                    event.getProgress(), event.getTimeElapsed(), event.getCurrentPosition()));
+            connection.sendPacket(new TaskActionPacket(event.getTask(), event.getTimeElapsed(), event.getHasProgress(),
+                    event.getProgress(), event.getHasCurrentPosition(), event.getCurrentPosition()));
     }
 
     @Listener
@@ -411,21 +411,19 @@ public class YCListener extends YCHandler {
         if (event.getReporter() == currentReporter) {
             switch (event.getUpdateType()) {
                 case TOGGLE_LOGIN: {
-                    connection.sendPacket(new PlayerActionPacket(event.getPlayer().getUsername(), event.getCanLogin()));
+                    connection.sendPacket(new PlayerActionPacket(PlayerActionPacket.Action.TOGGLE_LOGIN, event.getPlayer()));
                     break;
                 }
                 case POSITION: {
-                    connection.sendPacket(new PlayerActionPacket(event.getPlayer().getUsername(), event.getNewPosition(),
-                            event.getNewAngle()));
+                    connection.sendPacket(new PlayerActionPacket(PlayerActionPacket.Action.UPDATE_POSITION, event.getPlayer()));
                     break;
                 }
                 case DIMENSION: {
-                    connection.sendPacket(new PlayerActionPacket(event.getPlayer().getUsername(), event.getNewDimension()));
+                    connection.sendPacket(new PlayerActionPacket(PlayerActionPacket.Action.UPDATE_DIMENSION, event.getPlayer()));
                     break;
                 }
                 case HEALTH: {
-                    connection.sendPacket(new PlayerActionPacket(event.getPlayer().getUsername(), event.getNewHealth(),
-                            event.getNewHunger(), event.getNewSaturation()));
+                    connection.sendPacket(new PlayerActionPacket(PlayerActionPacket.Action.UPDATE_HEALTH, event.getPlayer()));
                     break;
                 }
             }
@@ -454,8 +452,8 @@ public class YCListener extends YCHandler {
     public void onInfoUpdate(InfoUpdateEvent event) {
         if (event.getReporter() == currentReporter)
             connection.sendPacket(new InfoUpdatePacket(event.getWaitingQueries(), event.getTickingQueries(),
-                    event.getQueriesPerSecond(), event.isConnected(), event.getTickRate(), event.getServerPing(),
-                    event.getTimeSinceLastPacket()));
+                    event.getQueryRate(), event.getDroppedQueries(), event.isConnected(), event.getTickRate(),
+                    event.getServerPing(), event.getTimeSinceLastPacket()));
     }
 
     @Listener

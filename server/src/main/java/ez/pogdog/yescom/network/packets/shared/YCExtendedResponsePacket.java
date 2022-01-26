@@ -18,7 +18,6 @@ public class YCExtendedResponsePacket extends Packet {
     }
 
     public YCExtendedResponsePacket() {
-        this(new byte[0]);
     }
 
     @Override

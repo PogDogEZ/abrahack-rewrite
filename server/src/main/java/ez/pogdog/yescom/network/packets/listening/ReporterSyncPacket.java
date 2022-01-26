@@ -1,6 +1,7 @@
 package ez.pogdog.yescom.network.packets.listening;
 
 import ez.pogdog.yescom.network.YCRegistry;
+import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.ConfigRule;
 import ez.pogdog.yescom.util.Player;
 import ez.pogdog.yescom.util.Tracker;
@@ -57,8 +58,6 @@ public class ReporterSyncPacket extends Packet {
     }
 
     public ReporterSyncPacket() {
-        this(false, 0, "", new HashMap<>(), new ArrayList<>(), new ArrayList<>(),
-                new ArrayList<>(), new ArrayList<>());
     }
 
     @Override
@@ -111,18 +110,27 @@ public class ReporterSyncPacket extends Packet {
                 int parametersToRead = Registry.UNSIGNED_SHORT.read(inputStream);
                 for (int index1 = 0; index1 < parametersToRead; ++index1) parameters.add(YCRegistry.PARAMETER.read(inputStream));
 
-                float progress = Registry.FLOAT.read(inputStream);
                 int timeElapsed = Registry.INTEGER.read(inputStream);
+
+                boolean hasProgress = Registry.BOOLEAN.read(inputStream);
+                float progress = 0.0f;
+                if (hasProgress) progress = Registry.FLOAT.read(inputStream);
+
+                boolean hasCurrentPosition = Registry.BOOLEAN.read(inputStream);
+                ChunkPosition currentPosition = new ChunkPosition(0, 0);
+                if (hasCurrentPosition) currentPosition = YCRegistry.CHUNK_POSITION.read(inputStream);
 
                 List<String> results = new ArrayList<>();
                 int resultsToRead = Registry.UNSIGNED_SHORT.read(inputStream);
                 for (int index1 = 0; index1 < resultsToRead; ++index1) results.add(Registry.STRING.read(inputStream));
 
+                float finalProgress = progress;
+                ChunkPosition finalCurrentPosition = currentPosition;
                 registeredTasks.stream() // Lol this is a very big hack but it works
                         .filter(task -> task.getName().equals(taskName))
                         .findFirst()
                         .ifPresent(registeredTask -> activeTasks.add(new ActiveTask(registeredTask, taskID, parameters,
-                                progress, timeElapsed, results)));
+                                timeElapsed, hasProgress, finalProgress, hasCurrentPosition, finalCurrentPosition, results)));
 
             }
 
@@ -173,8 +181,13 @@ public class ReporterSyncPacket extends Packet {
                 Registry.UNSIGNED_SHORT.write(activeTask.getParameters().size(), outputStream);
                 for (Parameter parameter : activeTask.getParameters()) YCRegistry.PARAMETER.write(parameter, outputStream);
 
-                Registry.FLOAT.write(activeTask.getProgress(), outputStream);
                 Registry.INTEGER.write(activeTask.getTimeElapsed(), outputStream);
+
+                Registry.BOOLEAN.write(activeTask.getHasProgress(), outputStream);
+                if (activeTask.getHasProgress()) Registry.FLOAT.write(activeTask.getProgress(), outputStream);
+
+                Registry.BOOLEAN.write(activeTask.getHasCurrentPosition(), outputStream);
+                if (activeTask.getHasCurrentPosition()) YCRegistry.CHUNK_POSITION.write(activeTask.getCurrentPosition(), outputStream);
 
                 Registry.UNSIGNED_SHORT.write(activeTask.getResults().size(), outputStream);
                 for (String result : activeTask.getResults()) Registry.STRING.write(result, outputStream);

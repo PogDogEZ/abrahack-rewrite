@@ -22,7 +22,6 @@ public class TaskSyncPacket extends Packet {
     }
 
     public TaskSyncPacket() {
-        this(new ArrayList<>());
     }
 
     @Override

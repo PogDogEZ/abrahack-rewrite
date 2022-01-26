@@ -1,4 +1,4 @@
-package ez.pogdog.yescom.query;
+package ez.pogdog.yescom.query.queries;
 
 import com.github.steveice10.mc.protocol.data.game.entity.player.PlayerAction;
 import com.github.steveice10.mc.protocol.data.game.world.block.BlockFace;
@@ -6,25 +6,28 @@ import com.github.steveice10.mc.protocol.packet.ingame.client.player.ClientPlaye
 import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerBlockChangePacket;
 import com.github.steveice10.packetlib.packet.Packet;
 import ez.pogdog.yescom.YesCom;
-import ez.pogdog.yescom.data.serializable.ChunkState;
 import ez.pogdog.yescom.handlers.connection.Player;
+import ez.pogdog.yescom.query.IQuery;
+import ez.pogdog.yescom.query.IRequester;
 import ez.pogdog.yescom.util.BlockPosition;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
 
 import java.util.function.BiConsumer;
 
+/**
+ * Query to check if a given chunk is loaded.
+ */
 public class IsLoadedQuery implements IQuery {
 
     private final YesCom yesCom = YesCom.getInstance();
 
+    private final IRequester requester;
     private final BlockPosition position;
     private final Dimension dimension;
     private final Priority priority;
     private final Type type;
     private final BiConsumer<IsLoadedQuery, Result> callBack;
-
-    private final float ticksPerQuery; // Optimisation
 
     private Player player;
     private int listenerID;
@@ -36,15 +39,14 @@ public class IsLoadedQuery implements IQuery {
     private boolean cancelled;
     private Result result;
 
-    public IsLoadedQuery(BlockPosition position, Dimension dimension, Priority priority, Type type,
+    public IsLoadedQuery(IRequester requester, BlockPosition position, Dimension dimension, Priority priority, Type type,
                          BiConsumer<IsLoadedQuery, Result> callBack) {
+        this.requester = requester;
         this.position = position;
         this.dimension = dimension;
         this.priority = priority;
         this.type = type;
         this.callBack = callBack;
-
-        ticksPerQuery = 1.0f / (float)yesCom.configHandler.QUERIES_PER_TICK;
 
         startTime = System.currentTimeMillis();
         finished = false;
@@ -54,9 +56,9 @@ public class IsLoadedQuery implements IQuery {
         result = null;
     }
 
-    public IsLoadedQuery(ChunkPosition position, Dimension dimension, Priority priority, Type type,
+    public IsLoadedQuery(IRequester requester, ChunkPosition position, Dimension dimension, Priority priority, Type type,
                          BiConsumer<IsLoadedQuery, Result> callBack) {
-        this(position.getPosition(8, 0, 8), dimension, priority, type, callBack);
+        this(requester, position.getPosition(8, 0, 8), dimension, priority, type, callBack);
     }
 
     @Override
@@ -67,6 +69,11 @@ public class IsLoadedQuery implements IQuery {
     @Override
     public String getName() {
         return "is_loaded";
+    }
+
+    @Override
+    public Dimension getDimension() {
+        return dimension;
     }
 
     @Override
@@ -154,18 +161,13 @@ public class IsLoadedQuery implements IQuery {
     }
 
     @Override
-    public int getChannel() {
-        return dimension.getMCDim();
+    public IRequester getRequester() {
+        return requester;
     }
 
     @Override
     public Priority getPriority() {
         return priority;
-    }
-
-    @Override
-    public float getWeight() {
-        return ticksPerQuery / Math.max(1.0f, yesCom.invalidMoveHandler.getAvailableAccounts(dimension));
     }
 
     /* ------------------------ Private Methods ------------------------ */
@@ -188,9 +190,6 @@ public class IsLoadedQuery implements IQuery {
 
     private void onFinished() {
         player.removePacketListener(listenerID);
-
-        yesCom.dataHandler.newChunkState(result == Result.LOADED ? ChunkState.State.LOADED : ChunkState.State.UNLOADED,
-                getChunkPosition(), dimension, System.currentTimeMillis());
     }
 
     /* ------------------------ Public Methods ------------------------ */
@@ -219,10 +218,6 @@ public class IsLoadedQuery implements IQuery {
 
     public ChunkPosition getChunkPosition() {
         return new ChunkPosition(position.getX() >> 4, position.getZ() >> 4);
-    }
-
-    public Dimension getDimension() {
-        return dimension;
     }
 
     public Type getType() {

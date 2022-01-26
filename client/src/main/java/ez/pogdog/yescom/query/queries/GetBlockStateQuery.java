@@ -1,4 +1,4 @@
-package ez.pogdog.yescom.query;
+package ez.pogdog.yescom.query.queries;
 
 import com.github.steveice10.mc.protocol.data.game.entity.player.Hand;
 import com.github.steveice10.mc.protocol.data.game.world.block.BlockFace;
@@ -8,6 +8,8 @@ import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerBlockC
 import com.github.steveice10.packetlib.packet.Packet;
 import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.handlers.connection.Player;
+import ez.pogdog.yescom.query.IQuery;
+import ez.pogdog.yescom.query.IRequester;
 import ez.pogdog.yescom.util.BlockPosition;
 import ez.pogdog.yescom.util.Dimension;
 
@@ -60,6 +62,11 @@ public class GetBlockStateQuery implements IQuery {
     }
 
     @Override
+    public Dimension getDimension() {
+        return dimension;
+    }
+
+    @Override
     public HandleAction handle() {
         if (!yesCom.connectionHandler.isConnected() || yesCom.connectionHandler.getTimeSinceLastPacket() >= yesCom.configHandler.MAX_PACKET_TIME)
             return HandleAction.AWAIT;
@@ -99,23 +106,26 @@ public class GetBlockStateQuery implements IQuery {
     }
 
     @Override
+    public void cancel() { // TODO: Cancel + reschedule for this query
+    }
+
+    @Override
+    public void reschedule() {
+    }
+
+    @Override
     public boolean isFinished() {
         return finished;
     }
 
     @Override
-    public int getChannel() {
-        return dimension.getMCDim();
+    public IRequester getRequester() {
+        return null;
     }
 
     @Override
     public Priority getPriority() {
         return priority;
-    }
-
-    @Override
-    public float getWeight() {
-        return 1.0f / (float)yesCom.configHandler.QUERIES_PER_TICK / yesCom.invalidMoveHandler.getAvailableAccounts(dimension);
     }
 
     /* ------------------------ Private Methods ------------------------ */
@@ -141,9 +151,5 @@ public class GetBlockStateQuery implements IQuery {
 
     public BlockPosition getPosition() {
         return position;
-    }
-
-    public Dimension getDimension() {
-        return dimension;
     }
 }

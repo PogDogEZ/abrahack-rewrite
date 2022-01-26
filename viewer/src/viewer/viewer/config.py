@@ -65,8 +65,9 @@ class Config:  # TODO: Config saving and loading
     MID_COLOUR = (184, 184, 184, 255)
     DARK_COLOUR = (159, 159, 159, 255)
 
+    GRID_VIEW_FONT_SCALE = 2.4
     GRAPH_LINE_THICKNESS = 2  # 1 for smaller screens
-    GRAPH_FONT_SCALE = 0.5  # 0.3 for smaller screens
+    GRAPH_FONT_SCALE = 1.5  # 0.3 for smaller screens
 
     CHAT_MESSAGE_CACHE = 150
     CHAT_JOIN_LEAVE_COLOUR = (179, 179, 179)
@@ -88,4 +89,5 @@ class Config:  # TODO: Config saving and loading
     SELECTION_COLOUR = (255, 0, 0)
     LINE_COLOUR = (195, 195, 195)
     HIGHWAY_COLOUR = (150, 150, 150)
+    REGION_BOUNDS_COLOUR = (0, 0, 255)
     PLAYER_COLOUR = (255, 0, 0)

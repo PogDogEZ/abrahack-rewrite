@@ -25,7 +25,6 @@ public class ConfigSyncPacket extends Packet {
     }
 
     public ConfigSyncPacket() {
-        this(new HashMap<>());
     }
 
     @Override

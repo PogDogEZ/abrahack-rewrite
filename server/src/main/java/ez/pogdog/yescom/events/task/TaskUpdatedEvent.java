@@ -8,19 +8,21 @@ import ez.pogdog.yescom.util.task.ActiveTask;
 public class TaskUpdatedEvent extends ReporterEvent {
 
     private final ActiveTask task;
-    private final boolean loadedChunkTask;
-    private final float progress;
     private final int timeElapsed;
+    private final boolean hasProgress;
+    private final float progress;
+    private final boolean hasCurrentPosition;
     private final ChunkPosition currentPosition;
 
-    public TaskUpdatedEvent(YCReporter reporter, ActiveTask task, boolean loadedChunkTask, float progress, int timeElapsed,
-                            ChunkPosition currentPosition) {
+    public TaskUpdatedEvent(YCReporter reporter, ActiveTask task, int timeElapsed, boolean hasProgress, float progress,
+                            boolean hasCurrentPosition, ChunkPosition currentPosition) {
         super(reporter);
 
         this.task = task;
-        this.loadedChunkTask = loadedChunkTask;
-        this.progress = progress;
         this.timeElapsed = timeElapsed;
+        this.hasProgress = hasProgress;
+        this.progress = progress;
+        this.hasCurrentPosition = hasCurrentPosition;
         this.currentPosition = currentPosition;
     }
 
@@ -28,16 +30,20 @@ public class TaskUpdatedEvent extends ReporterEvent {
         return task;
     }
 
-    public boolean isLoadedChunkTask() {
-        return loadedChunkTask;
+    public int getTimeElapsed() {
+        return timeElapsed;
+    }
+
+    public boolean getHasProgress() {
+        return hasProgress;
     }
 
     public float getProgress() {
         return progress;
     }
 
-    public int getTimeElapsed() {
-        return timeElapsed;
+    public boolean getHasCurrentPosition() {
+        return hasCurrentPosition;
     }
 
     public ChunkPosition getCurrentPosition() {

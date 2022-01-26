@@ -3,6 +3,7 @@ package ez.pogdog.yescom.tracking.trackers;
 import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.data.serializable.RenderDistance;
 import ez.pogdog.yescom.data.serializable.TrackedPlayer;
+import ez.pogdog.yescom.query.IQuery;
 import ez.pogdog.yescom.tracking.IResolver;
 import ez.pogdog.yescom.tracking.ITracker;
 import ez.pogdog.yescom.tracking.resolvers.DimChangeResolver;
@@ -79,6 +80,36 @@ public class PanicTracker implements ITracker {
     @Override
     public long getTrackerID() {
         return trackerID;
+    }
+
+    @Override
+    public String getName() {
+        return "panic";
+    }
+
+    @Override
+    public Dimension getDimension() {
+        return Dimension.OVERWORLD;
+    }
+
+    @Override
+    public IQuery.Priority getPriority() {
+        return null;
+    }
+
+    @Override
+    public float getMaxSpeed() {
+        return 0;
+    }
+
+    @Override
+    public float getMinSpeed() {
+        return 0;
+    }
+
+    @Override
+    public void setQueryRateLimit(float queryRateLimit) {
+
     }
 
     @Override

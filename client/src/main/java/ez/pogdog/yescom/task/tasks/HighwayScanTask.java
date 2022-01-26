@@ -1,9 +1,11 @@
 package ez.pogdog.yescom.task.tasks;
 
 import ez.pogdog.yescom.YesCom;
+import ez.pogdog.yescom.data.serializable.ChunkState;
+import ez.pogdog.yescom.event.Emitters;
 import ez.pogdog.yescom.query.IQuery;
-import ez.pogdog.yescom.query.IsLoadedQuery;
-import ez.pogdog.yescom.task.ILoadedChunkTask;
+import ez.pogdog.yescom.query.queries.IsLoadedQuery;
+import ez.pogdog.yescom.task.ITask;
 import ez.pogdog.yescom.task.TaskRegistry;
 import ez.pogdog.yescom.util.ChunkPosition;
 import ez.pogdog.yescom.util.Dimension;
@@ -12,7 +14,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class HighwayScanTask implements ILoadedChunkTask {
+public class HighwayScanTask implements ITask {
 
     private final YesCom yesCom = YesCom.getInstance();
 
@@ -20,6 +22,7 @@ public class HighwayScanTask implements ILoadedChunkTask {
     private final int[] HIGHWAY_Z_ORDINATES = new int[] { -1, 0, 1, -1, 1, -1, 0, 1 };
 
     private final List<IsLoadedQuery> currentQueries = new ArrayList<>();
+    private final List<Object> results = new ArrayList<>();
 
     private final int maxDistance;
     private final int minDistance;
@@ -64,15 +67,21 @@ public class HighwayScanTask implements ILoadedChunkTask {
     }
 
     @Override
-    public void onTick() {
+    public void tick() {
         while (currentQueries.size() < 20 && currentIndex < maxIndex) {
             ChunkPosition position = getCurrentPosition();
             ++currentIndex;
 
             synchronized (this) {
-                IsLoadedQuery isLoadedQuery = new IsLoadedQuery(position, dimension, priority, yesCom.configHandler.TYPE,
+                IsLoadedQuery isLoadedQuery = new IsLoadedQuery(this, position, dimension, priority, yesCom.configHandler.TYPE,
                         (query, result) -> {
                     currentQueries.remove(query);
+
+                    ChunkState chunkState = yesCom.dataHandler.newChunkState(
+                            result == IsLoadedQuery.Result.LOADED ? ChunkState.State.LOADED : ChunkState.State.UNLOADED,
+                            query.getChunkPosition(), dimension, System.currentTimeMillis());
+                    Emitters.CHUNK_STATE_EMITTER.emit(chunkState);
+
                     if (result == IsLoadedQuery.Result.LOADED) onLoaded(query.getChunkPosition());
                 });
 
@@ -89,7 +98,7 @@ public class HighwayScanTask implements ILoadedChunkTask {
     }
 
     @Override
-    public void onFinished() {
+    public void finish() {
         synchronized (this) {
             currentQueries.forEach(IsLoadedQuery::cancel);
             currentQueries.clear();
@@ -131,8 +140,18 @@ public class HighwayScanTask implements ILoadedChunkTask {
     }
 
     @Override
+    public List<Object> getResults() {
+        return results;
+    }
+
+    @Override
     public int getTimeElapsed() {
         return (int)(System.currentTimeMillis() - startTime);
+    }
+
+    @Override
+    public boolean hasProgress() {
+        return true;
     }
 
     @Override
@@ -141,8 +160,8 @@ public class HighwayScanTask implements ILoadedChunkTask {
     }
 
     @Override
-    public String getFormattedResult(Object result) {
-        return String.format("Found loaded (highway): %s (dim %s).", result, dimension);
+    public boolean hasCurrentPosition() {
+        return true;
     }
 
     @Override
@@ -154,9 +173,8 @@ public class HighwayScanTask implements ILoadedChunkTask {
     }
 
     private void onLoaded(ChunkPosition chunkPosition) {
-        yesCom.logger.info(getFormattedResult(chunkPosition));
-        if (yesCom.ycHandler != null) yesCom.ycHandler.onTaskResult(this, getFormattedResult(chunkPosition));
-        onLoaded(chunkPosition, dimension);
+        yesCom.logger.info(String.format("Found loaded (highway): %s (dim %s).", chunkPosition, dimension));
+        results.add(chunkPosition);
 
         // yesCom.trackingHandler.onLoadedChunk(chunkPosition, dimension);
     }

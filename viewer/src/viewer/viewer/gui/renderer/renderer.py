@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import logging
 import math
 from enum import Enum
 from typing import Dict, Tuple, List
@@ -75,7 +75,8 @@ class Renderer(QGraphicsView):
 
         unloadable, families, accounted = get_font_paths()
         if Config.FONT.family() in families:
-            self._font = ImageFont.truetype(families[Config.FONT.family()], int(Config.FONT.pointSize() * 2.4))
+            self._font = ImageFont.truetype(families[Config.FONT.family()], int(Config.FONT.pointSize() *
+                                                                                Config.GRID_VIEW_FONT_SCALE))
         else:
             self._font = ImageFont.load_default()
 
@@ -92,6 +93,7 @@ class Renderer(QGraphicsView):
 
         self._render_grid = True
         self._render_highways = True
+        self._render_region_bounds = False
         self._selection_mode = Renderer.Selection.LINE
         self._current_dimension = Dimension.NETHER
         self._states = {}
@@ -122,15 +124,20 @@ class Renderer(QGraphicsView):
 
         main_menu.addSeparator()
 
-        toggle_grid_action = main_menu.addAction("Toggle grid")
+        toggle_grid_action = main_menu.addAction("Show grid")
         toggle_grid_action.setCheckable(True)
         toggle_grid_action.setChecked(self._render_grid)
         toggle_grid_action.triggered.connect(self.toggle_grid)
 
-        toggle_highways_action = main_menu.addAction("Toggle highways")
+        toggle_highways_action = main_menu.addAction("Show highways")
         toggle_highways_action.setCheckable(True)
         toggle_highways_action.setChecked(self._render_highways)
         toggle_highways_action.triggered.connect(self.toggle_highways)
+
+        toggle_region_bounds_action = main_menu.addAction("Show region bounds")
+        toggle_region_bounds_action.setCheckable(True)
+        toggle_region_bounds_action.setChecked(self._render_region_bounds)
+        toggle_region_bounds_action.triggered.connect(self.toggle_region_bounds)
 
         main_menu.addSeparator()
 
@@ -369,6 +376,11 @@ class Renderer(QGraphicsView):
                                                                                                      region_coloured,
                                                                                                      current)
 
+                    # Draw the region's bounds
+                    if self._render_region_bounds:
+                        cv2.rectangle(image, (blit_coords[0], blit_coords[1]), (blit_coords[2], blit_coords[3]),
+                                      Config.REGION_BOUNDS_COLOUR, 2)
+
         if self._render_grid:
             if self.scale[0] > Config.GRID_SCALE[0]:  # Draw the X lines on for the grid
                 for x in range(int(chunks_size[0]) + 1):
@@ -463,6 +475,7 @@ class Renderer(QGraphicsView):
     def toggle_grid(self) -> bool:
         """
         Toggles whether or not to render the grid when you zoom in.
+
         :return: The new render state.
         """
 
@@ -472,11 +485,22 @@ class Renderer(QGraphicsView):
     def toggle_highways(self) -> bool:
         """
         Toggles whether or not to render the highways when you zoom in.
+
         :return: The new render state.
         """
 
         self._render_highways = not self._render_highways
         return self._render_highways
+
+    def toggle_region_bounds(self) -> bool:
+        """
+        Toggles whether or not to render the bounds of render regions.
+
+        :return: The new render state.
+        """
+
+        self._render_region_bounds = not self._render_region_bounds
+        return self._render_region_bounds
 
     def set_selection_mode(self, selection) -> None:
         if selection != self._selection_mode:

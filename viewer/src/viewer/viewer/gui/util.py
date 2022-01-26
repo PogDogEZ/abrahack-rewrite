@@ -48,7 +48,8 @@ def draw_font(src: np.ndarray,
               font: ImageFont,
               text: str,
               position: Tuple[int, int],
-              colour: Union[Tuple[int, int, int], Tuple[int, int, int, int]]) -> np.ndarray:
+              colour: Union[Tuple[int, int, int], Tuple[int, int, int, int]],
+              bold: bool = False) -> np.ndarray:
     """
     Draws text onto a given image.
     https://stackoverflow.com/questions/37191008/load-truetype-font-to-opencv
@@ -58,6 +59,7 @@ def draw_font(src: np.ndarray,
     :param text: The text to draw.
     :param position: The position to draw the text on at.
     :param colour: The colour of the text to draw.
+    :param bold: Whether or not to draw the text bold.
     :return: The image with the text drawn on it.
     """
 
@@ -66,7 +68,7 @@ def draw_font(src: np.ndarray,
         text_image = Image.fromarray(src[position[1]: position[1] + font_size[1],
                                          position[0]: position[0] + font_size[0], :])
         draw = ImageDraw.Draw(text_image)
-        draw.text((0, 0), text, fill=colour, font=font)
+        draw.text((0, 0), text, fill=colour, font=font, stroke_width=(1 if bold else 0), stroke_fill=colour)
         text_image = np.array(text_image)
         src[position[1]: position[1] + text_image.shape[0],
             position[0]: position[0] + text_image.shape[1]] = text_image

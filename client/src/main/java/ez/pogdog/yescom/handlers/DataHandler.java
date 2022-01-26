@@ -86,7 +86,7 @@ public class DataHandler implements IDataProvider, IHandler {
     }
 
     @Override
-    public void onTick() {
+    public void tick() {
         /*
         while (!yesCom.logger.messages.isEmpty()) {
             Message message = yesCom.logger.messages.remove(0);
@@ -107,7 +107,7 @@ public class DataHandler implements IDataProvider, IHandler {
     }
 
     @Override
-    public void onExit() {
+    public void exit() {
     }
 
     /* ------------------------ New Data Objects ------------------------ */

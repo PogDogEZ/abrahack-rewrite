@@ -6,7 +6,10 @@ import ez.pogdog.yescom.handlers.invalidmove.InvalidMoveHandler;
 import ez.pogdog.yescom.network.YCRegistry;
 import ez.pogdog.yescom.network.handlers.YCDataHandler;
 import ez.pogdog.yescom.network.handlers.YCHandler;
+import ez.pogdog.yescom.query.QueryHandler;
 import ez.pogdog.yescom.task.ITask;
+import ez.pogdog.yescom.task.TaskHandler;
+import ez.pogdog.yescom.tracking.TrackingHandler;
 import me.iska.jclient.network.Connection;
 import me.iska.jclient.network.handler.handlers.DefaultHandler;
 import me.iska.jclient.util.Colour;
@@ -34,6 +37,8 @@ import java.util.logging.Formatter;
  * Honorable mentions
  * Ianmc05
  * Hobrin
+ *
+ * ianrandmckenzie - his videos are awesome to listen to in the background.
  */
 public class YesCom {
 
@@ -156,7 +161,7 @@ public class YesCom {
             instance.run();
 
         } catch (Exception error) {
-            tempLogger.severe("Couldn't parse command line args.");
+            tempLogger.severe("An exception has occurred during execution.");
             tempLogger.throwing(YesCom.class.getSimpleName(), "main", error);
 
             System.exit(1);
@@ -165,15 +170,18 @@ public class YesCom {
 
     public final Logger logger;
 
+    // Handlers
     public final AccountHandler accountHandler;
     public final ConfigHandler configHandler;
     public final ConnectionHandler connectionHandler;
     public final InvalidMoveHandler invalidMoveHandler;
     public final QueryHandler queryHandler;
     public final DataHandler dataHandler;
+    public final InfoHandler infoHandler;
+    public final TaskHandler taskHandler;
     public final TrackingHandler trackingHandler;
-    private final List<ITask> currentTasks = new ArrayList<>();
 
+    // YC connection stuff
     private final String handlerName;
     private final boolean noYCConnection;
 
@@ -182,11 +190,7 @@ public class YesCom {
     public YCDataHandler ycDataHandler;
 
     private int reconnectAttempts;
-
     private boolean alive;
-    private int taskID;
-
-    private long lastTaskUpdate;
 
     public YesCom(String accountFilePath, String configFilePath, String host, int port, boolean noYCConnection,
                   String handlerName) {
@@ -205,6 +209,8 @@ public class YesCom {
         invalidMoveHandler = new InvalidMoveHandler();
         queryHandler = new QueryHandler();
         dataHandler = new DataHandler();
+        infoHandler = new InfoHandler();
+        taskHandler = new TaskHandler();
         trackingHandler = new TrackingHandler();
 
         this.handlerName = handlerName;
@@ -214,11 +220,7 @@ public class YesCom {
         ycHandler = null;
 
         reconnectAttempts = 0;
-
         alive = true;
-        taskID = 0;
-
-        lastTaskUpdate = System.currentTimeMillis();
 
         if (!noYCConnection) restartConnection();
     }
@@ -251,27 +253,12 @@ public class YesCom {
             return;
         }
 
-        // Only down here so that the handler gets notified about the added task
-        if (currentTasks.isEmpty() && (ycHandler == null || ycHandler.isSynced()));
+        configHandler.tick();
 
-        configHandler.onTick();
+        accountHandler.tick();
+        connectionHandler.tick();
 
-        accountHandler.onTick();
-        connectionHandler.onTick();
-
-        boolean doTaskUpdate = System.currentTimeMillis() - lastTaskUpdate > 100;
-        if (doTaskUpdate) lastTaskUpdate = System.currentTimeMillis();
-
-        new ArrayList<>(currentTasks).forEach(task -> {
-            if (task.isFinished()) {
-                logger.fine(String.format("Finished task: %s.", task));
-                removeTask(task);
-            } else {
-                task.onTick();
-                if (doTaskUpdate && ycHandler != null) ycHandler.onTaskUpdate(task);
-            }
-        });
-
+        /* TODO: Move this to the info handler
         if (ycHandler != null) {
             if (connectionHandler.isConnected()) {
                 ycHandler.onInfoUpdate(queryHandler.getWaitingSize(), queryHandler.getTickingSize(), queryHandler.getQueriesPerSecond(),
@@ -280,15 +267,19 @@ public class YesCom {
                 ycHandler.onInfoUpdate(queryHandler.getWaitingSize(), queryHandler.getTickingSize(), queryHandler.getQueriesPerSecond());
             }
         }
+         */
 
-        invalidMoveHandler.onTick();
-        queryHandler.onTick();
+        invalidMoveHandler.tick();
+        queryHandler.tick();
 
-        trackingHandler.onTick();
+        trackingHandler.tick();
+        taskHandler.tick();
 
-        dataHandler.onTick();
+        infoHandler.tick(); // Tick this after all the others, so we can get the info from them
 
-        if (ycHandler != null) ycHandler.onTick();
+        dataHandler.tick();
+
+        if (ycHandler != null) ycHandler.tick();
     }
 
     /* ----------------------------- Management stuff ----------------------------- */
@@ -319,16 +310,16 @@ public class YesCom {
 
             if (connection != null && (connection.isConnected() || !connection.isExited())) connection.exit("Shutdown.");
 
-            accountHandler.onExit();
-            connectionHandler.onExit();
+            accountHandler.exit();
+            connectionHandler.exit();
 
-            invalidMoveHandler.onExit();
-            queryHandler.onExit();
+            invalidMoveHandler.exit();
+            queryHandler.exit();
 
-            trackingHandler.onExit();
+            trackingHandler.exit();
 
-            dataHandler.onExit();
-            configHandler.onExit();
+            dataHandler.exit();
+            configHandler.exit();
             logger.info("Done!");
         }
     }
@@ -344,55 +335,5 @@ public class YesCom {
         ycDataHandler = new YCDataHandler(connection);
         connection.addSecondaryHandler(ycHandler);
         connection.addSecondaryHandler(ycDataHandler);
-    }
-
-    /* ----------------------------- Tasks ----------------------------- */
-
-    /**
-     * @return The currently active tasks.
-     */
-    public synchronized List<ITask> getTasks() {
-        return new ArrayList<>(currentTasks);
-    }
-
-    public synchronized ITask getTask(int taskID) {
-        return currentTasks.stream().filter(task -> task.getID() == taskID).findFirst().orElse(null);
-    }
-
-    /**
-     * Adds a task.
-     * @param task The task to add.
-     */
-    public synchronized void addTask(ITask task) {
-        if (!currentTasks.contains(task)) {
-            task.setID(taskID);
-            if (++taskID >= Short.MAX_VALUE * 2) taskID = 0;
-
-            currentTasks.add(task);
-            if (ycHandler != null) ycHandler.onTaskAdded(task);
-        }
-    }
-
-    /**
-     * Removes a task.
-     * @param task The task to remove.
-     */
-    public synchronized void removeTask(ITask task) {
-        if (currentTasks.remove(task)) {
-            task.onFinished();
-            if (ycHandler != null) ycHandler.onTaskRemoved(task);
-        }
-    }
-
-    /**
-     * Removes a task given the ID.
-     * @param taskID The task ID.
-     */
-    public void removeTask(int taskID) {
-        currentTasks.stream().filter(task -> task.getID() == taskID).findFirst().ifPresent(task -> {
-            currentTasks.remove(task);
-            task.onFinished();
-            if (ycHandler != null) ycHandler.onTaskRemoved(task);
-        });
     }
 }

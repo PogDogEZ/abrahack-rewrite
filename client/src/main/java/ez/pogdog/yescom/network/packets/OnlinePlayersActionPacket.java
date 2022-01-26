@@ -42,7 +42,6 @@ public class OnlinePlayersActionPacket extends Packet {
     }
 
     public OnlinePlayersActionPacket() {
-        this(Action.ADD, new HashMap<>());
     }
 
     @Override

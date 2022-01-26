@@ -26,7 +26,6 @@ public class ActionResponsePacket extends Packet {
     }
 
     public ActionResponsePacket() {
-        this(0L, false, "");
     }
 
     @Override

@@ -35,7 +35,6 @@ public class YCInitResponsePacket extends Packet {
     }
 
     public YCInitResponsePacket() {
-        this(false, new byte[0], false, 0, "");
     }
 
     @Override

@@ -141,10 +141,17 @@ class GridViewTab(QWidget):
                 if Config.DECAY_RATE and decay_rate > Config.DECAY_RATE:
                     decay_rate = 0
                     try:
+                        to_remove = []
                         for dimension in self.grid_view_tab.grid_view.states:
                             for region_coords, region in self.grid_view_tab.grid_view.states[dimension].items():
                                 # region[region < 32] += 1
                                 region[region > 0] -= 1
+                                if not len(region[region > 0]):
+                                    to_remove.append((dimension, region_coords))
+
+                        for dimension, region_coords in to_remove:
+                            del self.grid_view_tab.grid_view.states[dimension][region_coords]
+
                     except RuntimeError:  # Lazy solution
                         ...
                 decay_rate += 1

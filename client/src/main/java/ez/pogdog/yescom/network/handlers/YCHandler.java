@@ -7,7 +7,6 @@ import ez.pogdog.yescom.data.serializable.TrackedPlayer;
 import ez.pogdog.yescom.handlers.ConfigHandler;
 import ez.pogdog.yescom.handlers.connection.Player;
 import ez.pogdog.yescom.network.packets.*;
-import ez.pogdog.yescom.task.ILoadedChunkTask;
 import ez.pogdog.yescom.task.ITask;
 import ez.pogdog.yescom.data.serializable.ChunkState;
 import ez.pogdog.yescom.task.TaskRegistry;
@@ -137,7 +136,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
                 yesCom.logger.finer("Done.");
 
                 yesCom.logger.finer("Syncing active tasks...");
-                yesCom.getTasks().forEach(this::onTaskAdded);
+                yesCom.taskHandler.getTasks().forEach(this::onTaskAdded);
                 yesCom.logger.finer("Done.");
 
                 yesCom.logger.finer("Syncing players...");
@@ -268,7 +267,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
                             return;
                         }
 
-                        yesCom.addTask(task);
+                        yesCom.taskHandler.addTask(task);
                         connection.sendPacket(new ActionResponsePacket(taskAction.getActionID(), true, "Task started."));
 
                     } else {
@@ -277,13 +276,13 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
                     break;
                 }
                 case STOP: {
-                    ITask task = yesCom.getTask(taskAction.getTaskID());
+                    ITask task = yesCom.taskHandler.getTask(taskAction.getTaskID());
                     if (task == null) {
                         connection.sendPacket(new ActionResponsePacket(taskAction.getActionID(), false, "Task not found."));
                         return;
                     }
 
-                    yesCom.removeTask(task);
+                    yesCom.taskHandler.removeTask(task);
                     connection.sendPacket(new ActionResponsePacket(taskAction.getActionID(), true, "Task stopped."));
                     break;
                 }
@@ -442,7 +441,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
     }
 
     @Override
-    public synchronized void onTick() {
+    public synchronized void tick() {
         if (!connection.isConnected() || !initialized || !synced) return;
 
         if (!syncedOnlinePlayers.isEmpty() && !yesCom.connectionHandler.isConnected()) {
@@ -457,20 +456,20 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
 
         // Broadcast new chat messages
         if (!queuedChatMessages.isEmpty()) {
-            connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.CHAT, queuedChatMessages,
+            connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.CHAT, -1, queuedChatMessages,
                     new ArrayList<>()));
             queuedChatMessages.clear();
         }
 
         // Broadcast new chunk states
         if (!queuedChunkStates.isEmpty())
-            connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.CHUNK_STATE,
+            connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.CHUNK_STATE, -1,
                     queuedChunkStates, new ArrayList<>()));
         queuedChunkStates.clear();
 
         // Broadcast new tracked players
         if (!queuedTrackedPlayers.isEmpty()) {
-            connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.TRACKED_PLAYER,
+            connection.sendPacket(new DataExchangePacket(DataExchangePacket.DataType.TRACKED_PLAYER, -1,
                     queuedTrackedPlayers, new ArrayList<>()));
             queuedTrackedPlayers.clear();
         }
@@ -489,7 +488,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
     }
 
     @Override
-    public void onExit() {
+    public void exit() {
     }
 
     /* ----------------------------- Identity data ----------------------------- */
@@ -695,12 +694,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
      * @param task The task that was updated.
      */
     public synchronized void onTaskUpdate(ITask task) {
-        if (task instanceof ILoadedChunkTask) {
-            mediumPriorityPackets.add(new TaskActionPacket(task, task.getProgress(), task.getTimeElapsed(),
-                    ((ILoadedChunkTask)task).getCurrentPosition()));
-        } else {
-            mediumPriorityPackets.add(new TaskActionPacket(task, task.getProgress(), task.getTimeElapsed()));
-        }
+        mediumPriorityPackets.add(new TaskActionPacket(TaskActionPacket.Action.UPDATE, task));
     }
 
     /**
@@ -708,8 +702,8 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
      * @param task The task that produced the result.
      * @param result The result produced by the task.
      */
-    public synchronized void onTaskResult(ITask task, String result) {
-        mediumPriorityPackets.add(new TaskActionPacket(task, result));
+    public synchronized void onTaskResult(ITask task, Object result) {
+        // mediumPriorityPackets.add(new TaskActionPacket(task, result));
     }
 
     /* ----------------------------- Player Events ----------------------------- */
@@ -758,7 +752,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
      * @param player The player.
      */
     public synchronized void onPositionChanged(Player player) {
-        mediumPriorityPackets.add(new PlayerActionPacket(player.getAuthService().getUsername(), player.getPosition(), player.getAngle()));
+        mediumPriorityPackets.add(new PlayerActionPacket(PlayerActionPacket.Action.UPDATE_POSITION, player));
     }
 
     /**
@@ -766,7 +760,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
      * @param player The player.
      */
     public synchronized void onDimensionChanged(Player player) {
-        mediumPriorityPackets.add(new PlayerActionPacket(player.getAuthService().getUsername(), player.getDimension()));
+        mediumPriorityPackets.add(new PlayerActionPacket(PlayerActionPacket.Action.UPDATE_DIMENSION, player));
     }
 
     /**
@@ -774,7 +768,7 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
      * @param player The player
      */
     public synchronized void onHealthChanged(Player player) {
-        mediumPriorityPackets.add(new PlayerActionPacket(player.getAuthService().getUsername(), player.getFoodStats()));
+        mediumPriorityPackets.add(new PlayerActionPacket(PlayerActionPacket.Action.UPDATE_HEALTH, player));
     }
 
     /* ----------------------------- Chunk Events ----------------------------- */
@@ -841,25 +835,25 @@ public class YCHandler implements IHandler, ez.pogdog.yescom.handlers.IHandler {
      * Called when updating the current information.
      * @param waitingQueries The number of queries waiting to be processed.
      * @param tickingQueries The number of queries that are currently being processed.
-     * @param queriesPerSecond The number of queries that are being processed per second.
+     * @param queryRate The number of queries that are being processed per second.
      * @param tickRate The tick rate of the server.
      * @param serverPing The server ping.
      * @param timeSinceLastPacket The time since the last packet was received.
      */
-    public synchronized void onInfoUpdate(int waitingQueries, int tickingQueries, float queriesPerSecond, float tickRate,
-                                          float serverPing, int timeSinceLastPacket) {
-        mediumPriorityPackets.add(new InfoUpdatePacket(waitingQueries, tickingQueries, queriesPerSecond, tickRate, serverPing,
-                timeSinceLastPacket));
+    public synchronized void onInfoUpdate(int waitingQueries, int tickingQueries, float queryRate, float droppedQueries,
+                                          float tickRate, float serverPing, int timeSinceLastPacket) {
+        mediumPriorityPackets.add(new InfoUpdatePacket(waitingQueries, tickingQueries, queryRate, droppedQueries, tickRate,
+                serverPing, timeSinceLastPacket));
     }
 
     /**
      * Called when updating the current information, but no server data is available (cos we aren't online).
      * @param waitingQueries The number of queries waiting to be processed.
      * @param tickingQueries The number of queries that are currently being processed.
-     * @param queriesPerSecond The number of queries that are being processed per second.
+     * @param queryRate The number of queries that are being processed per second.
      */
-    public synchronized void onInfoUpdate(int waitingQueries, int tickingQueries, float queriesPerSecond) {
-        mediumPriorityPackets.add(new InfoUpdatePacket(waitingQueries, tickingQueries, queriesPerSecond));
+    public synchronized void onInfoUpdate(int waitingQueries, int tickingQueries, float queryRate, float droppedQueries) {
+        mediumPriorityPackets.add(new InfoUpdatePacket(waitingQueries, tickingQueries, queryRate, droppedQueries));
     }
 
     /**

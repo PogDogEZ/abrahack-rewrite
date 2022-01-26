@@ -421,8 +421,9 @@ class TaskActionPacket(Packet):
     SIDE = Side.BOTH
 
     def __init__(self, action=0, action_id: int = -1, task_name: str = "", task_id: int = 0,
-                 loaded_chunk_task: bool = False, progress: float = 0, time_elapsed: int = 0,
-                 current_position: ChunkPosition = ChunkPosition(0, 0), result: str = "") -> None:
+                 time_elapsed: int = 0, has_progress: bool = False, progress: float = 0,
+                 has_current_position: bool = False, current_position: ChunkPosition = ChunkPosition(0, 0),
+                 result: str = "") -> None:
         super().__init__()
 
         self.action = action
@@ -431,9 +432,12 @@ class TaskActionPacket(Packet):
         self._task_params = []
         self.task_id = task_id
 
-        self.loaded_chunk_task = loaded_chunk_task
-        self.progress = progress
         self.time_elapsed = time_elapsed
+
+        self.has_progress = has_progress
+        self.progress = progress
+
+        self.has_current_position = has_current_position
         self.current_position = current_position
 
         self.result = result
@@ -462,12 +466,14 @@ class TaskActionPacket(Packet):
                     self._task_params.append(ParameterSpec.read(fileobj))
 
             elif self.action == TaskActionPacket.Action.UPDATE:
-                self.loaded_chunk_task = Boolean.read(fileobj)
-
-                self.progress = Float.read(fileobj)
                 self.time_elapsed = Integer.read(fileobj)
 
-                if self.loaded_chunk_task:
+                self.has_progress = Boolean.read(fileobj)
+                if self.has_progress:
+                    self.progress = Float.read(fileobj)
+
+                self.has_current_position = Boolean.read(fileobj)
+                if self.has_current_position:
                     self.current_position = ChunkPositionSpec.read(fileobj)
 
             elif self.action == TaskActionPacket.Action.RESULT:
@@ -495,12 +501,14 @@ class TaskActionPacket(Packet):
                     ParameterSpec.write(parameter, fileobj)
 
             elif self.action == TaskActionPacket.Action.UPDATE:
-                Boolean.write(self.loaded_chunk_task, fileobj)
-
-                Float.write(self.progress, fileobj)
                 Integer.write(self.time_elapsed, fileobj)
 
-                if self.loaded_chunk_task:
+                Boolean.write(self.has_progress, fileobj)  # TODO: Maybe shrink these booleans into 1 byte?
+                if self.has_progress:
+                    Float.write(self.progress, fileobj)
+
+                Boolean.write(self.has_current_position, fileobj)
+                if self.has_current_position:
                     ChunkPositionSpec.write(self.current_position, fileobj)
 
             elif self.action == TaskActionPacket.Action.RESULT:
@@ -781,14 +789,15 @@ class InfoUpdatePacket(Packet):
     NAME = "info_update"
     SIDE = Side.BOTH
 
-    def __init__(self, waiting_queries: int = 0, ticking_queries: int = 0, queries_per_second: float = 0,
-                 connected: bool = False, tick_rate: float = 0, server_ping: float = 0,
+    def __init__(self, waiting_queries: int = 0, ticking_queries: int = 0, query_rate: float = 0,
+                 dropped_queries: float = 0, connected: bool = False, tick_rate: float = 0, server_ping: float = 0,
                  time_since_last_packet: int = 0) -> None:
         super().__init__()
 
         self.waiting_queries = waiting_queries
         self.ticking_queries = ticking_queries
-        self.queries_per_second = queries_per_second
+        self.query_rate = query_rate
+        self.dropped_queries = dropped_queries
         self.connected = connected
         self.tick_rate = tick_rate
         self.server_ping = server_ping
@@ -797,7 +806,8 @@ class InfoUpdatePacket(Packet):
     def read(self, fileobj: IO) -> None:
         self.waiting_queries = UnsignedShort.read(fileobj)
         self.ticking_queries = UnsignedShort.read(fileobj)
-        self.queries_per_second = Float.read(fileobj)
+        self.query_rate = Float.read(fileobj)
+        self.dropped_queries = Float.read(fileobj)
         self.connected = Boolean.read(fileobj)
 
         if self.connected:
@@ -808,7 +818,8 @@ class InfoUpdatePacket(Packet):
     def write(self, fileobj: IO) -> None:
         UnsignedShort.write(self.waiting_queries, fileobj)
         UnsignedShort.write(self.ticking_queries, fileobj)
-        Float.write(self.queries_per_second, fileobj)
+        Float.write(self.query_rate, fileobj)
+        Float.write(self.dropped_queries, fileobj)
         Boolean.write(self.connected, fileobj)
 
         if self.connected:
@@ -1047,8 +1058,17 @@ class ReporterSyncPacket(Packet):
                 for p_index in range(parameters_to_read):
                     parameters.append(ParameterSpec.read(fileobj))
 
-                progress = Float.read(fileobj)
                 time_elapsed = Integer.read(fileobj)
+
+                has_progress = Boolean.read(fileobj)
+                progress = 0
+                if has_progress:
+                    progress = Float.read(fileobj)
+
+                has_current_position = Boolean.read(fileobj)
+                current_position = ChunkPosition(0, 0)
+                if has_current_position:
+                    current_position = ChunkPositionSpec.read(fileobj)
 
                 results = []
 
@@ -1058,8 +1078,9 @@ class ReporterSyncPacket(Packet):
 
                 for registered_task in self._registered_tasks:
                     if registered_task.name == task_name:
-                        self._active_tasks.append(ActiveTask(registered_task, task_id, parameters, progress,
-                                                             time_elapsed, results))
+                        self._active_tasks.append(ActiveTask(registered_task, task_id, parameters, time_elapsed,
+                                                             has_progress, progress, has_current_position,
+                                                             current_position, results))
                         break
 
             players_to_read = UnsignedShort.read(fileobj)
@@ -1100,8 +1121,15 @@ class ReporterSyncPacket(Packet):
                 for parameter in active_task.parameters:
                     ParameterSpec.write(parameter, fileobj)
 
-                Float.write(active_task.progress, fileobj)
                 Integer.write(active_task.time_elapsed, fileobj)
+
+                Boolean.write(active_task.has_progress, fileobj)
+                if active_task.has_progress:
+                    Float.write(active_task.progress, fileobj)
+
+                Boolean.write(active_task.has_current_position, fileobj)
+                if active_task.has_current_position:
+                    ChunkPositionSpec.write(active_task.current_position, fileobj)
 
                 UnsignedShort.write(len(active_task.results), fileobj)
                 for result in active_task.results:

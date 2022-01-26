@@ -69,8 +69,12 @@ class Reporter:
         return self._ticking_queries
 
     @property
-    def queries_per_second(self) -> float:
-        return self._queries_per_second
+    def query_rate(self) -> float:
+        return self._query_rate
+
+    @property
+    def dropped_queries(self) -> float:
+        return self._dropped_queries
 
     @property
     def is_connected(self) -> bool:
@@ -125,7 +129,8 @@ class Reporter:
 
         self._waiting_queries = 0
         self._ticking_queries = 0
-        self._queries_per_second = 0
+        self._query_rate = 0
+        self._dropped_queries = 0
 
         self._is_connected = False
         self._tick_rate = 20
@@ -160,14 +165,16 @@ class Reporter:
         self._tick_rate = 20
         self._time_since_last_packet = 0
 
-    def update_info(self, waiting_queries: int, ticking_queries: int, queries_per_second: float, is_connected: bool,
-                    tick_rate: float = 0, server_ping: float = 0, time_since_last_packet: int = 0):
+    def update_info(self, waiting_queries: int, ticking_queries: int, query_rate: float, dropped_queries: float,
+                    is_connected: bool, tick_rate: float = 0, server_ping: float = 0,
+                    time_since_last_packet: int = 0) -> None:
         """
         Updates the reporter info.
 
         :param waiting_queries: The number of queries that are waiting to be processed.
         :param ticking_queries: The number of queries that are currently being processed.
-        :param queries_per_second: The number of queries that are being processed per second.
+        :param query_rate: The number of queries that are being processed per second.
+        :param dropped_queries: The nubmer of queries that are being dropped per second.
         :param is_connected: Whether the reporter is connected to the server.
         :param tick_rate: The tick rate of the server.
         :param server_ping: The server measured ping.
@@ -176,7 +183,8 @@ class Reporter:
 
         self._waiting_queries = waiting_queries
         self._ticking_queries = ticking_queries
-        self._queries_per_second = queries_per_second
+        self._query_rate = query_rate
+        self._dropped_queries = dropped_queries
         self._is_connected = is_connected
         self._tick_rate = tick_rate
         self._server_ping = server_ping

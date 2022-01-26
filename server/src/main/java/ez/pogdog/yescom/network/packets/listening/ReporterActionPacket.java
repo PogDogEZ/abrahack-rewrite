@@ -42,7 +42,6 @@ public class ReporterActionPacket extends Packet {
     }
 
     public ReporterActionPacket() {
-        this(Action.ADD, 0, "", "", 0);
     }
 
     @Override

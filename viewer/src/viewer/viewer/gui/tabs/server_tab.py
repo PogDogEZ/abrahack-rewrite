@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
-
+import logging
 import math
 import time
 from uuid import UUID
 
 import cv2
 import numpy as np
+from PIL import ImageFont
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout, QGridLayout, QGraphicsView, \
     QListWidget, QGraphicsScene, QListWidgetItem, QSizePolicy
 
 from ..renderer.graph import plot_graph
-from ..util import array_to_qt_image
+from ..util import array_to_qt_image, get_font_paths, draw_font
 from ...config import Config
 
 
@@ -23,12 +24,19 @@ class ServerTab(QWidget):
 
         self.main_window = main_window
 
+        unloadable, families, accounted = get_font_paths()
+        if Config.FONT.family() in families:
+            self._font = ImageFont.truetype(families[Config.FONT.family()], int(Config.FONT.pointSize() *
+                                                                                Config.GRAPH_FONT_SCALE))
+        else:
+            self._font = ImageFont.load_default()
+
         self._online_players_list = []
 
         self.tick_data = []
         self.tslp_data = []
         self.query_data = []
-        self.trackers_data = []
+        self.loss_data = []
 
         self._background_thread = ServerTab.BackgroundThread(self.main_window, self)
 
@@ -83,13 +91,13 @@ class ServerTab(QWidget):
         self.queryrate_layout.addWidget(self.queryrate_graph)
         self.graphs_layout.addLayout(self.queryrate_layout, 1, 2, 1, 1)
 
-        self.trackers_layout = QVBoxLayout()
-        self.trackers_label = QLabel(self)
-        self.trackers_layout.addWidget(self.trackers_label)
+        self.loss_layout = QVBoxLayout()
+        self.loss_label = QLabel(self)
+        self.loss_layout.addWidget(self.loss_label)
 
-        self.trackers_graph = QGraphicsView(self)
-        self.trackers_layout.addWidget(self.trackers_graph)
-        self.graphs_layout.addLayout(self.trackers_layout, 0, 2, 1, 1)
+        self.loss_graph = QGraphicsView(self)
+        self.loss_layout.addWidget(self.loss_graph)
+        self.graphs_layout.addLayout(self.loss_layout, 0, 2, 1, 1)
 
         self.main_inner_layout.addLayout(self.graphs_layout)
 
@@ -102,7 +110,7 @@ class ServerTab(QWidget):
         self.online_players_label.setText("Online players (0):")
         self.tickrate_label.setText("Tickrate (tps):")
         self.tslp_label.setText("TSLP (ms):")
-        self.trackers_label.setText("Trackers:")
+        self.loss_label.setText("Loss (%):")
         self.queryrate_label.setText("Queryrate (qps):")
 
         # Update the slower updating graphs
@@ -119,7 +127,7 @@ class ServerTab(QWidget):
 
         self._background_thread.tickrate_update_emitter.connect(self._update_tickrate_graph)
         self._background_thread.tslp_update_emitter.connect(self._update_tslp_graph)
-        # self._background_thread.trackers_update_emitter.connect(self._update_ping_graph)
+        self._background_thread.loss_update_emitter.connect(self._update_loss_graph)
         self._background_thread.query_update_emitter.connect(self._update_queryrate_graph)
 
         self._background_thread.start()
@@ -130,16 +138,16 @@ class ServerTab(QWidget):
         self._online_players_list.clear()
 
         self.tick_data.clear()
-        self.trackers_data.clear()
+        self.loss_data.clear()
         self.tslp_data.clear()
         self.query_data.clear()
 
         if self.tickrate_graph.scene() is not None:
             self.tickrate_graph.scene().clear()
             self.tickrate_graph.setScene(None)
-        if self.trackers_graph.scene() is not None:
-            self.trackers_graph.scene().clear()
-            self.trackers_graph.setScene(None)
+        if self.loss_graph.scene() is not None:
+            self.loss_graph.scene().clear()
+            self.loss_graph.setScene(None)
         if self.tslp_graph.scene() is not None:
             self.tslp_graph.scene().clear()
             self.tslp_graph.setScene(None)
@@ -178,10 +186,14 @@ class ServerTab(QWidget):
         # graph = graph[::-1, :]  # This makes it incompatible with cv2?
         graph = cv2.flip(graph, 0)
 
-        cv2.putText(graph, "20.0tps", (0, int(graph.shape[0] / 3) - 2), cv2.FONT_HERSHEY_DUPLEX, Config.GRAPH_FONT_SCALE,
-                    Config.TEXT_COLOUR[:3], 1, cv2.LINE_AA)
-        cv2.putText(graph, "10.0tps", (0, int(graph.shape[0] / 1.5) - 2), cv2.FONT_HERSHEY_DUPLEX,
-                    Config.GRAPH_FONT_SCALE, Config.TEXT_COLOUR[:3], 1, cv2.LINE_AA)
+        _, height = self._font.getsize("20.0tps")
+
+        draw_font(graph, self._font, "20.0tps", (0, int(graph.shape[0] / 3) - height + 2), Config.TEXT_COLOUR[:3])
+        draw_font(graph, self._font, "10.0tps", (0, int(graph.shape[0] / 1.5) - height + 2), Config.TEXT_COLOUR[:3])
+        # cv2.putText(graph, "20.0tps", (0, int(graph.shape[0] / 3) - 2), cv2.FONT_HERSHEY_DUPLEX, Config.GRAPH_FONT_SCALE,
+        #             Config.TEXT_COLOUR[:3], 1, cv2.LINE_AA)
+        # cv2.putText(graph, "10.0tps", (0, int(graph.shape[0] / 1.5) - 2), cv2.FONT_HERSHEY_DUPLEX,
+        #             Config.GRAPH_FONT_SCALE, Config.TEXT_COLOUR[:3], 1, cv2.LINE_AA)
 
         scene = QGraphicsScene()
         scene.addPixmap(QPixmap.fromImage(array_to_qt_image(graph)))
@@ -204,13 +216,38 @@ class ServerTab(QWidget):
 
         graph = cv2.flip(graph, 0)
 
-        cv2.putText(graph, "%.1fms" % (max_tslp / 2), (0, graph.shape[0] // 2 - 2), cv2.FONT_HERSHEY_DUPLEX,
-                    Config.GRAPH_FONT_SCALE, Config.TEXT_COLOUR[:3], 1, cv2.LINE_AA)
+        _, height = self._font.getsize("%.1fms" % (max_tslp / 2))
+        draw_font(graph, self._font, "%.1fms" % (max_tslp / 2), (0, graph.shape[0] // 2 - height - 1),
+                  Config.TEXT_COLOUR[:3])
+        # cv2.putText(graph, "%.1fms" % (max_tslp / 2), (0, graph.shape[0] // 2 - 2), cv2.FONT_HERSHEY_DUPLEX,
+        #             Config.GRAPH_FONT_SCALE, Config.TEXT_COLOUR[:3], 1, cv2.LINE_AA)
 
         scene = QGraphicsScene()
         scene.addPixmap(QPixmap.fromImage(array_to_qt_image(graph)))
 
         self.tslp_graph.setScene(scene)
+
+    def _update_loss_graph(self) -> None:
+        loss_size = self.loss_graph.size()
+        if not self.loss_data or loss_size.height() <= 10 or loss_size.width() <= 10:
+            return
+
+        graph = np.zeros((loss_size.height() - 10, loss_size.width() - 10, 3), dtype=np.uint8)
+        graph[:, :] = Config.BASE_COLOUR[:3]
+
+        cv2.line(graph, (0, graph.shape[0] // 2), (graph.shape[1], graph.shape[0] // 2), Config.DARK_COLOUR[:3], 1)
+
+        plot_graph(graph, self.loss_data, 2, Config.MID_COLOUR[:3], Config.GRAPH_LINE_THICKNESS, cv2.INTER_NEAREST)
+
+        graph = cv2.flip(graph, 0)
+
+        _, height = self._font.getsize("100.0%")
+        draw_font(graph, self._font, "100.0%", (0, graph.shape[0] // 2 - height - 1), Config.TEXT_COLOUR[:3])
+
+        scene = QGraphicsScene()
+        scene.addPixmap(QPixmap.fromImage(array_to_qt_image(graph)))
+
+        self.loss_graph.setScene(scene)
 
     def _update_queryrate_graph(self) -> None:
         queryrate_size = self.queryrate_graph.size()
@@ -230,12 +267,20 @@ class ServerTab(QWidget):
 
         graph = cv2.flip(graph, 0)
 
-        cv2.putText(graph, "%.1fqps" % (max_queryrate / (4 / 3)), (0, graph.shape[0] // 4 - 2), cv2.FONT_HERSHEY_DUPLEX,
-                    Config.GRAPH_FONT_SCALE, Config.TEXT_COLOUR[:3], 1, cv2.LINE_AA)
-        cv2.putText(graph, "%.1fqps" % (max_queryrate / 2), (0, graph.shape[0] // 2 - 2), cv2.FONT_HERSHEY_DUPLEX,
-                    Config.GRAPH_FONT_SCALE, Config.TEXT_COLOUR[:3], 1, cv2.LINE_AA)
-        cv2.putText(graph, "%.1fqps" % (max_queryrate / 4), (0, int(graph.shape[0] / (4 / 3)) - 2),
-                    cv2.FONT_HERSHEY_DUPLEX, Config.GRAPH_FONT_SCALE, Config.TEXT_COLOUR[:3], 1, cv2.LINE_AA)
+        _, height = self._font.getsize("%.1fqps" % (max_queryrate / 2))
+
+        draw_font(graph, self._font, "%.1fqps" % (max_queryrate / (4 / 3)), (0, graph.shape[0] // 4 - height + 2),
+                  Config.TEXT_COLOUR[:3])
+        draw_font(graph, self._font, "%.1fqps" % (max_queryrate / 2), (0, graph.shape[0] // 2 - height + 2),
+                  Config.TEXT_COLOUR[:3])
+        draw_font(graph, self._font, "%.1fqps" % (max_queryrate / 4), (0, int(graph.shape[0] / (4 / 3)) - height + 2),
+                  Config.TEXT_COLOUR[:3])
+        # cv2.putText(graph, "%.1fqps" % (max_queryrate / (4 / 3)), (0, graph.shape[0] // 4 - 2), cv2.FONT_HERSHEY_DUPLEX,
+        #             Config.GRAPH_FONT_SCALE, Config.TEXT_COLOUR[:3], 1, cv2.LINE_AA)
+        # cv2.putText(graph, "%.1fqps" % (max_queryrate / 2), (0, graph.shape[0] // 2 - 2), cv2.FONT_HERSHEY_DUPLEX,
+        #             Config.GRAPH_FONT_SCALE, Config.TEXT_COLOUR[:3], 1, cv2.LINE_AA)
+        # cv2.putText(graph, "%.1fqps" % (max_queryrate / 4), (0, int(graph.shape[0] / (4 / 3)) - 2),
+        #             cv2.FONT_HERSHEY_DUPLEX, Config.GRAPH_FONT_SCALE, Config.TEXT_COLOUR[:3], 1, cv2.LINE_AA)
 
         scene = QGraphicsScene()
         scene.addPixmap(QPixmap.fromImage(array_to_qt_image(graph)))
@@ -247,7 +292,7 @@ class ServerTab(QWidget):
         tickrate_update_emitter = pyqtSignal()
         tslp_update_emitter = pyqtSignal()
         query_update_emitter = pyqtSignal()
-        trackers_update_emitter = pyqtSignal()
+        loss_update_emitter = pyqtSignal()
 
         def __init__(self, main_window, server_tab) -> None:
             super().__init__()
@@ -257,6 +302,7 @@ class ServerTab(QWidget):
 
         def run(self) -> None:
             tickrate_update = time.time() - 1
+            loss_update = time.time() - .066666
             queryrate_update = time.time() - 0.1
             while True:
                 start = time.time()
@@ -277,14 +323,18 @@ class ServerTab(QWidget):
                     if time.time() - tickrate_update > 1:
                         tickrate_update = time.time()
                         self.server_tab.tick_data.append(current_reporter.tick_rate)
-                        self.server_tab.trackers_data.append(len(current_reporter.get_trackers()))
                         if tab_selected:
                             self.tickrate_update_emitter.emit()
-                            self.trackers_update_emitter.emit()
+
+                    if time.time() - loss_update > .066666:
+                        total_queries = max(1, current_reporter.ticking_queries + current_reporter.waiting_queries)
+                        self.server_tab.loss_data.append(min(2, current_reporter.dropped_queries / total_queries))
+                        if tab_selected:
+                            self.loss_update_emitter.emit()
 
                     if time.time() - queryrate_update > 0.1:
                         queryrate_update = time.time()
-                        self.server_tab.query_data.append(current_reporter.queries_per_second)
+                        self.server_tab.query_data.append(current_reporter.query_rate)
                         if tab_selected:
                             self.query_update_emitter.emit()
 
@@ -292,10 +342,10 @@ class ServerTab(QWidget):
                         self.server_tab.tick_data.pop(0)
                     while len(self.server_tab.tslp_data) > 240:
                         self.server_tab.tslp_data.pop(0)
+                    while len(self.server_tab.loss_data) > 240:
+                        self.server_tab.loss_data.pop(0)
                     while len(self.server_tab.query_data) > 160:
                         self.server_tab.query_data.pop(0)
-                    while len(self.server_tab.trackers_data) > 100:
-                        self.server_tab.trackers_data.pop(0)
 
                     # online_players = current_reporter.get_online_players()
                     # self.server_tab.online_players_label.setText("Online players (%i):" % len(online_players))

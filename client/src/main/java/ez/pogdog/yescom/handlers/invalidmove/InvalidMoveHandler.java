@@ -3,7 +3,7 @@ package ez.pogdog.yescom.handlers.invalidmove;
 import ez.pogdog.yescom.YesCom;
 import ez.pogdog.yescom.handlers.IHandler;
 import ez.pogdog.yescom.handlers.connection.Player;
-import ez.pogdog.yescom.query.IsLoadedQuery;
+import ez.pogdog.yescom.query.queries.IsLoadedQuery;
 import ez.pogdog.yescom.util.Dimension;
 
 import java.util.*;
@@ -27,7 +27,7 @@ public class InvalidMoveHandler implements IHandler {
     private final Map<Dimension, Integer> availableAccounts = new HashMap<>();
 
     @Override
-    public void onTick() {
+    public void tick() {
         if (yesCom.configHandler.TYPE != IsLoadedQuery.Type.INVALID_MOVE) return;
 
         handles.forEach(PlayerHandle::onTick);
@@ -42,7 +42,7 @@ public class InvalidMoveHandler implements IHandler {
     }
 
     @Override
-    public void onExit() {
+    public void exit() {
         handles.forEach(PlayerHandle::onExit);
     }
 

@@ -6,19 +6,21 @@ public class InfoUpdateEvent extends ReporterEvent {
 
     private final int waitingQueries;
     private final int tickingQueries;
-    private final float queriesPerSecond;
+    private final float queryRate;
+    private final float droppedQueries;
     private final boolean isConnected;
     private final float tickRate;
     private final float serverPing;
     private final int timeSinceLastPacket;
 
-    public InfoUpdateEvent(YCReporter reporter, int waitingQueries, int tickingQueries, float queriesPerSecond,
+    public InfoUpdateEvent(YCReporter reporter, int waitingQueries, int tickingQueries, float queryRate, float droppedQueries,
                            boolean isConnected, float tickRate, float serverPing, int timeSinceLastPacket) {
         super(reporter);
 
         this.waitingQueries = waitingQueries;
         this.tickingQueries = tickingQueries;
-        this.queriesPerSecond = queriesPerSecond;
+        this.queryRate = queryRate;
+        this.droppedQueries = droppedQueries;
         this.isConnected = isConnected;
         this.tickRate = tickRate;
         this.serverPing = serverPing;
@@ -33,8 +35,12 @@ public class InfoUpdateEvent extends ReporterEvent {
         return tickingQueries;
     }
 
-    public float getQueriesPerSecond() {
-        return queriesPerSecond;
+    public float getQueryRate() {
+        return queryRate;
+    }
+
+    public float getDroppedQueries() {
+        return droppedQueries;
     }
 
     public boolean isConnected() {

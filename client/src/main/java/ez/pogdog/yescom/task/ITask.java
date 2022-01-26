@@ -1,11 +1,19 @@
 package ez.pogdog.yescom.task;
 
+import ez.pogdog.yescom.query.IRequester;
+import ez.pogdog.yescom.util.ChunkPosition;
+
 import java.util.List;
 
-public interface ITask {
+public interface ITask extends IRequester {
 
-    void onTick();
-    void onFinished();
+    @Override
+    default String getRequesterName() {
+        return "task";
+    }
+
+    void tick();
+    void finish();
 
     /**
      * Task ID is a unique ID given to each task, assigned by the class that handles tasks.
@@ -33,12 +41,16 @@ public interface ITask {
 
     boolean isFinished();
 
+    /**
+     * @return The results this task has produced.
+     */
+    List<Object> getResults();
+
     int getTimeElapsed();
+
+    boolean hasProgress();
     float getProgress();
 
-    /**
-     * Mainly added for tasks that involve loaded chunk results, but can be used for other shit
-     * @return Any formatted result info
-     */
-    String getFormattedResult(Object result);
+    boolean hasCurrentPosition();
+    ChunkPosition getCurrentPosition();
 }

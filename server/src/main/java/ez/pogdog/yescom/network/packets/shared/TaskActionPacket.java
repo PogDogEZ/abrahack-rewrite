@@ -28,100 +28,64 @@ public class TaskActionPacket extends Packet {
     private long actionID;
     private String taskName;
     private int taskID;
-    private boolean loadedChunkTask;
 
-    private float progress;
     private int timeElapsed;
+
+    private boolean hasProgress;
+    private float progress;
+
+    private boolean hasCurrentPosition;
     private ChunkPosition currentPosition;
     private String result;
 
     public TaskActionPacket(Action action, long actionID, String taskName, int taskID, List<Parameter> taskParameters,
-                            boolean loadedChunkTask, float progress, int timeElapsed, ChunkPosition currentPosition,
-                            String result) {
+                            int timeElapsed, boolean hasProgress, float progress, boolean hasCurrentPosition,
+                            ChunkPosition currentPosition, String result) {
         this.action = action;
         this.actionID = actionID;
         this.taskName = taskName;
         this.taskID = taskID;
-        this.loadedChunkTask = loadedChunkTask;
-        this.progress = progress;
         this.timeElapsed = timeElapsed;
+        this.hasProgress = hasProgress;
+        this.progress = progress;
+        this.hasCurrentPosition = hasCurrentPosition;
         this.currentPosition = currentPosition;
         this.result = result;
         this.taskParameters.addAll(taskParameters);
     }
 
-    public TaskActionPacket(long actionID, String taskName, List<Parameter> taskParameters) {
-        this(Action.START, actionID, taskName, 0, taskParameters, false, 0.0f, 0,
-                new ChunkPosition(0, 0), "");
-    }
-
-    public TaskActionPacket(String taskName, List<Parameter> taskParameters) {
-        this(-1, taskName, taskParameters);
-    }
-
     public TaskActionPacket(Action action, long actionID, ActiveTask task) {
-        this(action, actionID, task.getRegisteredTask().getName(), task.getID(), task.getParameters(), false,
-                0.0f, 0, new ChunkPosition(0, 0), "");
+        this(action, actionID, task.getRegisteredTask().getName(), task.getID(), task.getParameters(), task.getTimeElapsed(),
+                task.getHasProgress(), task.getProgress(), task.getHasCurrentPosition(), task.getCurrentPosition(), "");
     }
 
     public TaskActionPacket(Action action, ActiveTask task) {
-        this(action, -1, task);
+        this(action, -1, task.getRegisteredTask().getName(), task.getID(), task.getParameters(), task.getTimeElapsed(),
+                task.getHasProgress(), task.getProgress(), task.getHasCurrentPosition(), task.getCurrentPosition(), "");
     }
 
-    public TaskActionPacket(Action action, long actionID, ActiveTask task, boolean loadedChunkTask, ChunkPosition currentPosition) {
-        this(action, actionID, task.getRegisteredTask().getName(), task.getID(), task.getParameters(), loadedChunkTask,
-                task.getProgress(), task.getTimeElapsed(), currentPosition, "");
+    public TaskActionPacket(long actionID, String taskName, List<Parameter> taskParameters) {
+        this(Action.START, actionID, taskName, -1, taskParameters, 0, false, 0,
+                false, null, "");
     }
 
-    public TaskActionPacket(Action action, ActiveTask task, boolean loadedChunkTask, ChunkPosition currentPosition) {
-        this(action, -1, task, loadedChunkTask, currentPosition);
+    public TaskActionPacket(long actionID, int taskID) {
+        this(Action.STOP, actionID, "", taskID, new ArrayList<Parameter>(), 0, false, 0,
+                false, null, "");
     }
 
-    public TaskActionPacket(Action action, long actionID, int taskID, List<Parameter> taskParameters) {
-        this(action, actionID, "", taskID, taskParameters, false, 0.0f, 0,
-                new ChunkPosition(0, 0), "");
-    }
-
-    public TaskActionPacket(Action action, long actionID, int taskID) {
-        this(action, actionID, taskID, new ArrayList<>());
-    }
-
-    public TaskActionPacket(Action action, int taskID) {
-        this(action, -1, taskID);
-    }
-
-    public TaskActionPacket(int taskID, boolean loadedChunkTask, float progress, int timeElapsed, ChunkPosition currentPosition) {
-        this(Action.UPDATE, -1, "", taskID, new ArrayList<>(), loadedChunkTask, progress, timeElapsed, currentPosition, "");
-    }
-
-    public TaskActionPacket(int taskID, float progress, int timeElapsed, ChunkPosition currentPosition) {
-        this(taskID, true, progress, timeElapsed, currentPosition);
-    }
-
-    public TaskActionPacket(ActiveTask task, float progress, int timeElapsed, ChunkPosition currentPosition) {
-        this(task.getID(), progress, timeElapsed, currentPosition);
-    }
-
-    public TaskActionPacket(int taskID, float progress, int timeElapsed) {
-        this(taskID, false, progress, timeElapsed, new ChunkPosition(0, 0));
-    }
-
-    public TaskActionPacket(ActiveTask task, float progress, int timeElapsed) {
-        this(task.getID(), progress, timeElapsed, new ChunkPosition(0, 0));
-    }
-
-    public TaskActionPacket(int taskID, String result) {
-        this(Action.RESULT, -1, "", taskID, new ArrayList<>(), false, 0.0f, 0,
-                new ChunkPosition(0, 0), result);
+    public TaskActionPacket(ActiveTask task, int timeElapsed, boolean hasProgress, float progress, boolean hasCurrentPosition,
+                            ChunkPosition currentPosition) {
+        this(Action.UPDATE, task.getID(), task.getRegisteredTask().getName(), task.getID(), task.getParameters(), timeElapsed,
+                hasProgress, progress, hasCurrentPosition, currentPosition, "");
     }
 
     public TaskActionPacket(ActiveTask task, String result) {
-        this(task.getID(), result);
+        this(Action.RESULT, task.getID(), task.getRegisteredTask().getName(), task.getID(), task.getParameters(), task.getTimeElapsed(),
+                task.getHasProgress(), task.getProgress(), task.getHasCurrentPosition(), task.getCurrentPosition(), result);
     }
 
     public TaskActionPacket() {
-        this(Action.ADD, -1, "", 0, new ArrayList<>(), false, 0.0f, 0,
-                new ChunkPosition(0, 0), "");
     }
 
     @Override
@@ -154,11 +118,13 @@ public class TaskActionPacket extends Packet {
             }
             case UPDATE: {
                 taskID = Registry.UNSIGNED_SHORT.read(inputStream);
-                loadedChunkTask = Registry.BOOLEAN.read(inputStream);
-                progress = Registry.FLOAT.read(inputStream);
                 timeElapsed = Registry.INTEGER.read(inputStream);
 
-                if (loadedChunkTask) currentPosition = YCRegistry.CHUNK_POSITION.read(inputStream);
+                hasProgress = Registry.BOOLEAN.read(inputStream);
+                if (hasProgress) progress = Registry.FLOAT.read(inputStream);
+
+                hasCurrentPosition = Registry.BOOLEAN.read(inputStream);
+                if (hasCurrentPosition) currentPosition = YCRegistry.CHUNK_POSITION.read(inputStream);
                 break;
             }
             case RESULT: {
@@ -197,11 +163,13 @@ public class TaskActionPacket extends Packet {
             }
             case UPDATE: {
                 Registry.UNSIGNED_SHORT.write(taskID, outputStream);
-                Registry.BOOLEAN.write(loadedChunkTask, outputStream);
-                Registry.FLOAT.write(progress, outputStream);
                 Registry.INTEGER.write(timeElapsed, outputStream);
 
-                if (loadedChunkTask) YCRegistry.CHUNK_POSITION.write(currentPosition, outputStream);
+                Registry.BOOLEAN.write(hasProgress, outputStream);
+                if (hasProgress) Registry.FLOAT.write(progress, outputStream);
+
+                Registry.BOOLEAN.write(hasCurrentPosition, outputStream);
+                if (hasCurrentPosition) YCRegistry.CHUNK_POSITION.write(currentPosition, outputStream);
                 break;
             }
             case RESULT: {
@@ -281,14 +249,25 @@ public class TaskActionPacket extends Packet {
     }
 
     /**
-     * @return Whether or not the task is a loaded chunk task.
+     * @return The time elapsed since the task started.
      */
-    public boolean isLoadedChunkTask() {
-        return loadedChunkTask;
+    public int getTimeElapsed() {
+        return timeElapsed;
     }
 
-    public void setLoadedChunkTask(boolean loadedChunkTask) {
-        this.loadedChunkTask = loadedChunkTask;
+    public void setTimeElapsed(int timeElapsed) {
+        this.timeElapsed = timeElapsed;
+    }
+
+    /**
+     * @return Whether or not the task in question has progress.
+     */
+    public boolean getHasProgress() {
+        return hasProgress;
+    }
+
+    public void setHasProgress(boolean hasProgress) {
+        this.hasProgress = hasProgress;
     }
 
     /**
@@ -303,14 +282,14 @@ public class TaskActionPacket extends Packet {
     }
 
     /**
-     * @return The time elapsed since the task started.
+     * @return Whether or not the task in question has a current position.
      */
-    public int getTimeElapsed() {
-        return timeElapsed;
+    public boolean getHasCurrentPosition() {
+        return hasCurrentPosition;
     }
 
-    public void setTimeElapsed(int timeElapsed) {
-        this.timeElapsed = timeElapsed;
+    public void setHasCurrentPosition(boolean hasCurrentPosition) {
+        this.hasCurrentPosition = hasCurrentPosition;
     }
 
     /**
