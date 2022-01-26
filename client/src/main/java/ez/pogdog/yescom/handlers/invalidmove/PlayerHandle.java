@@ -209,8 +209,8 @@ public class PlayerHandle {
             if (arziMode && widResync) {
                 if (recievedWindowID == -1) {
                     yesCom.logger.warning(String.format("%s packet loss (2), got: %d.", this, teleportID));
-                    // We can be sure that the storage isn't open, as we got not window ID, but that doesn't mean we
-                    // should cancel ALL queries, as we can assume that they're still ok, so just reschedule the/
+                    // We can be sure that the storage isn't open, as we got no window ID, but that doesn't mean we
+                    // should cancel ALL queries, as we can assume that they're still ok, so just reschedule the
                     // corresponding query one
                     if (queryMap.containsKey(teleportID)) {
                         IsLoadedQuery query = queryMap.get(teleportID);
