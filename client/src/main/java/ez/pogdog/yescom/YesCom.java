@@ -37,8 +37,7 @@ import java.util.logging.Formatter;
  * Honorable mentions
  * Ianmc05
  * Hobrin
- *
- * ianrandmckenzie - his videos are awesome to listen to in the background.
+ * Addison/capsize
  */
 public class YesCom {
 
