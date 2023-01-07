@@ -1,3 +1,9 @@
+# Disclaimer
+
+Check https://github.com/PogDogEZ/ant-farm-v2.0#readme.
+
+The original README follows (cough made by Nathan, excuse the larp):
+
 # YesCom - Anarchy Coord Exploit
 PogDog Software Suite Presents:
 
